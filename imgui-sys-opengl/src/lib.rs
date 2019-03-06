@@ -10,7 +10,7 @@ mod gl {
   include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
 
-use gl::types::*;
+use self::gl::types::*;
 
 pub struct Renderer {
   gl: gl::Gl,
