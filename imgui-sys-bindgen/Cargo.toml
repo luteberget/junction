@@ -1,0 +1,12 @@
+[package]
+name = "imgui-sys-bindgen"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+
+[build-dependencies]
+cc = "*"
+bindgen = "*"
+
+[dependencies]

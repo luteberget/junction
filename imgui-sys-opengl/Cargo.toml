@@ -1,0 +1,11 @@
+[package]
+name = "imgui-sys-opengl"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+imgui-sys-bindgen = { path = "../imgui-sys-bindgen" }
+
+[build-dependencies]
+gl_generator = "0.9.0"

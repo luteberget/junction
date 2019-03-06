@@ -1,0 +1,14 @@
+[package]
+name = "imgui-sys-test"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+imgui-sys-bindgen = { path = "../imgui-sys-bindgen" }
+imgui-sys-opengl = { path = "../imgui-sys-opengl" }
+sdl2 = "*"
+gl = "*"
+
+[profile.release]
+lto = true
