@@ -10,3 +10,6 @@ imgui-sys-opengl = { path = "../imgui-sys-opengl" }
 sdl2 = "*"
 gl = "*"
 const-cstr="*"
+railplotlib = { path = "../../railplot/lib/railplotlib" }
+log="*"
+simple-logging="*"

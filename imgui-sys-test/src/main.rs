@@ -4,8 +4,47 @@ use const_cstr::const_cstr;
 
 mod sdlinput;
 
-
+// Domain
 mod app;
+mod schematic;
+
+
+use imgui_sys_bindgen::sys::ImVec2;
+pub fn world2screen(topleft: ImVec2, bottomright: ImVec2, center :(f64,f64), zoom: f64, pt :(f32,f32)) -> ImVec2 {
+    let scale = if bottomright.x - topleft.x < bottomright.y - topleft.y {
+        (bottomright.x-topleft.x) as f64 / zoom
+    } else {
+        (bottomright.y-topleft.y) as f64 / zoom
+    };
+    let x = 0.5*(topleft.x + bottomright.x) as f64 + scale*(pt.0 as f64  - center.0);
+    let y = 0.5*(topleft.y + bottomright.y) as f64 + scale*(-(pt.1 as f64 -  center.1));
+    ImVec2 {x: x as _ , y: y as _ }
+}
+
+pub fn screen2worldlength(topleft: ImVec2, bottomright: ImVec2, zoom: f64, d :f32) -> f32 {
+    let scale = if bottomright.x - topleft.x < bottomright.y - topleft.y {
+        (bottomright.x-topleft.x) as f64 / zoom
+    } else {
+        (bottomright.y-topleft.y) as f64 / zoom
+    };
+
+    ((d as f64)/scale) as f32
+}
+
+pub fn  line_closest_pt(a :&ImVec2, b :&ImVec2, p :&ImVec2) -> ImVec2 {
+    let ap = ImVec2{ x: p.x - a.x, y:  p.y - a.y};
+    let ab_dir = ImVec2 { x: b.x - a.x, y: b.y - a.y };
+    let dot = ap.x * ab_dir.x + ap.y * ab_dir.y;
+    if dot < 0.0 { return *a; }
+    let ab_len_sqr = ab_dir.x * ab_dir.x + ab_dir.y * ab_dir.y;
+    if dot > ab_len_sqr { return *b; }
+    let ac = ImVec2{ x: ab_dir.x * dot / ab_len_sqr, y: ab_dir.y * dot / ab_len_sqr } ;
+    ImVec2 { x : a.x + ac.x, y: a.y + ac.y }
+}
+
+pub fn dist2(a :&ImVec2, b :&ImVec2) -> f32 { 
+    (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)
+}
 
 
 
@@ -28,17 +67,41 @@ fn gui_init() {
 fn gui_destroy() {
 }
 
+pub fn wake() {
+    unsafe {
+        use std::ptr;
+        use sdl2::sys::*;
+
+        let ev = SDL_UserEvent { 
+            type_: SDL_EventType::SDL_USEREVENT as _, 
+            timestamp: sdl2::sys::SDL_GetTicks(),
+            windowID: 0,
+            code: 0,
+            data1: ptr::null_mut(),
+            data2: ptr::null_mut(),
+        };
+
+        let mut ev = SDL_Event { user: ev };
+        SDL_PushEvent(&mut ev as _);
+    }
+}
 
 fn main() -> Result<(), String>{
-    let mut app = app::App::new();
+    use log::LevelFilter;
+    simple_logging::log_to_stderr(LevelFilter::Debug);
 
+
+
+    let mut app = app::App::new();
     //let mut action_queue = Vec::new();
 
     let sdl_context = sdl2::init()?;
+    let event_subsystem = sdl_context.event()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
         .window("glrail", 800, 600)
         .opengl()
+        .resizable()
         .position_centered()
         .build()
         .map_err(|e| format!("{}", e))?;
@@ -49,10 +112,11 @@ fn main() -> Result<(), String>{
 
     let mut canvas = window.into_canvas()
         .target_texture()
-        //.present_vsync()
+        .present_vsync()
         .build()
         .map_err(|e| format!("{}", e))?;
 
+        //let mut ev = SDL_Event { type_: SDL_EventType::SDL_USEREVENT as _, user: ev };
     println!("Using SDL_Renderer \"{}\"", canvas.info().name);
     canvas.set_draw_color(sdl2::pixels::Color::RGB(255, 0, 0));
     canvas.clear();
@@ -84,7 +148,13 @@ fn main() -> Result<(), String>{
         (*igGetIO()).ConfigFlags |= ImGuiConfigFlags__ImGuiConfigFlags_NavEnableKeyboard as i32;
     }
 
+    let mut sidebar_size :f32 = 200.0;
+    let mut issues_size :f32 = 200.0;
+    let canvas_bg = 60 + (60<<8) + (60<<16) + (255<<24);
+    let line_col  = 208 + (208<<8) + (175<<16) + (255<<24);
+    let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     let mut event_pump = sdl_context.event_pump().unwrap();
+    let io = unsafe { imgui_sys_bindgen::sys::igGetIO() };
     let mut i :i64 = 0;
     let mut events = |mut f: Box<FnMut(sdl2::event::Event) -> bool>| {
         'running: loop {
@@ -117,11 +187,34 @@ fn main() -> Result<(), String>{
               use self::app::*;
               use imgui_sys_bindgen::sys::*;
               let v2_0 = ImVec2 { x: 0.0, y: 0.0 };
+              let small = ImVec2 { x: 200.0, y: 200.0 };
+
+              // Check for updates from all background threads
+              app.update();
 
               unsafe {
-                  igShowDemoWindow(ptr::null_mut());
+                  //igShowDemoWindow(ptr::null_mut());
 
-                  igBegin(const_cstr!("Sidebar").as_ptr(), ptr::null_mut(), 0);
+                  let mouse_pos = (*io).MousePos;
+
+                  let viewport = igGetMainViewport();
+                  igSetNextWindowPos((*viewport).Pos, ImGuiCond__ImGuiCond_Always as _, v2_0);
+                  igSetNextWindowSize((*viewport).Size, ImGuiCond__ImGuiCond_Always as _ );
+                  let dockspace_window_flags = ImGuiWindowFlags__ImGuiWindowFlags_NoTitleBar
+                      | ImGuiWindowFlags__ImGuiWindowFlags_NoCollapse
+                      | ImGuiWindowFlags__ImGuiWindowFlags_NoResize
+                      | ImGuiWindowFlags__ImGuiWindowFlags_NoMove
+                      | ImGuiWindowFlags__ImGuiWindowFlags_NoBringToFrontOnFocus
+                      | ImGuiWindowFlags__ImGuiWindowFlags_NoNavFocus;
+
+                  igBegin(const_cstr!("Root").as_ptr(), ptr::null_mut(), dockspace_window_flags as _ );
+                  
+                  let mut root_size = igGetContentRegionAvail();
+                  let mut main_size = ImVec2 { x: root_size.x - sidebar_size, ..root_size };
+
+                  igSplitter(true, 2.0, &mut sidebar_size as _, &mut main_size.x as _, 100.0, 100.0, -1.0);
+
+                  igBeginChild(const_cstr!("Sidebar").as_ptr(), ImVec2 { x: sidebar_size, y: root_size.y } , false,0);
                   
                   if igCollapsingHeader(const_cstr!("All objects").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
@@ -131,15 +224,16 @@ fn main() -> Result<(), String>{
                                   let s = CString::new(format!("Track##{}", i)).unwrap();
                                   if igSelectable(s.as_ptr(),
                                                   app.view.selected_object == Some(i), 0, v2_0) {
-                                      println!("SET {}", i);
+                                      //println!("SET {}", i);
                                       app.view.selected_object = Some(i);
                                   }
                               },
                               Some(Entity::Node(p,_))   => { 
                                   let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
                                   if igSelectable(s.as_ptr(), 
-                                                  app.view.selected_object == Some(i), 0, v2_0) {
-                                      println!("SET NODE {}", i);
+                    
+                              app.view.selected_object == Some(i), 0, v2_0) {
+                                      //println!("SET NODE {}", i);
                                       app.view.selected_object = Some(i);
                                   }
                               },
@@ -168,6 +262,36 @@ fn main() -> Result<(), String>{
                               InfrastructureEdit::NewTrack(0.0,100.0)));
                   }
 
+                  pub fn middle_of_track(model :&Model, obj :Option<EntityId>) -> Option<(EntityId, f32)> {
+                      let id = obj?;
+                      let Track { ref start_node, ref end_node, .. } = model.inf.get_track(id)?;
+                      let (p1,_) = model.inf.get_node(start_node.0)?;
+                      let (p2,_) = model.inf.get_node(end_node.0)?;
+                      Some((id, 0.5*(p1+p2)))
+                  }
+
+                  if igButton(const_cstr!("Add up left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                          app.integrate(EditorAction::Inf(
+                                  InfrastructureEdit::InsertNode(
+                                      curr_track, curr_pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
+                      } else {
+                          println!("Track not selected.");
+                      }
+                  }
+
+                  if igButton(const_cstr!("Load").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      sdl2::messagebox::show_simple_message_box(
+                          sdl2::messagebox::MessageBoxFlag::empty(),
+                          "Load file", "Load file?", canvas.window());
+                  }
+                  if igButton(const_cstr!("Quit").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      sdl2::messagebox::show_simple_message_box(
+                          sdl2::messagebox::MessageBoxFlag::empty(),
+                          "Quit", "Quit", canvas.window());
+                      break 'running;
+                  }
+
 
 
                   if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
@@ -182,31 +306,99 @@ fn main() -> Result<(), String>{
 
                       }
                   }
-                  igEnd();
+                  igEndChild();
+                  igSameLine(0.0, -1.0);
+                  igBeginChild(const_cstr!("CanvasandIssues").as_ptr(), main_size, false, 0);
 
-                  igBegin(const_cstr!("Issues").as_ptr(),ptr::null_mut(),0);
-                  for error in &app.model.errors {
-
-                  }
-                  igEnd();
-
+                  let mut mainmain_size = ImVec2 { y: main_size.y - issues_size, ..main_size };
+                  igSplitter(false, 2.0, &mut mainmain_size.y as _, &mut issues_size as _, 100.0, 100.0, -1.0);
 
                   // CANVAS!
 
-                  igBegin(const_cstr!("Canvas").as_ptr(), ptr::null_mut(), 0);
+                  igBeginChild(const_cstr!("Canvas").as_ptr(), mainmain_size, false, 0);
                   let draw_list = igGetWindowDrawList();
                   igText(const_cstr!("Here is the canvas:").as_ptr());
 
-                  let canvas_pos = igGetCursorScreenPos();
-                  let mut canvas_size = igGetContentRegionAvail();
-                  if canvas_size.x < 10.0 { canvas_size.x = 10.0 }
-                  if canvas_size.y < 10.0 { canvas_size.y = 10.0 }
-                  ImDrawList_AddRectFilled(draw_list, canvas_pos,
-                                           ImVec2 { x: canvas_pos.x + canvas_size.x,
-                                                    y: canvas_pos.y + canvas_size.y, },
-                                            60 + (60<<8) + (60<<16) + (255<<24), 
-                                            0.0, 0);
-                  igInvisibleButton(const_cstr!("canvasbtn").as_ptr(), canvas_size);
+                  match &app.model.inf.schematic {
+                      Derive::Wait => {
+                          igText(const_cstr!("Solving...").as_ptr());
+                      },
+                      Derive::Error(ref e) => {
+                          let s = CString::new(format!("Error: {}", e)).unwrap();
+                          igText(s.as_ptr());
+                      },
+                      Derive::Ok(ref s) => {
+                          let canvas_pos = igGetCursorScreenPos();
+                          let mut canvas_size = igGetContentRegionAvail();
+                          let canvas_lower = ImVec2 { x: canvas_pos.x + canvas_size.x,
+                                                      y: canvas_pos.y + canvas_size.y };
+                          if canvas_size.x < 10.0 { canvas_size.x = 10.0 }
+
+                          if canvas_size.y < 10.0 { canvas_size.y = 10.0 }
+                          ImDrawList_AddRectFilled(draw_list, canvas_pos,
+                                                   ImVec2 { x: canvas_pos.x + canvas_size.x,
+                                                            y: canvas_pos.y + canvas_size.y, },
+                                                            canvas_bg,
+                                                    0.0, 0);
+                          let clicked = igInvisibleButton(const_cstr!("canvasbtn").as_ptr(), canvas_size);
+
+                          let (center,zoom) = app.view.viewport;
+
+                          if igIsItemActive() && igIsMouseDragging(0,-1.0) {
+                              (app.view.viewport.0).0 -= screen2worldlength(canvas_pos, canvas_lower, zoom, (*io).MouseDelta.x) as f64;
+                              (app.view.viewport.0).1 += screen2worldlength(canvas_pos, canvas_lower, zoom, (*io).MouseDelta.y) as f64;
+                          }
+
+                          if igIsItemHovered(0) {
+                              let wheel = (*io).MouseWheel;
+                              //println!("{}", wheel);
+                              let wheel2 = 1.0-0.2*(*io).MouseWheel;
+                              //println!("{}", wheel2);
+                              (app.view.viewport.1) *= wheel2 as f64;
+                          }
+                          
+
+                          // Iterate the schematic 
+
+
+                          ImDrawList_PushClipRect(draw_list, canvas_pos, canvas_lower, true);
+
+                          for (k,v) in &s.lines {
+                              //println!("{:?}, {:?}", k,v);
+                              let mut hovered = false;
+                              for i in 0..(v.len()-1) {
+                                  let p1 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i]);
+                                  let p2 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i+1]);
+                                  let hovered = dist2(&mouse_pos, &line_closest_pt(&p1, &p2, &mouse_pos)) < 100.0;
+                                  if hovered && clicked {
+                                      app.view.selected_object = Some(*k);
+                                  }
+                                  ImDrawList_AddLine(draw_list, p1, p2, 
+                                                     if hovered { line_hover_col } else { line_col }, 2.0);
+                              }
+                          }
+                          for (k,v) in &s.points {
+                              //println!("{:?}, {:?}", k,v);
+                          }
+
+                          ImDrawList_PopClipRect(draw_list);
+
+                      },
+                  }
+
+                  igEndChild();
+
+
+                  igBeginChild(const_cstr!("Issues").as_ptr(),ImVec2 { x: main_size.x, y: issues_size } ,false,0);
+                  igText(const_cstr!("Here are the issues:").as_ptr());
+                  for error in &app.model.errors {
+
+                  }
+                  igEndChild();
+
+
+
+                  igEndChild();
 
                   igEnd();
               }

@@ -1,3 +1,5 @@
+
+
 pub struct App {
     pub model : Model,
     pub view : View,
@@ -7,10 +9,7 @@ impl App {
     pub fn new() -> App {
         App {
             model: Model {
-                inf: Infrastructure {
-                    entities: vec![],
-                    schematic: Derive::Wait,
-                },
+                inf: Infrastructure::new_empty(),
                 routes: vec![],
                 scenarios: vec![],
                 errors: vec![],
@@ -27,6 +26,10 @@ impl App {
         }
     }
 
+    pub fn update(&mut self) {
+        self.model.inf.check_updates();
+    }
+
     pub fn integrate(&mut self, action: EditorAction) {
         match self.handle_event(action) {
             Ok(()) => {},
@@ -36,31 +39,45 @@ impl App {
 
     pub fn handle_event(&mut self, action :EditorAction) -> Result<(), String> {
         match action {
-            EditorAction::Inf(InfrastructureEdit::NewTrack(p1,p2)) => {
-                let inf = &mut self.model.inf;
-                let i1 = self.new_entity(Entity::Node(p1, Node::BufferStop));
-                let i2 = self.new_entity(Entity::Node(p2, Node::BufferStop));
-                let t =  self.new_entity(Entity::Track(Track {
-                    length: p2-p1,
-                    start_node: (i1, Port { dir: Dir::Up, course: None }),
-                    end_node:   (i2, Port { dir: Dir::Down, course: None }),
-                }));
+            EditorAction::Inf(ie) => {
+                match ie {
+                    InfrastructureEdit::NewTrack(p1,p2) => {
+                        let inf = &mut self.model.inf;
+                        let i1 = self.new_entity(Entity::Node(p1, Node::BufferStop));
+                        let i2 = self.new_entity(Entity::Node(p2, Node::BufferStop));
+                        let t =  self.new_entity(Entity::Track(Track {
+                            start_node: (i1, Port { dir: Dir::Up, course: None }),
+                            end_node:   (i2, Port { dir: Dir::Down, course: None }),
+                        }));
+                    }
+                    InfrastructureEdit::InsertNode(t,p,node,l) => {
+                        let new = self.new_entity(Entity::Node(p, node));
+                        let inf = &mut self.model.inf;
+                        let t = inf.get_track_mut(t).ok_or("Track ref err".to_string())?;
+                        let end = t.end_node;
+                        t.end_node = (new, Port { dir: Dir::Down, course: None });
+                        let trunk = self.new_entity(Entity::Track(Track {
+                            start_node: (new, Port { dir: Dir::Up, course: Some(Side::Right) }),
+                            end_node: end,
+                        }));
+                        let branch_end = self.new_entity(Entity::Node(p+l, Node::BufferStop));
+                        let branch = self.new_entity(Entity::Track(Track {
+                            start_node: (new, Port { dir: Dir::Up, course: Some(Side::Left) }),
+                            end_node: (branch_end, Port { dir: Dir::Down, course: None }),
+                        }));
+                        println!("Inserted node {:?}", self.model.inf.entities);
+                    },
+                    InfrastructureEdit::JoinNodes(n1,n2) => {
+                    },
+                };
+                // infrastructure changed, update schematic
+                self.model.inf.update_schematic();
                 Ok(())
             },
-
-            EditorAction::Inf(InfrastructureEdit::InsertNode(t,p,node,l)) => {
-                Ok(())
-            },
-
-            EditorAction::Inf(InfrastructureEdit::JoinNodes(n1,n2)) => {
-                Ok(())
-            },
-
             _ => {
                 Err("Unhandled EditorAction!".to_string())
             }
         }
-
     }
 
     pub fn new_entity(&mut self, ent :Entity) -> EntityId {
@@ -95,12 +112,78 @@ pub enum Derive<T> {
     Error(String), // TODO CString?
 }
 
+use std::sync::mpsc;
 pub struct Infrastructure {
     pub entities :Vec<Option<Entity>>,
     pub schematic :Derive<Schematic>,
+    jobs: mpsc::Sender<Vec<Option<Entity>>>,
+    results: mpsc::Receiver<Result<Schematic,String>>,
 }
 
-type Pos = f32;
+impl Infrastructure {
+    pub fn get(&self, id :EntityId) -> Option<&Entity> {
+        self.entities.get(id)?.as_ref()
+    }
+    pub fn get_track(&self, id :EntityId) -> Option<&Track> {
+        if let Some(Some(Entity::Track(ref t))) = self.entities.get(id) {
+            Some(t)
+        } else { None }
+    }
+    pub fn get_track_mut(&mut self, id :EntityId) -> Option<&mut Track> {
+        if let Some(Some(Entity::Track(ref mut t))) = self.entities.get_mut(id) {
+            Some(t)
+        } else { None }
+    }
+    pub fn get_node(&self, id :EntityId) -> Option<(f32,&Node)> {
+        if let Some(Some(Entity::Node(p,ref t))) = self.entities.get(id) {
+            Some((*p,t))
+        } else { None }
+    }
+
+    pub fn new_empty() -> Self {
+        use std::thread;
+
+        let (jobs_tx, jobs_rx) = mpsc::channel();
+        let (results_tx, results_rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            use crate::schematic;
+            while let Ok(job) = jobs_rx.recv() {
+                // ...
+                //
+                //
+                let r = schematic::solve(&job);
+                results_tx.send(r).unwrap();
+                super::wake();
+            }
+            // Exit when channel is closed.
+        });
+
+        Infrastructure {
+            entities: vec![],
+            schematic: Derive::Ok(Schematic { lines: HashMap::new(), points: HashMap::new() }),
+            jobs: jobs_tx,
+            results: results_rx,
+        }
+    }
+    
+    pub fn check_updates(&mut self) {
+        while let Ok(s) = self.results.try_recv() {
+            match s {
+                Ok(s) => self.schematic = Derive::Ok(s),
+                Err(s) => self.schematic = Derive::Error(s),
+            };
+        }
+    }
+
+    pub fn update_schematic(&mut self) {
+        println!("update_schematic");
+        self.schematic = Derive::Wait;
+        self.jobs.send(self.entities.clone()).unwrap();
+    }
+}
+
+pub type Pos = f32;
 
 pub enum InfrastructureEdit {
     /// Add a new track stretching from Pos to Pos. The track makes a new component.
@@ -119,31 +202,37 @@ use std::collections::HashMap;
 pub type EntityId = usize;
 pub type Map<K,V> = HashMap<K,V>;
 
-pub struct Port {
-    dir: Dir, // Up = pointing outwards from the node, Down = inwards
-    course: Option<Side>, // None = trunk/begin/end, Some(Left) = Left switch/crossing
-}
 
+#[derive(Debug,Clone)]
 pub enum Entity {
     Track(Track),
     Node(Pos, Node),
     Object(Object),
 }
 
+#[derive(Debug,Clone)]
 pub enum Object {
     Signal(Dir),
     Balise(bool),
 }
 
+#[derive(Debug,Clone)]
 pub struct Track {
-    length: f32,
-    start_node: (EntityId,Port),
-    end_node: (EntityId,Port),
+    pub start_node: (EntityId,Port),
+    pub end_node: (EntityId,Port),
 }
 
+#[derive(Debug,Clone,Copy)]
+pub struct Port {
+    pub dir: Dir, // Up = pointing outwards from the node, Down = inwards
+    pub course: Option<Side>, // None = trunk/begin/end, Some(Left) = Left switch/crossing
+}
+#[derive(Debug,Clone,Copy)]
 pub enum Dir { Up, Down }
+#[derive(Debug,Clone,Copy)]
 pub enum Side { Left, Right }
 
+#[derive(Debug,Clone)]
 pub enum Node {
     Switch(Dir,Side),
     Crossing,
@@ -156,8 +245,8 @@ pub type Pt = (f32,f32);
 pub type PLine = Vec<Pt>;
 
 pub struct Schematic {
-    lines :Map<EntityId, PLine>,
-    points: Map<EntityId, Pt>,
+    pub lines :Map<EntityId, PLine>,
+    pub points: Map<EntityId, Pt>,
 }
 
 pub struct Route {
