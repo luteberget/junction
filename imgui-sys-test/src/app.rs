@@ -26,6 +26,48 @@ impl App {
             },
         }
     }
+
+    pub fn integrate(&mut self, action: EditorAction) {
+        match self.handle_event(action) {
+            Ok(()) => {},
+            Err(_s) => {},
+        }
+    }
+
+    pub fn handle_event(&mut self, action :EditorAction) -> Result<(), String> {
+        match action {
+            EditorAction::Inf(InfrastructureEdit::NewTrack(p1,p2)) => {
+                let inf = &mut self.model.inf;
+                let i1 = self.new_entity(Entity::Node(p1, Node::BufferStop));
+                let i2 = self.new_entity(Entity::Node(p2, Node::BufferStop));
+                let t =  self.new_entity(Entity::Track(Track {
+                    length: p2-p1,
+                    start_node: (i1, Port { dir: Dir::Up, course: None }),
+                    end_node:   (i2, Port { dir: Dir::Down, course: None }),
+                }));
+                Ok(())
+            },
+
+            EditorAction::Inf(InfrastructureEdit::InsertNode(t,p,node,l)) => {
+                Ok(())
+            },
+
+            EditorAction::Inf(InfrastructureEdit::JoinNodes(n1,n2)) => {
+                Ok(())
+            },
+
+            _ => {
+                Err("Unhandled EditorAction!".to_string())
+            }
+        }
+
+    }
+
+    pub fn new_entity(&mut self, ent :Entity) -> EntityId {
+        let id = self.model.inf.entities.len();
+        self.model.inf.entities.push(Some(ent));
+        id
+    }
 }
 
 pub struct View {
@@ -58,6 +100,21 @@ pub struct Infrastructure {
     pub schematic :Derive<Schematic>,
 }
 
+type Pos = f32;
+
+pub enum InfrastructureEdit {
+    /// Add a new track stretching from Pos to Pos. The track makes a new component.
+    NewTrack(Pos,Pos),
+    /// Split a track at Pos, inserting a new node with tracks connected to open ends.
+    InsertNode(EntityId, Pos, Node, f32),
+    /// Join two two-port nodes.
+    JoinNodes(EntityId, EntityId),
+}
+
+pub enum EditorAction {
+    Inf(InfrastructureEdit),
+}
+
 use std::collections::HashMap;
 pub type EntityId = usize;
 pub type Map<K,V> = HashMap<K,V>;
@@ -69,7 +126,7 @@ pub struct Port {
 
 pub enum Entity {
     Track(Track),
-    Node(Node),
+    Node(Pos, Node),
     Object(Object),
 }
 
@@ -91,7 +148,7 @@ pub enum Node {
     Switch(Dir,Side),
     Crossing,
     BufferStop,
-    Macro(usize),
+    Macro(Option<String>),
 }
 
 

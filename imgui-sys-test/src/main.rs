@@ -31,6 +31,9 @@ fn gui_destroy() {
 
 fn main() -> Result<(), String>{
     let mut app = app::App::new();
+
+    //let mut action_queue = Vec::new();
+
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
     let window = video_subsystem
@@ -73,7 +76,7 @@ fn main() -> Result<(), String>{
         if let &Event::Quit { .. } = ev { true } else { false }
     }
 
-    let win1 = CString::new("sidebar1").unwrap();
+    //let win1 = CString::new("sidebar1").unwrap();
 
     unsafe {
         //(*imgui_sys_bindgen::sys::igGetIO()).IniFilename = ptr::null_mut();
@@ -109,21 +112,62 @@ fn main() -> Result<(), String>{
 
               imgui_sdl.frame(&canvas.window(), &event_pump.mouse_state());
 
+              use self::app::*;
+              use imgui_sys_bindgen::sys::*;
+              let v2_0 = ImVec2 { x: 0.0, y: 0.0 };
+
               unsafe {
-                  use imgui_sys_bindgen::sys::*;
                   igShowDemoWindow(ptr::null_mut());
 
-                  igBegin(win1.as_ptr(), ptr::null_mut(), 0);
+                  igBegin(const_cstr!("Sidebar").as_ptr(), ptr::null_mut(), 0);
+                  
+                  if igCollapsingHeader(const_cstr!("All objects").as_ptr(),
+                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                      for (i,e) in app.model.inf.entities.iter().enumerate() {
+                          match e {
+                              Some(Entity::Track(_))  => { 
+                                  let s = CString::new(format!("Track##{}", i)).unwrap();
+                                  if igSelectable(s.as_ptr(),
+                                                  app.view.selected_object == Some(i), 0, v2_0) {
+                                      println!("SET {}", i);
+                                      app.view.selected_object = Some(i);
+                                  }
+                              },
+                              Some(Entity::Node(p,_))   => { 
+                                  let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
+                                  if igSelectable(s.as_ptr(), 
+                                                  app.view.selected_object == Some(i), 0, v2_0) {
+                                      println!("SET NODE {}", i);
+                                      app.view.selected_object = Some(i);
+                                  }
+                              },
+                              Some(Entity::Object(_)) => { 
+                                  igText(const_cstr!("Object#0").as_ptr()); 
+                              },
+                              _ => {},
+                          }
+                      }
+                  }
 
                   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                       match &app.view.selected_object {
-                          Some(_) => {},
+                          Some(_) => {
+                              igText(const_cstr!("Some object IS selected.").as_ptr());
+                          },
                           None => {
                               igText(const_cstr!("No objects selected.").as_ptr());
                           }
                       }
                   }
+
+                  if igButton(const_cstr!("Add track").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      app.integrate(EditorAction::Inf(
+                              InfrastructureEdit::NewTrack(0.0,100.0)));
+                  }
+
+
+
                   if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                       for r in &app.model.routes {
