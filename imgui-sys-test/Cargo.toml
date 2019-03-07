@@ -10,6 +10,3 @@ imgui-sys-opengl = { path = "../imgui-sys-opengl" }
 sdl2 = "*"
 gl = "*"
 const-cstr="*"
-
-[profile.release]
-lto = true

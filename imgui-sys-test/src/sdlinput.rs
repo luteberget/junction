@@ -54,6 +54,9 @@ impl ImguiSdl2 {
         ((*io).KeyMap[ ImGuiKey__ImGuiKey_Y		    as usize ]) =  Scancode::Y as i32;
         ((*io).KeyMap[ ImGuiKey__ImGuiKey_Z		    as usize ]) =  Scancode::Z as i32;
 
+
+        ((*io).KeyMap[ ImGuiKey__ImGuiKey_Space		as usize ]) =  Scancode::Space as i32;
+
    }
    //   let io = unsafe { &mut *imgui_sys::igGetIO() };
 

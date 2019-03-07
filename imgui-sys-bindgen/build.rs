@@ -4,11 +4,11 @@ use std::path::PathBuf;
 fn main() {
     cc::Build::new()
         .cpp(true)
-        .file("lib/cimgui/cimgui.cpp")
-        .file("lib/cimgui/imgui/imgui.cpp")
-        .file("lib/cimgui/imgui/imgui_demo.cpp")
-        .file("lib/cimgui/imgui/imgui_draw.cpp")
-        .file("lib/cimgui/imgui/imgui_widgets.cpp")
+        .file("lib/cimgui.cpp")
+        .file("lib/imgui.cpp")
+        .file("lib/imgui_demo.cpp")
+        .file("lib/imgui_draw.cpp")
+        .file("lib/imgui_widgets.cpp")
         .compile("libcimgui.a");
 
     let bindings = bindgen::Builder::default()

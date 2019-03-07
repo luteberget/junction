@@ -79,7 +79,9 @@ fn main() -> Result<(), String>{
     //let win1 = CString::new("sidebar1").unwrap();
 
     unsafe {
+        use imgui_sys_bindgen::sys::*;
         //(*imgui_sys_bindgen::sys::igGetIO()).IniFilename = ptr::null_mut();
+        (*igGetIO()).ConfigFlags |= ImGuiConfigFlags__ImGuiConfigFlags_NavEnableKeyboard as i32;
     }
 
     let mut event_pump = sdl_context.event_pump().unwrap();
