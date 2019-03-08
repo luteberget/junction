@@ -13,3 +13,4 @@ const-cstr="*"
 railplotlib = { path = "../../railplot/lib/railplotlib" }
 log="*"
 simple-logging="*"
+serde_json="*"

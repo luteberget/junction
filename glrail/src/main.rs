@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use std::ptr;
 use const_cstr::const_cstr;
+use imgui_sys_bindgen::sys::*;
 
 mod sdlinput;
 
@@ -44,6 +45,48 @@ pub fn  line_closest_pt(a :&ImVec2, b :&ImVec2, p :&ImVec2) -> ImVec2 {
 
 pub fn dist2(a :&ImVec2, b :&ImVec2) -> f32 { 
     (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)
+}
+
+pub struct OpenObject {
+    pub newkey :Vec<u8>,
+    pub open_subobjects :Vec<(String, Box<OpenObject>)>,
+}
+
+pub fn json_editor(data :&mut serde_json::Value, open :&mut OpenObject) {
+    unsafe {
+        use imgui_sys_bindgen::sys::*;
+        for (k,v) in data.as_object().unwrap() {
+
+        }
+
+       unsafe extern "C" fn resize_func(data: *mut ImGuiInputTextCallbackData) -> std::os::raw::c_int  {
+           let vec = (*((*data).UserData as *mut Vec<u8>)).reserve((*data).BufTextLen as usize);
+           0
+       }
+
+       println!("{:?} {:?}", open.newkey.as_mut_ptr(), open.newkey.capacity());
+       println!("{:?} {:?}", open.newkey, open.newkey.len());
+        if igButton(const_cstr!("+").as_ptr(), ImVec2 { x: 0.0, y: 0.0 }) {
+            data.as_object_mut().unwrap().insert(
+                String::from_utf8_lossy(&open.newkey).to_owned().to_string(), 
+                serde_json::Value::Null);
+            open.newkey.clear();
+            open.newkey.push('\0' as u8);
+        }
+
+       igSameLine(0.0, -1.0);
+       igInputTextWithHint(
+            const_cstr!("").as_ptr(),
+            const_cstr!("New key").as_ptr(),
+            open.newkey.as_mut_ptr() as _,
+            open.newkey.capacity()+1,
+            ImGuiInputTextFlags__ImGuiInputTextFlags_CallbackResize as _ ,
+            Some(resize_func),
+            &mut open.newkey as *mut _ as _);
+
+
+
+    }
 }
 
 
@@ -199,6 +242,13 @@ fn main() -> Result<(), String>{
         //(*imgui_sys_bindgen::sys::igGetIO()).IniFilename = ptr::null_mut();
         (*igGetIO()).ConfigFlags |= ImGuiConfigFlags__ImGuiConfigFlags_NavEnableKeyboard as i32;
     }
+
+    let mut user_data = serde_json::json!({});
+
+    let mut open_object : OpenObject = OpenObject { 
+        newkey: vec!['\0' as u8],
+        open_subobjects: Vec::new(),
+    };
 
     let mut sidebar_size :f32 = 200.0;
     let mut issues_size :f32 = 200.0;
@@ -357,6 +407,12 @@ fn main() -> Result<(), String>{
 
                       }
                   }
+
+                  if igCollapsingHeader(const_cstr!("User data editor").as_ptr(),
+                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                      json_editor(&mut user_data, &mut open_object);
+                  }
+
                   igEndChild();
                   igSameLine(0.0, -1.0);
                   igBeginChild(const_cstr!("CanvasandIssues").as_ptr(), main_size, false, 0);
