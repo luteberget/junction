@@ -140,7 +140,7 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     }
 
     let model = railplotlib::model::SchematicGraph { nodes, edges };
-    println!("Model: {:?}", model);
+    //println!("Model: {:?}", model);
 
     let sol = {
         use railplotlib::solvers::SchematicSolver;

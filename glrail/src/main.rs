@@ -112,7 +112,7 @@ fn main() -> Result<(), String>{
 
     let mut canvas = window.into_canvas()
         .target_texture()
-        .present_vsync()
+        //.present_vsync()
         .build()
         .map_err(|e| format!("{}", e))?;
 
@@ -125,11 +125,63 @@ fn main() -> Result<(), String>{
     let texture_creator : sdl2::render::TextureCreator<_> 
         = canvas.texture_creator();
 
-
     gui_init();
+    let io = unsafe { imgui_sys_bindgen::sys::igGetIO() };
+
+
+
+    unsafe {
+            use imgui_sys_bindgen::sys::*;
+        //    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+
+		//      //ImVector<ImWchar> ranges;
+        //    let ranges = ImVector_ImWchar_ImVector_ImWchar();
+		//      //ImFontGlyphRangesBuilder builder;
+        //    let builder = ImFontGlyphRangesBuilder_ImFontGlyphRangesBuilder();
+        //    ImFontGlyphRangesBuilder_AddText(builder, black_left.as_ptr(), ptr::null());
+        //    ImFontGlyphRangesBuilder_AddText(builder, black_right.as_ptr(), ptr::null());
+        //    //
+        //    //builder.AddRanges(io.Fonts->GetGlyphRangesJapanese()); // Add one of the default ranges
+        //    //ImFontGlyphRangesBuilder_AddRanges( builder, ImFontAtlas_GetGlyphRangesJapanese((*io).Fonts));
+        //    ImFontGlyphRangesBuilder_AddRanges( builder, ImFontAtlas_GetGlyphRangesDefault((*io).Fonts));
+
+		//    //builder.BuildRanges(&ranges);                          // Build the final result (ordered ranges with all the unique characters submitted)
+        //    ImFontGlyphRangesBuilder_BuildRanges(builder, ranges);
+
+		//    //io.Fonts->AddFontFromFileTTF("myfontfile.ttf", size_in_pixels, NULL, ranges.Data);
+		//    //io.Fonts->Build();                                     // Build the atlas while 'ranges' is still in scope and not deleted.
+
+
+        //    let fconfig = ptr::null();
+        //    //let franges = ptr::null();
+        //    ImFontAtlas_AddFontFromFileTTF((*io).Fonts, 
+        //           const_cstr!("DejaVuSansMono.ttf").as_ptr(),
+        //           22.0, fconfig, (*ranges).Data);
+        //    ImFontAtlas_Build((*io).Fonts);
+
+        
+        ImFontAtlas_AddFontFromFileTTF((*io).Fonts, 
+               const_cstr!("DejaVuSansMono.ttf").as_ptr(),
+               16.0, ptr::null(), ptr::null());
+
+        let config = ImFontConfig_ImFontConfig();
+        (*config).MergeMode = true;
+        (*config).GlyphMinAdvanceX = 16.0;
+        let ranges : [std::os::raw::c_ushort;3] = [0xf000, 0xf82f, 0x0];
+        //#define ICON_MIN_FA 0xf000
+        //#define ICON_MAX_FA 0xf82f
+
+        ImFontAtlas_AddFontFromFileTTF((*io).Fonts,
+            const_cstr!("fa-solid-900.ttf").as_ptr(),
+            16.0,  config, &ranges as _ );
+
+        ImFontAtlas_Build((*io).Fonts);
+    }
 
     let mut imgui_renderer = imgui_sys_opengl::Renderer::new(|s| video_subsystem.gl_get_proc_address(s) as _);
     let mut imgui_sdl = sdlinput::ImguiSdl2::new();
+
+
 
 
     use sdl2::event::Event;
@@ -154,7 +206,6 @@ fn main() -> Result<(), String>{
     let line_col  = 208 + (208<<8) + (175<<16) + (255<<24);
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let io = unsafe { imgui_sys_bindgen::sys::igGetIO() };
     let mut i :i64 = 0;
     let mut events = |mut f: Box<FnMut(sdl2::event::Event) -> bool>| {
         'running: loop {
@@ -193,7 +244,7 @@ fn main() -> Result<(), String>{
               app.update();
 
               unsafe {
-                  //igShowDemoWindow(ptr::null_mut());
+                  igShowDemoWindow(ptr::null_mut());
 
                   let mouse_pos = (*io).MousePos;
 
@@ -378,7 +429,9 @@ fn main() -> Result<(), String>{
                               }
                           }
                           for (k,v) in &s.points {
-                              //println!("{:?}, {:?}", k,v);
+                              let p = world2screen(canvas_pos, canvas_lower, center, zoom, *v);
+                              let caret_right = const_cstr!("\u{f0da}");
+                              ImDrawList_AddText(draw_list, p, line_col, caret_right.as_ptr(), ptr::null());
                           }
 
                           ImDrawList_PopClipRect(draw_list);
