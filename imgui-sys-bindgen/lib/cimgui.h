@@ -2224,3 +2224,5 @@ CIMGUI_API void ImVector_ImWchar_UnInit(ImVector_ImWchar* p);
 
 
 CIMGUI_API bool igSplitter(bool split_vertically, float thickness, float* size1, float* size2, float min_size1, float min_size2, float splitter_long_axis_size);
+
+CIMGUI_API void igTextSlice(const char* begin,const char *end);

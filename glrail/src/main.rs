@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{CString, CStr};
 use std::ptr;
 use const_cstr::const_cstr;
 use imgui_sys_bindgen::sys::*;
@@ -48,44 +48,210 @@ pub fn dist2(a :&ImVec2, b :&ImVec2) -> f32 {
 }
 
 pub struct OpenObject {
-    pub newkey :Vec<u8>,
+    pub newkey :String,
     pub open_subobjects :Vec<(String, Box<OpenObject>)>,
 }
 
-pub fn json_editor(data :&mut serde_json::Value, open :&mut OpenObject) {
+pub fn input_text_string(
+    label: &CStr,
+    hint: Option<&CStr>,
+    buffer: &mut String,
+    flags: ImGuiInputTextFlags) {
+    buffer.push('\0');
+    input_text(label,hint, unsafe { buffer.as_mut_vec() },flags);
+    buffer.pop();
+}
+
+pub fn input_text(
+    label: &CStr,
+    hint: Option<&CStr>,
+    buffer: &mut Vec<u8>,
+    mut flags: ImGuiInputTextFlags) {
+
+   unsafe extern "C" fn resize_func(data: *mut ImGuiInputTextCallbackData) -> std::os::raw::c_int  {
+       //println!("BufTextLen {:?}", (*data).BufTextLen);
+       let vecptr = ((*data).UserData as *mut Vec<u8>);
+       (*vecptr).resize((*data).BufTextLen as usize + 1, '\0' as u8);
+       (*vecptr)[(*data).BufTextLen as usize ] = '\0' as u8;
+       (*data).Buf = (*vecptr).as_mut_ptr() as _;
+       0
+   }
+
+   match hint {
+       Some(hint) => {
+           unsafe {
+           igInputTextWithHint(
+               label.as_ptr(),
+                //const_cstr!("").as_ptr(),
+                //const_cstr!("New key").as_ptr(),
+               hint.as_ptr(),
+                buffer.as_mut_ptr() as _,
+                buffer.capacity()+1,
+                flags | (ImGuiInputTextFlags__ImGuiInputTextFlags_CallbackResize as ImGuiInputTextFlags) ,
+                Some(resize_func),
+                buffer as *mut _ as _);
+           }
+       },
+       None => {
+           // TODO igInputText
+           unimplemented!()
+       }
+   }
+
+}
+
+pub fn show_text(s :&str) {
+    unsafe {
+    igTextSlice(s.as_ptr() as _ , s.as_ptr().offset(s.len() as _ ) as _ );
+    }
+}
+
+
+type UserData = serde_json::Map<String, serde_json::Value>;
+
+pub fn json_editor(types: &[*const i8; 6], data :&mut UserData, open :&mut OpenObject) {
+    let v2_0 = ImVec2 { x: 0.0, y : 0.0 };
     unsafe {
         use imgui_sys_bindgen::sys::*;
-        for (k,v) in data.as_object().unwrap() {
+        let mut del = None;
+        for (i,(k,v)) in data.iter_mut().enumerate() {
+            igPushIDInt(i as _);
+            show_text(k);
 
+            if igButton(const_cstr!("\u{f056}").as_ptr(), v2_0) {
+                del = Some(k.clone());
+            }
+            igSameLine(0.0, -1.0);
+            
+            igPushItemWidth(3.0*16.0);
+
+            let l_null = const_cstr!("null");
+            let l_bool = const_cstr!("bool");
+            let l_number = const_cstr!("num");
+            let l_text = const_cstr!("text");
+            let l_array = const_cstr!("arr");
+            let l_object = const_cstr!("obj");
+
+            let curr_type_str = match v {
+                             serde_json::Value::Null => l_null,
+                             serde_json::Value::Bool(_) => l_bool,
+                             serde_json::Value::Number(_) => l_number,
+                             serde_json::Value::String(_) => l_text,
+                             serde_json::Value::Object(_) => l_object,
+                             serde_json::Value::Array(_) => l_array,
+                             _ => l_text,
+                         };
+
+            if igBeginCombo(const_cstr!("##type").as_ptr(), curr_type_str.as_ptr(),
+                         ImGuiComboFlags__ImGuiComboFlags_NoArrowButton as _) {
+
+                if igSelectable(l_null.as_ptr(), l_null == curr_type_str, 0, v2_0) 
+                    && l_null != curr_type_str {
+                        *v = serde_json::Value::Null;
+                }
+                if igSelectable(l_bool.as_ptr(), l_bool == curr_type_str, 0, v2_0) 
+                    && l_bool != curr_type_str {
+                        *v = serde_json::Value::Bool(Default::default());
+                }
+                if igSelectable(l_number.as_ptr(), l_number == curr_type_str, 0, v2_0) 
+                    && l_number != curr_type_str {
+                        *v = serde_json::Value::Number(serde_json::Number::from_f64(0.0).unwrap());
+                }
+                if igSelectable(l_text.as_ptr(), l_text == curr_type_str, 0, v2_0) 
+                    && l_text != curr_type_str {
+                        *v = serde_json::Value::String(Default::default());
+                }
+                if igSelectable(l_array.as_ptr(), l_array == curr_type_str, 0, v2_0) 
+                    && l_array != curr_type_str {
+                        *v = serde_json::Value::Array(Default::default());
+                }
+                if igSelectable(l_object.as_ptr(), l_object == curr_type_str, 0, v2_0) 
+                    && l_object != curr_type_str {
+                        *v = serde_json::Value::Object(Default::default());
+                }
+                igEndCombo();
+            }
+            igPopItemWidth();
+
+            igPushItemWidth(-1.0);
+
+            match v {
+                serde_json::Value::Null => {},
+                serde_json::Value::Bool(ref mut b) => {
+                    let l_true = const_cstr!("true");
+                    let l_false = const_cstr!("false");
+                    igSameLine(0.0, -1.0);
+                    if igBeginCombo(const_cstr!("##bool").as_ptr(), 
+                                    (if *b { l_true } else { l_false }).as_ptr(),0) {
+
+                        if igSelectable(l_false.as_ptr(), !*b, 0, v2_0) && *b {
+                            *b = false;
+                        }
+                        if igSelectable(l_true.as_ptr(), *b, 0, v2_0) && !*b {
+                            *b = true;
+                        }
+                        igEndCombo();
+                    }
+                },
+                serde_json::Value::Number(ref mut n) => {
+                    let mut num : f32 = n.as_f64().unwrap() as _;
+                    igSameLine(0.0, -1.0);
+                    igInputFloat(const_cstr!("##num").as_ptr(), 
+                                 &mut num as *mut _, 0.0, 1.0, 
+                                 const_cstr!("%g").as_ptr(), 0);
+                    if igIsItemDeactivatedAfterEdit() {
+                        *n = serde_json::Number::from_f64(num as _).unwrap();
+                    }
+                },
+                serde_json::Value::String(ref mut s) => {
+                    igSameLine(0.0, -1.0);
+                    input_text_string(
+                        const_cstr!("##text").as_cstr(), 
+                        Some(const_cstr!("empty").as_cstr()), 
+                        s, 0);
+                },
+                serde_json::Value::Array(ref mut a) => {
+                    igSameLine(0.0, -1.0);
+                    if igTreeNodeStr(const_cstr!("Array").as_ptr()) {
+                        igText(const_cstr!("...").as_ptr());
+                        igTreePop();
+                    }
+                },
+                serde_json::Value::Object(ref mut o) => {
+                    igSameLine(0.0, -1.0);
+                    if igTreeNodeStr(const_cstr!("Object").as_ptr()) {
+
+                        //json_editor
+                        json_editor(&types, o, open);
+
+                        igTreePop();
+                    }
+                },
+                _ => unimplemented!(),
+            }
+
+            igPopItemWidth();
+            //println!("{:?}: {:?}", k,v);
+            igPopID();
         }
 
-       unsafe extern "C" fn resize_func(data: *mut ImGuiInputTextCallbackData) -> std::os::raw::c_int  {
-           let vec = (*((*data).UserData as *mut Vec<u8>)).reserve((*data).BufTextLen as usize);
-           0
-       }
+        if let Some(k) = del {
+            data.remove(&k);
+        }
 
-       println!("{:?} {:?}", open.newkey.as_mut_ptr(), open.newkey.capacity());
-       println!("{:?} {:?}", open.newkey, open.newkey.len());
-        if igButton(const_cstr!("+").as_ptr(), ImVec2 { x: 0.0, y: 0.0 }) {
-            data.as_object_mut().unwrap().insert(
-                String::from_utf8_lossy(&open.newkey).to_owned().to_string(), 
-                serde_json::Value::Null);
-            open.newkey.clear();
-            open.newkey.push('\0' as u8);
+        if igButton(const_cstr!("\u{f055}").as_ptr(), ImVec2 { x: 0.0, y: 0.0 })  {
+            use std::mem;
+            let s = &mut open.newkey;
+            if s.len() > 0 {
+                data.insert(
+                    mem::replace(s, String::new()),
+                    serde_json::Value::Null);
+            }
         }
 
        igSameLine(0.0, -1.0);
-       igInputTextWithHint(
-            const_cstr!("").as_ptr(),
-            const_cstr!("New key").as_ptr(),
-            open.newkey.as_mut_ptr() as _,
-            open.newkey.capacity()+1,
-            ImGuiInputTextFlags__ImGuiInputTextFlags_CallbackResize as _ ,
-            Some(resize_func),
-            &mut open.newkey as *mut _ as _);
-
-
-
+       input_text_string( const_cstr!("##newkey").as_cstr(), 
+                   Some(const_cstr!("New key").as_cstr()), &mut open.newkey, 0);
     }
 }
 
@@ -133,6 +299,14 @@ fn main() -> Result<(), String>{
     use log::LevelFilter;
     simple_logging::log_to_stderr(LevelFilter::Debug);
 
+    let json_types: [*const i8; 6] = [
+        const_cstr!("Null").as_ptr(),
+        const_cstr!("Bool").as_ptr(),
+        const_cstr!("Num").as_ptr(),
+        const_cstr!("Text").as_ptr(),
+        const_cstr!("Obj").as_ptr(),
+        const_cstr!("Arr").as_ptr(),
+    ];
 
 
     let mut app = app::App::new();
@@ -246,7 +420,7 @@ fn main() -> Result<(), String>{
     let mut user_data = serde_json::json!({});
 
     let mut open_object : OpenObject = OpenObject { 
-        newkey: vec!['\0' as u8],
+        newkey: String::new(),
         open_subobjects: Vec::new(),
     };
 
@@ -410,7 +584,7 @@ fn main() -> Result<(), String>{
 
                   if igCollapsingHeader(const_cstr!("User data editor").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      json_editor(&mut user_data, &mut open_object);
+                      json_editor(&json_types, user_data.as_object_mut().unwrap(), &mut open_object);
                   }
 
                   igEndChild();

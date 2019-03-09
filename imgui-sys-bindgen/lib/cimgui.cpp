@@ -4834,3 +4834,11 @@ bool igSplitter(bool split_vertically, float thickness, float* size1, float* siz
     bb.Max = bb.Min + CalcItemSize(split_vertically ? ImVec2(thickness, splitter_long_axis_size) : ImVec2(splitter_long_axis_size, thickness), 0.0f, 0.0f);
     return SplitterBehavior(bb, id, split_vertically ? ImGuiAxis_X : ImGuiAxis_Y, size1, size2, min_size1, min_size2, 0.0f);
 }
+CIMGUI_API void igTextSlice(const char* begin, const char* end)
+{
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return;
+
+    ImGui::TextEx(begin, end, ImGuiTextFlags_NoWidthForLargeClippedText);
+}
