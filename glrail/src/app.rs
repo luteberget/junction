@@ -1,12 +1,33 @@
+use crate::command_builder::* ;
 
 
 pub struct App {
     pub model : Model,
     pub view : View,
+    pub main_menu : Menu,
 }
 
 impl App {
     pub fn new() -> App {
+
+        fn close(app :&mut App) -> Option<CommandScreen> { None }
+
+       let main_menu = Menu {
+           choices: vec![
+               ('c', format!("context"), close ),
+               ('l', format!("load"),    close ),
+               ('s', format!("save"),    close ),
+               ('q', format!("quit"),    |app| { app.view.want_to_quit = true; None } ),
+               ('o', format!("options"), |_| {
+                   Some(CommandScreen::Menu(Menu { choices: vec![
+                       ('d', format!("imgui debug window"), |app| { 
+                           app.view.show_imgui_demo = !app.view.show_imgui_demo; 
+                           None })
+                   ]}))
+               }),
+           ]
+       };
+
         App {
             model: Model {
                 inf: Infrastructure::new_empty(),
@@ -22,7 +43,37 @@ impl App {
                 selected_dispatch: None,
                 time: 0.0,
                 command_builder: None,
+                show_imgui_demo : false,
+                want_to_quit: false,
             },
+            main_menu : main_menu,
+        }
+    }
+
+    pub fn context_menu(&self) -> CommandScreen {
+        // If track selected, open track edit menu
+        // if node selected, open node edit menu, etc.
+        //
+        // Maybe also another menu for Pos selection, Path selection, Route selection.
+
+    }
+
+    pub fn main_menu(&mut self) {
+        self.view.command_builder = Some(CommandBuilder::new_menu(self.main_menu.clone()));
+        if self.model.inf.entities.len() == 0 {
+            if let CommandScreen::Menu(Menu { choices }) = self.view.command_builder.as_mut().unwrap().current_screen() {
+                choices.push(('a', format!("add track"), |app| {
+                    app.integrate(EditorAction::Inf(InfrastructureEdit::NewTrack(0.0,100.0)));
+                    None
+                }));
+            }
+        }
+    }
+
+    pub fn clicked_object(&mut self, id :EntityId) {
+        if let Some(cb) = &mut self.view.command_builder {
+        } else {
+            self.view.selected_object = Some(id);
         }
     }
 
@@ -51,23 +102,91 @@ impl App {
                         }));
                     }
                     InfrastructureEdit::InsertNode(t,p,node,l) => {
-                        let new = self.new_entity(Entity::Node(p, node));
+                        let (straight_side, branch_side) = match node {
+                            Node::Switch(_,side) => (side.other(), side),
+                            _ => unimplemented!(),
+                        };
+                        let new = self.new_entity(Entity::Node(p, node.clone()));
                         let inf = &mut self.model.inf;
+
                         let t = inf.get_track_mut(t).ok_or("Track ref err".to_string())?;
-                        let end = t.end_node;
-                        t.end_node = (new, Port { dir: Dir::Down, course: None });
-                        let trunk = self.new_entity(Entity::Track(Track {
-                            start_node: (new, Port { dir: Dir::Up, course: Some(Side::Right) }),
-                            end_node: end,
-                        }));
-                        let branch_end = self.new_entity(Entity::Node(p+l, Node::BufferStop));
-                        let branch = self.new_entity(Entity::Track(Track {
-                            start_node: (new, Port { dir: Dir::Up, course: Some(Side::Left) }),
-                            end_node: (branch_end, Port { dir: Dir::Down, course: None }),
-                        }));
-                        println!("Inserted node {:?}", self.model.inf.entities);
+
+                        match &node {
+                            Node::Switch(Dir::Up, _) => {
+                                let old_end = t.end_node;
+
+                                t.end_node = (new, Port { dir: Dir::Down, course: None });
+
+                                let _straight = self.new_entity(Entity::Track(Track {
+                                    start_node: (new, Port { dir: Dir::Up, course: Some(straight_side) }),
+                                    end_node: old_end,
+                                }));
+
+                                let branch_end = self.new_entity(Entity::Node(p+l, Node::BufferStop));
+                                let branch = self.new_entity(Entity::Track(Track {
+                                    start_node: (new, Port { dir: Dir::Up, course: Some(branch_side) }),
+                                    end_node: (branch_end, Port { dir: Dir::Down, course: None }),
+                                }));
+                            },
+                            Node::Switch(Dir::Down, _) => {
+                                let old_start = t.start_node;
+                                t.start_node = (new, Port { dir: Dir::Up, course: None });
+
+                                let _straight = self.new_entity(Entity::Track(Track {
+                                    start_node: old_start,
+                                    end_node:   (new, Port { dir: Dir::Down, course: Some(straight_side) })
+                                }));
+
+                                let branch_start = self.new_entity(Entity::Node(p-l, Node::BufferStop));
+                                let branch = self.new_entity(Entity::Track(Track {
+                                    start_node: (branch_start, Port { dir: Dir::Up, course: None }),
+                                    end_node:   (new, Port { dir: Dir::Down, course: Some(branch_side) }),
+                                }));
+                            },
+                            _ => unimplemented!()
+                        }
                     },
                     InfrastructureEdit::JoinNodes(n1,n2) => {
+                        let inf = &mut self.model.inf;
+                        let (_,n1_obj) = inf.get_node(n1).ok_or("Node ref err".to_string())?;
+                        let (_,n2_obj) = inf.get_node(n2).ok_or("Node ref err".to_string())?;
+
+                        if n1_obj.num_ports() != 1 || n2_obj.num_ports() != 1 {
+                            return Err("Nodes must have 1 port.".to_string());
+                        }
+
+                        let mut lo_track = None;
+                        let mut hi_track = None;
+
+                        for (i,e) in inf.entities.iter().enumerate() {
+                            match e {
+                                Some(Entity::Track(Track { start_node, end_node, ..  })) => {
+                                    if start_node.0 == n1 { hi_track = Some((i,n1)); }
+                                    if start_node.0 == n2 { hi_track = Some((i,n2)); }
+                                    if end_node.0 == n1   { lo_track = Some((i,n1)); }
+                                    if end_node.0 == n2   { lo_track = Some((i,n2)); }
+                                },
+                                _ => {},
+                            };
+                        }
+
+                        match (lo_track,hi_track) {
+                            (Some((t1,n1)),Some((t2,n2))) => {
+                                let end_node = inf.get_track_mut(t2).unwrap().end_node;
+                                let track1 = inf.get_track_mut(t1).unwrap();
+                                track1.end_node = end_node;
+                                inf.delete(t2);
+                                inf.delete(n1);
+                                inf.delete(n2);
+                            },
+                            _ => return Err("Mismatching nodes for joining".to_string())
+                        }
+
+                    },
+                    InfrastructureEdit::ExtendTrack(node_id, length) => {
+                        let inf = &mut self.model.inf;
+                        let (node_pos,node_type) = inf.get_node_mut(node_id).ok_or("Node ref err".to_string())?;
+                        *node_pos += length;
                     },
                 };
                 // infrastructure changed, update schematic
@@ -95,9 +214,15 @@ pub struct View {
     pub selected_dispatch :Option<usize>,
     pub time :f32,
     pub command_builder : Option<CommandBuilder>,
+    pub show_imgui_demo: bool,
+    pub want_to_quit: bool,
 }
 
-pub struct CommandBuilder {}
+//pub enum CommandBuilder {
+//    MainMenu,
+//    JoinTwo,
+//    JoinOne(EntityId),
+//}
 
 pub struct Model {
     pub inf :Infrastructure,
@@ -121,6 +246,13 @@ pub struct Infrastructure {
 }
 
 impl Infrastructure {
+    pub fn delete(&mut self, id :EntityId) {
+        match self.entities.get_mut(id) {
+            Some(mut x) => *x = None,
+            _ => {},
+        }
+    }
+
     pub fn get(&self, id :EntityId) -> Option<&Entity> {
         self.entities.get(id)?.as_ref()
     }
@@ -134,9 +266,14 @@ impl Infrastructure {
             Some(t)
         } else { None }
     }
-    pub fn get_node(&self, id :EntityId) -> Option<(f32,&Node)> {
-        if let Some(Some(Entity::Node(p,ref t))) = self.entities.get(id) {
-            Some((*p,t))
+    pub fn get_node(&self, id :EntityId) -> Option<(&f32,&Node)> {
+        if let Some(Some(Entity::Node(ref p,ref t))) = self.entities.get(id) {
+            Some((p,t))
+        } else { None }
+    }
+    pub fn get_node_mut(&mut self, id :EntityId) -> Option<(&mut f32,&mut Node)> {
+        if let Some(Some(Entity::Node(ref mut p,ref mut t))) = self.entities.get_mut(id) {
+            Some((p,t))
         } else { None }
     }
 
@@ -177,7 +314,7 @@ impl Infrastructure {
     }
 
     pub fn update_schematic(&mut self) {
-        println!("update_schematic");
+        //println!("update_schematic");
         self.schematic = Derive::Wait;
         self.jobs.send(self.entities.clone()).unwrap();
     }
@@ -192,6 +329,9 @@ pub enum InfrastructureEdit {
     InsertNode(EntityId, Pos, Node, f32),
     /// Join two two-port nodes.
     JoinNodes(EntityId, EntityId),
+    /// Extend a track by moving its end node forward. There must be enough 
+    /// linear space before/after the node.
+    ExtendTrack(EntityId, f32),
 }
 
 pub enum EditorAction {
@@ -231,6 +371,14 @@ pub struct Port {
 pub enum Dir { Up, Down }
 #[derive(Debug,Clone,Copy)]
 pub enum Side { Left, Right }
+impl Side {
+    pub fn other(&self) -> Self {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+}
 
 #[derive(Debug,Clone)]
 pub enum Node {
@@ -238,6 +386,16 @@ pub enum Node {
     Crossing,
     BufferStop,
     Macro(Option<String>),
+}
+
+impl Node {
+    pub fn num_ports(&self) -> usize {
+        match self {
+            Node::Switch (_,_) => 3,
+            Node::Crossing => 4,
+            Node::BufferStop | Node::Macro(_) => 1,
+        }
+    }
 }
 
 

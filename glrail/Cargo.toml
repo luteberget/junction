@@ -1,6 +1,6 @@
 [package]
-name = "imgui-sys-test"
-version = "0.1.0"
+name = "glrail"
+version = "0.1.2"
 authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
@@ -14,3 +14,4 @@ railplotlib = { path = "../../railplot/lib/railplotlib" }
 log="*"
 simple-logging="*"
 serde_json="*"
+smallvec = "0.6"

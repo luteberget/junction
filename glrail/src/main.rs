@@ -7,9 +7,11 @@ mod sdlinput;
 
 // Domain
 mod app;
+mod command_builder;
 mod schematic;
 
 use self::app::*;
+use self::command_builder::*;
 
 pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
   match inf.get(id) {
@@ -345,15 +347,15 @@ fn main() -> Result<(), String>{
 
     let mut canvas = window.into_canvas()
         .target_texture()
-        //.present_vsync()
+        .present_vsync()
         .build()
         .map_err(|e| format!("{}", e))?;
 
         //let mut ev = SDL_Event { type_: SDL_EventType::SDL_USEREVENT as _, user: ev };
-    println!("Using SDL_Renderer \"{}\"", canvas.info().name);
-    canvas.set_draw_color(sdl2::pixels::Color::RGB(255, 0, 0));
-    canvas.clear();
-    canvas.present();
+    //println!("Using SDL_Renderer \"{}\"", canvas.info().name);
+    //canvas.set_draw_color(sdl2::pixels::Color::RGB(255, 0, 0));
+    //canvas.clear();
+    //canvas.present();
 
     let texture_creator : sdl2::render::TextureCreator<_> 
         = canvas.texture_creator();
@@ -425,6 +427,51 @@ fn main() -> Result<(), String>{
         if let &Event::Quit { .. } = ev { true } else { false }
     }
 
+    fn app_event(ev :&Event, app :&mut App, command_input :bool) {
+        match ev {
+            Event::TextInput { ref text, .. } => {
+                for chr in text.chars() {
+                    if chr == ',' {
+                        if app.view.command_builder.is_none() {
+                            app.main_menu();
+                        }
+                    }
+                }
+            }
+            _ => {},
+        }
+
+        if command_input {
+            let mut new_screen_func = None;
+            if let Some(cb) = &mut app.view.command_builder {
+                if let CommandScreen::Menu(Menu { choices }) = cb.current_screen() {
+                    for (c,_,f) in choices {
+                        match ev {
+                            Event::TextInput { ref text, .. } => {
+                                for chr in text.chars() {
+                                    if chr == *c {
+                                        new_screen_func = Some(*f);
+                                    }
+                                }
+                            }
+                            _ => {},
+                        }
+                    }
+                }
+            }
+
+            if let Some(f) = new_screen_func {
+                if let Some(s) = f(app) {
+                    if let Some(ref mut c) = app.view.command_builder {
+                        c.push_screen(s);
+                    }
+                } else {
+                    app.view.command_builder = None;
+                }
+            }
+        }
+    }
+
     //let win1 = CString::new("sidebar1").unwrap();
 
     unsafe {
@@ -447,6 +494,9 @@ fn main() -> Result<(), String>{
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i :i64 = 0;
+    let mut capture_command_key = false;
+    let mut capture_canvas_key = false;
+
     let mut events = |mut f: Box<FnMut(sdl2::event::Event) -> bool>| {
         'running: loop {
             let mut render = false;
@@ -454,17 +504,20 @@ fn main() -> Result<(), String>{
               imgui_sdl.handle_event(&event);
               if exit_on(&event) { break 'running; }
               if not_mousemotion(&event) { render = true; }
+              app_event(&event, &mut app, capture_command_key);
 
               for event2 in event_pump.poll_iter() {
                   imgui_sdl.handle_event(&event2);
-                  if exit_on(&event) { break 'running; }
-                  if not_mousemotion(&event) { render = true; }
+                  if exit_on(&event2) { break 'running; }
+                  if not_mousemotion(&event2) { render = true; }
+                  app_event(&event2, &mut app, capture_command_key);
               }
 
-            for _ in  (1..=3) {
+            for _ in 1..=3 {
               for event2 in event_pump.poll_iter() {
                   imgui_sdl.handle_event(&event2);
-                  if exit_on(&event) { break 'running; }
+                  if exit_on(&event2) { break 'running; }
+                  app_event(&event2, &mut app, capture_command_key);
               }
 
               let c = sdl2::pixels::Color::RGB(15,15,15);
@@ -475,6 +528,16 @@ fn main() -> Result<(), String>{
 
               imgui_sdl.frame(&canvas.window(), &event_pump.mouse_state());
 
+              // TODO move this out of main loop
+                let caret_right = const_cstr!("\u{f0da}");
+                let caret_left = const_cstr!("\u{f0d9}");
+                let (caret_left_halfsize,caret_right_halfsize) = unsafe {
+                    let mut l = igCalcTextSize(caret_left.as_ptr(), ptr::null(), false, -1.0);
+                    let mut r = igCalcTextSize(caret_right.as_ptr(), ptr::null(), false, -1.0);
+                    l.x *= 0.5; l.y *= 0.5; r.x *= 0.5; r.y *= 0.5;
+                    (l,r)
+                };
+
               use self::app::*;
               use imgui_sys_bindgen::sys::*;
               let v2_0 = ImVec2 { x: 0.0, y: 0.0 };
@@ -484,7 +547,9 @@ fn main() -> Result<(), String>{
               app.update();
 
               unsafe {
-                  igShowDemoWindow(ptr::null_mut());
+                  if app.view.show_imgui_demo {
+                      igShowDemoWindow(&mut app.view.show_imgui_demo as *mut bool);
+                  }
 
                   let mouse_pos = (*io).MousePos;
 
@@ -506,6 +571,22 @@ fn main() -> Result<(), String>{
                   igSplitter(true, 2.0, &mut sidebar_size as _, &mut main_size.x as _, 100.0, 100.0, -1.0);
 
                   igBeginChild(const_cstr!("Sidebar").as_ptr(), ImVec2 { x: sidebar_size, y: root_size.y } , false,0);
+
+                  // Start new command
+                    if igButton(const_cstr!("\u{f044}").as_ptr(), ImVec2 { x: 0.0, y: 0.0 })  {
+                        app.main_menu();
+                    }
+
+                    //igSameLine(0.0,-1.0);
+
+//                  match app.view.command_builder {
+//                      None => igText(const_cstr!("App default state.").as_ptr()),
+//                      Some(CommandBuilder::MainMenu) => igText(const_cstr!("Main menu").as_ptr()),
+//                      Some(CommandBuilder::JoinTwo) => igText(const_cstr!("Select two points for joining.").as_ptr()),
+//                      Some(CommandBuilder::JoinOne(_)) => igText(const_cstr!("Select one more point for joining.").as_ptr()),
+//                  }
+//
+
                   
                   if igCollapsingHeader(const_cstr!("All objects").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
@@ -571,6 +652,53 @@ fn main() -> Result<(), String>{
                           println!("Track not selected.");
                       }
                   }
+                  if igButton(const_cstr!("Add up right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                          app.integrate(EditorAction::Inf(
+                                  InfrastructureEdit::InsertNode(
+                                      curr_track, curr_pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
+                      } else {
+                          println!("Track not selected.");
+                      }
+                  }
+                  if igButton(const_cstr!("Add down left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                          app.integrate(EditorAction::Inf(
+                                  InfrastructureEdit::InsertNode(
+                                      curr_track, curr_pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
+                      } else {
+                          println!("Track not selected.");
+                      }
+                  }
+                  if igButton(const_cstr!("Add down right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                          app.integrate(EditorAction::Inf(
+                                  InfrastructureEdit::InsertNode(
+                                      curr_track, curr_pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
+                      } else {
+                          println!("Track not selected.");
+                      }
+                  }
+
+                  if igButton(const_cstr!("Extend track from end node").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+
+                      if let Some(id) = app.view.selected_object {
+                          app.integrate(EditorAction::Inf(
+                                  InfrastructureEdit::ExtendTrack(id, 100.0)));
+                      } else {
+                          println!("No obj selected.");
+                      }
+
+                  }
+                  if igButton(const_cstr!("Connect nodes").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+
+                      if let Some(id) = app.view.selected_object {
+                          //app.view.command_builder = Some(CommandBuilder::JoinOne(id));
+                      } else {
+                          //app.view.command_builder = Some(CommandBuilder::JoinTwo);
+                      }
+
+                  }
 
                   if igButton(const_cstr!("Load").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
                       sdl2::messagebox::show_simple_message_box(
@@ -614,6 +742,8 @@ fn main() -> Result<(), String>{
                   // CANVAS!
 
                   igBeginChild(const_cstr!("Canvas").as_ptr(), mainmain_size, false, 0);
+                  capture_canvas_key = igIsWindowFocused(0);
+
                   let draw_list = igGetWindowDrawList();
                   igText(const_cstr!("Here is the canvas:").as_ptr());
 
@@ -677,16 +807,26 @@ fn main() -> Result<(), String>{
                               }
                           }
                           for (k,v) in &s.points {
-                              let p = world2screen(canvas_pos, canvas_lower, center, zoom, *v);
-                              let caret_right = const_cstr!("\u{f0da}");
-                              ImDrawList_AddText(draw_list, p, line_col, caret_right.as_ptr(), ptr::null());
+                              let mut p = world2screen(canvas_pos, canvas_lower, center, zoom, *v);
+                              let tl = ImVec2 { x: p.x - caret_right_halfsize.x, 
+                                                 y: p.y - caret_right_halfsize.y };
+                              let br = ImVec2 { x: p.x + caret_right_halfsize.x, 
+                                                 y: p.y + caret_right_halfsize.y };
+
+                              let hover = igIsMouseHoveringRect(tl,br,false);
+                              ImDrawList_AddText(draw_list, tl, 
+                                                 if hover { line_hover_col } else { line_col }, 
+                                                 caret_right.as_ptr(), ptr::null());
+                              if hover {
+                                  hovered_item = Some(*k);
+                              }
                           }
 
                           ImDrawList_PopClipRect(draw_list);
 
                           if let Some(id) = hovered_item {
                               if clicked {
-                                  app.view.selected_object = Some(id);
+                                  app.clicked_object(id);
                               }
                               igBeginTooltip();
                               show_text(&entity_to_string(id, &app.model.inf));
@@ -710,13 +850,81 @@ fn main() -> Result<(), String>{
 
                   igEndChild();
 
-
-
                   igEnd();
+
+
+
+                  
+                  // Overlay command builder
+                  let mut new_screen_func = None;
+                  if let Some(ref mut command_builder) = &mut app.view.command_builder {
+                      match command_builder.current_screen() {
+                          CommandScreen::Menu(Menu { choices }) => {
+                              // Draw menu
+                              //
+
+                              igSetNextWindowBgAlpha(0.75);
+                              igSetNextWindowPos(ImVec2 { x: sidebar_size, y: 0.0 },
+                              //igSetNextWindowPos((*viewport).Pos, 
+                                 ImGuiCond__ImGuiCond_Always as _, v2_0);
+                              igPushStyleColor(ImGuiCol__ImGuiCol_TitleBgActive as _, 
+                                             ImVec4 { x: 1.0, y: 0.65, z: 0.7, w: 1.0 });
+                              igBegin(const_cstr!("Command").as_ptr(), ptr::null_mut(),
+                                (ImGuiWindowFlags__ImGuiWindowFlags_AlwaysAutoResize | 
+                                ImGuiWindowFlags__ImGuiWindowFlags_NoMove | 
+                                ImGuiWindowFlags__ImGuiWindowFlags_NoResize) as _
+                                );
+
+                              capture_command_key = igIsWindowFocused(0);
+
+                              for (i,c) in choices.iter().enumerate() {
+                                igPushIDInt(i as _);
+                                  if igSelectable(const_cstr!("##mnuitm").as_ptr(), false, 0, v2_0) {
+                                      new_screen_func = Some(c.2);
+                                      //let new_screen = (c.2)(&mut app);
+                                      //match new_screen {
+                                      //    None => *command_builder = None,
+                                      //    Some(s) => command_builder.push_screen(s),
+                                      //}
+                                  }
+
+                                  igSameLine(0.0, -1.0);
+
+                                  let s = CString::new(format!("{} - ", c.0)).unwrap();
+                                  igTextColored( ImVec4 { x: 0.95, y: 0.5, z: 0.55, w: 1.0 }, s.as_ptr());
+
+                                  igSameLine(0.0, -1.0);
+                                  //igText(const_cstr!("context").as_ptr());
+                                  show_text(&c.1);
+                                igPopID();
+                              }
+
+                              igEnd();
+                              igPopStyleColor(1);
+                          },
+                          _ => {},
+                      }
+                  }
+
+                  if let Some(f) = new_screen_func {
+                      if let Some(s) = f(&mut app) {
+                          if let Some(ref mut c) = app.view.command_builder {
+                              c.push_screen(s);
+                          }
+                      } else {
+                          app.view.command_builder = None;
+                      }
+                  }
+
               }
 
               imgui_renderer.render();
               canvas.present();
+
+
+              if app.view.want_to_quit {
+                  break 'running;
+              }
             }
         }
     };

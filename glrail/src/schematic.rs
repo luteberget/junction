@@ -22,19 +22,19 @@ fn conv_dir(dir :Dir) -> railplotlib::model::Dir {
     }
 }
 
-fn conv_side_inv(side :railplotlib::model::Side) -> Side {
-    match side {
-        railplotlib::model::Side::Left => Side::Left,
-        railplotlib::model::Side::Right => Side::Right,
-    }
-}
-
-fn conv_dir_inv(dir :railplotlib::model::Dir) -> Dir {
-    match dir {
-        railplotlib::model::Dir::Up   => Dir::Up,
-        railplotlib::model::Dir::Down => Dir::Down,
-    }
-}
+// fn conv_side_inv(side :railplotlib::model::Side) -> Side {
+//     match side {
+//         railplotlib::model::Side::Left => Side::Left,
+//         railplotlib::model::Side::Right => Side::Right,
+//     }
+// }
+// 
+// fn conv_dir_inv(dir :railplotlib::model::Dir) -> Dir {
+//     match dir {
+//         railplotlib::model::Dir::Up   => Dir::Up,
+//         railplotlib::model::Dir::Down => Dir::Down,
+//     }
+// }
 
 fn conv_port(port :Port, node :&Node) -> railplotlib::model::Port {
     match node {
@@ -140,13 +140,14 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     }
 
     let model = railplotlib::model::SchematicGraph { nodes, edges };
-    //println!("Model: {:?}", model);
+    println!("Model: {:#?}", model);
 
     let sol = {
         use railplotlib::solvers::SchematicSolver;
         use railplotlib::solvers::Goal;
         let solver = railplotlib::solvers::LevelsSatSolver {
             criteria: vec![Goal::Bends, Goal::Height, Goal::Width],
+            nodes_distinct: true,
         };
         solver.solve(model)
     }?;
