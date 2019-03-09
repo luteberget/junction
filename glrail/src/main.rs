@@ -9,6 +9,22 @@ mod sdlinput;
 mod app;
 mod schematic;
 
+use self::app::*;
+
+pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
+  match inf.get(id) {
+      Some(Entity::Track(ref t)) => {
+          format!("{:#?}", t)
+      },
+      Some(Entity::Node(p,ref n)) => {
+          format!("Id: {}", id)
+      },
+      Some(Entity::Object(ref o)) => {
+          format!("Id: {}", id)
+      },
+      _ => { format!("Error id={} not found.", id) }
+  }
+}
 
 use imgui_sys_bindgen::sys::ImVec2;
 pub fn world2screen(topleft: ImVec2, bottomright: ImVec2, center :(f64,f64), zoom: f64, pt :(f32,f32)) -> ImVec2 {
@@ -523,11 +539,12 @@ fn main() -> Result<(), String>{
                   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                       match &app.view.selected_object {
-                          Some(_) => {
-                              igText(const_cstr!("Some object IS selected.").as_ptr());
+                          Some(id) => {
+                              let s = entity_to_string(*id, &app.model.inf);
+                              show_text(&s);
                           },
                           None => {
-                              igText(const_cstr!("No objects selected.").as_ptr());
+                              igText(const_cstr!("No object selected.").as_ptr());
                           }
                       }
                   }
@@ -609,6 +626,7 @@ fn main() -> Result<(), String>{
                           igText(s.as_ptr());
                       },
                       Derive::Ok(ref s) => {
+                          let mut hovered_item = None;
                           let canvas_pos = igGetCursorScreenPos();
                           let mut canvas_size = igGetContentRegionAvail();
                           let canvas_lower = ImVec2 { x: canvas_pos.x + canvas_size.x,
@@ -651,8 +669,8 @@ fn main() -> Result<(), String>{
                                   let p1 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i]);
                                   let p2 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i+1]);
                                   let hovered = dist2(&mouse_pos, &line_closest_pt(&p1, &p2, &mouse_pos)) < 100.0;
-                                  if hovered && clicked {
-                                      app.view.selected_object = Some(*k);
+                                  if hovered {
+                                      hovered_item = Some(*k);
                                   }
                                   ImDrawList_AddLine(draw_list, p1, p2, 
                                                      if hovered { line_hover_col } else { line_col }, 2.0);
@@ -665,6 +683,15 @@ fn main() -> Result<(), String>{
                           }
 
                           ImDrawList_PopClipRect(draw_list);
+
+                          if let Some(id) = hovered_item {
+                              if clicked {
+                                  app.view.selected_object = Some(id);
+                              }
+                              igBeginTooltip();
+                              show_text(&entity_to_string(id, &app.model.inf));
+                              igEndTooltip();
+                          }
 
                       },
                   }
@@ -682,6 +709,8 @@ fn main() -> Result<(), String>{
 
 
                   igEndChild();
+
+
 
                   igEnd();
               }
