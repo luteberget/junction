@@ -10,6 +10,11 @@ impl CommandBuilder {
         menu_stack.push(CommandScreen::Menu(menu));
         CommandBuilder { menu_stack }
     }
+    pub fn new_screen(screen :CommandScreen) -> Self {
+        let mut menu_stack = SmallVec::new();
+        menu_stack.push(screen);
+        CommandBuilder { menu_stack }
+    }
 
     pub fn current_screen(&mut self) -> &mut CommandScreen {
         let l = self.menu_stack.len();

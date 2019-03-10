@@ -9,9 +9,11 @@ mod sdlinput;
 mod app;
 mod command_builder;
 mod schematic;
+mod selection;
 
 use self::app::*;
 use self::command_builder::*;
+use self::selection::*;
 
 pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
   match inf.get(id) {
@@ -436,6 +438,13 @@ fn main() -> Result<(), String>{
                             app.main_menu();
                         }
                     }
+                    if chr == '.' {
+                        if app.view.command_builder.is_none() {
+                            if let Some(screen) = app.context_menu() {
+                                app.view.command_builder = Some(CommandBuilder::new_screen(screen));
+                            }
+                        }
+                    }
                 }
             }
             _ => {},
@@ -595,18 +604,18 @@ fn main() -> Result<(), String>{
                               Some(Entity::Track(_))  => { 
                                   let s = CString::new(format!("Track##{}", i)).unwrap();
                                   if igSelectable(s.as_ptr(),
-                                                  app.view.selected_object == Some(i), 0, v2_0) {
+                                                  app.view.selection == Selection::Object(i), 0, v2_0) {
                                       //println!("SET {}", i);
-                                      app.view.selected_object = Some(i);
+                                      app.view.selection = Selection::Object(i);
                                   }
                               },
                               Some(Entity::Node(p,_))   => { 
                                   let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
                                   if igSelectable(s.as_ptr(), 
                     
-                              app.view.selected_object == Some(i), 0, v2_0) {
+                              app.view.selection == Selection::Object(i), 0, v2_0) {
                                       //println!("SET NODE {}", i);
-                                      app.view.selected_object = Some(i);
+                                      app.view.selection = Selection::Object(i);
                                   }
                               },
                               Some(Entity::Object(_)) => { 
@@ -619,98 +628,98 @@ fn main() -> Result<(), String>{
 
                   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      match &app.view.selected_object {
-                          Some(id) => {
+                      match &app.view.selection {
+                          Selection::Object(id) => {
                               let s = entity_to_string(*id, &app.model.inf);
                               show_text(&s);
                           },
-                          None => {
+                          _ => {
                               igText(const_cstr!("No object selected.").as_ptr());
                           }
                       }
                   }
 
-                  if igButton(const_cstr!("Add track").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      app.integrate(EditorAction::Inf(
-                              InfrastructureEdit::NewTrack(0.0,100.0)));
-                  }
+                  // if igButton(const_cstr!("Add track").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     app.integrate(EditorAction::Inf(
+                  //             InfrastructureEdit::NewTrack(0.0,100.0)));
+                  // }
 
-                  pub fn middle_of_track(model :&Model, obj :Option<EntityId>) -> Option<(EntityId, f32)> {
-                      let id = obj?;
-                      let Track { ref start_node, ref end_node, .. } = model.inf.get_track(id)?;
-                      let (p1,_) = model.inf.get_node(start_node.0)?;
-                      let (p2,_) = model.inf.get_node(end_node.0)?;
-                      Some((id, 0.5*(p1+p2)))
-                  }
+                  // pub fn middle_of_track(model :&Model, obj :Option<EntityId>) -> Option<(EntityId, f32)> {
+                  //     let id = obj?;
+                  //     let Track { ref start_node, ref end_node, .. } = model.inf.get_track(id)?;
+                  //     let (p1,_) = model.inf.get_node(start_node.0)?;
+                  //     let (p2,_) = model.inf.get_node(end_node.0)?;
+                  //     Some((id, 0.5*(p1+p2)))
+                  // }
 
-                  if igButton(const_cstr!("Add up left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                          app.integrate(EditorAction::Inf(
-                                  InfrastructureEdit::InsertNode(
-                                      curr_track, curr_pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
-                      } else {
-                          println!("Track not selected.");
-                      }
-                  }
-                  if igButton(const_cstr!("Add up right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                          app.integrate(EditorAction::Inf(
-                                  InfrastructureEdit::InsertNode(
-                                      curr_track, curr_pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
-                      } else {
-                          println!("Track not selected.");
-                      }
-                  }
-                  if igButton(const_cstr!("Add down left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                          app.integrate(EditorAction::Inf(
-                                  InfrastructureEdit::InsertNode(
-                                      curr_track, curr_pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
-                      } else {
-                          println!("Track not selected.");
-                      }
-                  }
-                  if igButton(const_cstr!("Add down right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                          app.integrate(EditorAction::Inf(
-                                  InfrastructureEdit::InsertNode(
-                                      curr_track, curr_pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
-                      } else {
-                          println!("Track not selected.");
-                      }
-                  }
+                  // if igButton(const_cstr!("Add up left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                  //         app.integrate(EditorAction::Inf(
+                  //                 InfrastructureEdit::InsertNode(
+                  //                     curr_track, curr_pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
+                  //     } else {
+                  //         println!("Track not selected.");
+                  //     }
+                  // }
+                  // if igButton(const_cstr!("Add up right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                  //         app.integrate(EditorAction::Inf(
+                  //                 InfrastructureEdit::InsertNode(
+                  //                     curr_track, curr_pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
+                  //     } else {
+                  //         println!("Track not selected.");
+                  //     }
+                  // }
+                  // if igButton(const_cstr!("Add down left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                  //         app.integrate(EditorAction::Inf(
+                  //                 InfrastructureEdit::InsertNode(
+                  //                     curr_track, curr_pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
+                  //     } else {
+                  //         println!("Track not selected.");
+                  //     }
+                  // }
+                  // if igButton(const_cstr!("Add down right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
+                  //         app.integrate(EditorAction::Inf(
+                  //                 InfrastructureEdit::InsertNode(
+                  //                     curr_track, curr_pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
+                  //     } else {
+                  //         println!("Track not selected.");
+                  //     }
+                  // }
 
-                  if igButton(const_cstr!("Extend track from end node").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  // if igButton(const_cstr!("Extend track from end node").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
 
-                      if let Some(id) = app.view.selected_object {
-                          app.integrate(EditorAction::Inf(
-                                  InfrastructureEdit::ExtendTrack(id, 100.0)));
-                      } else {
-                          println!("No obj selected.");
-                      }
+                  //     if let Some(id) = app.view.selected_object {
+                  //         app.integrate(EditorAction::Inf(
+                  //                 InfrastructureEdit::ExtendTrack(id, 100.0)));
+                  //     } else {
+                  //         println!("No obj selected.");
+                  //     }
 
-                  }
-                  if igButton(const_cstr!("Connect nodes").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  // }
+                  // if igButton(const_cstr!("Connect nodes").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
 
-                      if let Some(id) = app.view.selected_object {
-                          //app.view.command_builder = Some(CommandBuilder::JoinOne(id));
-                      } else {
-                          //app.view.command_builder = Some(CommandBuilder::JoinTwo);
-                      }
+                  //     if let Selection::Object(id) = app.view.selection {
+                  //         //app.view.command_builder = Some(CommandBuilder::JoinOne(id));
+                  //     } else {
+                  //         //app.view.command_builder = Some(CommandBuilder::JoinTwo);
+                  //     }
 
-                  }
+                  // }
 
-                  if igButton(const_cstr!("Load").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      sdl2::messagebox::show_simple_message_box(
-                          sdl2::messagebox::MessageBoxFlag::empty(),
-                          "Load file", "Load file?", canvas.window());
-                  }
-                  if igButton(const_cstr!("Quit").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                      sdl2::messagebox::show_simple_message_box(
-                          sdl2::messagebox::MessageBoxFlag::empty(),
-                          "Quit", "Quit", canvas.window());
-                      break 'running;
-                  }
+                  // if igButton(const_cstr!("Load").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     sdl2::messagebox::show_simple_message_box(
+                  //         sdl2::messagebox::MessageBoxFlag::empty(),
+                  //         "Load file", "Load file?", canvas.window());
+                  // }
+                  // if igButton(const_cstr!("Quit").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
+                  //     sdl2::messagebox::show_simple_message_box(
+                  //         sdl2::messagebox::MessageBoxFlag::empty(),
+                  //         "Quit", "Quit", canvas.window());
+                  //     break 'running;
+                  // }
 
 
 

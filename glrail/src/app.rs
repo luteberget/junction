@@ -1,23 +1,83 @@
-use crate::command_builder::* ;
-
+use crate::command_builder::*;
+use crate::selection::*;
 
 pub struct App {
     pub model : Model,
     pub view : View,
-    pub main_menu : Menu,
 }
 
 impl App {
     pub fn new() -> App {
+        App {
+            model: Model {
+                inf: Infrastructure::new_empty(),
+                routes: vec![],
+                scenarios: vec![],
+                errors: vec![],
+            },
+            view: View {
+                selection: Selection::None,
+                viewport: ((0.0,0.0),10.0),
+                //selected_object: None,
+                hot_route: None,
+                selected_movement: None,
+                selected_dispatch: None,
+                time: 0.0,
+                command_builder: None,
+                show_imgui_demo : false,
+                want_to_quit: false,
+            },
+        }
+    }
 
+    pub fn context_menu(&self) -> Option<CommandScreen> {
+        match self.view.selection {
+            Selection::Object(id) => {
+                match self.model.inf.get(id) {
+                    Some(Entity::Track(_)) => {
+                        Some(CommandScreen::Menu(Menu { choices: vec![
+                            ('p', format!("select mid pos"), |_| None),
+                        ]}))
+                    },
+                    Some(Entity::Node(_,Node::BufferStop)) => {
+                        Some(CommandScreen::Menu(Menu { choices: vec![
+                            ('e', format!("extend end"), |_| None),
+                        ]}))
+                    },
+                    _ => None,
+                }
+            },
+            _ => None,
+        }
+    }
+
+    pub fn main_menu(&mut self) {
         fn close(app :&mut App) -> Option<CommandScreen> { None }
 
        let main_menu = Menu {
            choices: vec![
-               ('c', format!("context"), close ),
+               ('c', format!("context"), |app| { app.context_menu() }),
                ('l', format!("load"),    close ),
                ('s', format!("save"),    close ),
                ('q', format!("quit"),    |app| { app.view.want_to_quit = true; None } ),
+               ('s', format!("selection"), |_| { 
+                   Some(CommandScreen::Menu(Menu { choices: vec![
+                       ('z', format!("none"),      |app| { app.view.selection = Selection::None; None }),
+                       ('o', format!("object"),    |app| { app.view.selection = Selection::None; None }),
+                       ('p', format!("pos"),       |app| { app.view.selection = Selection::None; None }),
+                       ('r', format!("pos range"), |app| { app.view.selection = Selection::None; None }),
+                       ('l', format!("path"),      |app| { app.view.selection = Selection::None; None }),
+                       ('a', format!("area"),      |app| { app.view.selection = Selection::None; None }),
+                   ]}))
+               }),
+
+               ('v', format!("view"), |_| { 
+                   Some(CommandScreen::Menu(Menu { choices: vec![
+                       ('a', format!("all"),       |app| { None }),
+                       ('s', format!("selection"), |app| { None }),
+                   ]}))
+               }),
+
                ('o', format!("options"), |_| {
                    Some(CommandScreen::Menu(Menu { choices: vec![
                        ('d', format!("imgui debug window"), |app| { 
@@ -27,39 +87,7 @@ impl App {
                }),
            ]
        };
-
-        App {
-            model: Model {
-                inf: Infrastructure::new_empty(),
-                routes: vec![],
-                scenarios: vec![],
-                errors: vec![],
-            },
-            view: View {
-                viewport: ((0.0,0.0),10.0),
-                selected_object: None,
-                hot_route: None,
-                selected_movement: None,
-                selected_dispatch: None,
-                time: 0.0,
-                command_builder: None,
-                show_imgui_demo : false,
-                want_to_quit: false,
-            },
-            main_menu : main_menu,
-        }
-    }
-
-    pub fn context_menu(&self) -> CommandScreen {
-        // If track selected, open track edit menu
-        // if node selected, open node edit menu, etc.
-        //
-        // Maybe also another menu for Pos selection, Path selection, Route selection.
-
-    }
-
-    pub fn main_menu(&mut self) {
-        self.view.command_builder = Some(CommandBuilder::new_menu(self.main_menu.clone()));
+        self.view.command_builder = Some(CommandBuilder::new_menu(main_menu));
         if self.model.inf.entities.len() == 0 {
             if let CommandScreen::Menu(Menu { choices }) = self.view.command_builder.as_mut().unwrap().current_screen() {
                 choices.push(('a', format!("add track"), |app| {
@@ -73,7 +101,8 @@ impl App {
     pub fn clicked_object(&mut self, id :EntityId) {
         if let Some(cb) = &mut self.view.command_builder {
         } else {
-            self.view.selected_object = Some(id);
+            // todo check if we are in pos selection mode.
+            self.view.selection = Selection::Object(id);
         }
     }
 
@@ -208,7 +237,8 @@ impl App {
 
 pub struct View {
     pub viewport : ((f64,f64),f64),
-    pub selected_object : Option<usize>,
+    pub selection :Selection,
+    //pub selected_object : Option<usize>,
     pub hot_route :Option<usize>,
     pub selected_movement :Option<usize>,
     pub selected_dispatch :Option<usize>,
@@ -217,12 +247,6 @@ pub struct View {
     pub show_imgui_demo: bool,
     pub want_to_quit: bool,
 }
-
-//pub enum CommandBuilder {
-//    MainMenu,
-//    JoinTwo,
-//    JoinOne(EntityId),
-//}
 
 pub struct Model {
     pub inf :Infrastructure,
