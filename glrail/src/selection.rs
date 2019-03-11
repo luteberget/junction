@@ -1,6 +1,6 @@
 use crate::app::*;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum Selection {
     None,
     Object(EntityId),

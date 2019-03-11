@@ -1,5 +1,6 @@
 use crate::command_builder::*;
 use crate::selection::*;
+use ordered_float::OrderedFloat;
 
 pub struct App {
     pub model : Model,
@@ -36,7 +37,16 @@ impl App {
                 match self.model.inf.get(id) {
                     Some(Entity::Track(_)) => {
                         Some(CommandScreen::Menu(Menu { choices: vec![
-                            ('p', format!("select mid pos"), |_| None),
+                            ('p', format!("select mid pos"), |app| {
+                                if let Selection::Object(id) = &app.view.selection { 
+                                    if let Some(Track { start_node, end_node, .. }) = app.model.inf.get_track(*id) {
+                                        let (n1_pos,_) = app.model.inf.get_node(start_node.0).unwrap();
+                                        let (n2_pos,_) = app.model.inf.get_node(end_node.0).unwrap();
+                                        app.select_pos(0.5*(n1_pos + n2_pos), *id);
+                                    }
+                                }
+                                None
+                            }),
                         ]}))
                     },
                     Some(Entity::Node(_,Node::BufferStop)) => {
@@ -104,6 +114,12 @@ impl App {
             // todo check if we are in pos selection mode.
             self.view.selection = Selection::Object(id);
         }
+    }
+
+    pub fn select_pos(&mut self, pos :f32, obj :EntityId) {
+        let y = 0.0;
+        self.view.selection = Selection::Pos(pos, y, obj );
+        //println!("select pos {:?}", self.view.selection);
     }
 
     pub fn update(&mut self) {
@@ -322,7 +338,7 @@ impl Infrastructure {
 
         Infrastructure {
             entities: vec![],
-            schematic: Derive::Ok(Schematic { lines: HashMap::new(), points: HashMap::new() }),
+            schematic: Derive::Ok(Schematic { lines: HashMap::new(), points: HashMap::new(), pos_map: vec![] }),
             jobs: jobs_tx,
             results: results_rx,
         }
@@ -429,6 +445,25 @@ pub type PLine = Vec<Pt>;
 pub struct Schematic {
     pub lines :Map<EntityId, PLine>,
     pub points: Map<EntityId, Pt>,
+    pub pos_map: Vec<(f32, EntityId, f32)>,
+}
+
+impl Schematic {
+    pub fn find_pos(&self, pos :f32) -> Option<f32> {
+        match self.pos_map.binary_search_by_key(&OrderedFloat(pos), |&(x,_,p)| OrderedFloat(p)) {
+            Ok(i) => Some(self.pos_map[i].2),
+            Err(i) => {
+                if i < 0 || i > self.pos_map.len()-1 {
+                    return None;
+                }
+                let prev = self.pos_map[i-1];
+                let next = self.pos_map[i];
+
+                // lerp prev->next by pos
+                Some(prev.0 + (next.0-prev.0)*(pos - prev.2)/(next.2 - prev.2))
+            },
+        }
+    }
 }
 
 pub struct Route {

@@ -1,5 +1,6 @@
 use crate::app::{Entity, Track, Node, Object, Pos, Dir, Side,Schematic, Port};
 use std::collections::HashMap;
+use ordered_float::OrderedFloat;
 
 // This file should encapsulate railplotlib, it is to be
 // the only interface to railplotlib in glrail.
@@ -163,12 +164,16 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     let mut output = Schematic {
         lines: HashMap::new(),
         points: HashMap::new(),
+        pos_map: Vec::new(),
     };
 
     for (ni,(n,pt)) in sol.nodes.iter().enumerate() {
         let id = node_idxs[ni];
         output.points.insert(id, (pt.0 as _, pt.1 as _));
+        output.pos_map.push((pt.0 as _ /* x value */, id, n.pos as _ ));
     }
+
+    output.pos_map.sort_by_key(|x| OrderedFloat(x.0));
 
     for (ei,(e,pline)) in sol.lines.iter().enumerate() {
         let id = track_idxs[ei];

@@ -500,6 +500,7 @@ fn main() -> Result<(), String>{
     let mut issues_size :f32 = 200.0;
     let canvas_bg = 60 + (60<<8) + (60<<16) + (255<<24);
     let line_col  = 208 + (208<<8) + (175<<16) + (255<<24);
+    let selected_col  = 175 + (175<<8) + (255<<16) + (255<<24);
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i :i64 = 0;
@@ -554,6 +555,10 @@ fn main() -> Result<(), String>{
 
               // Check for updates from all background threads
               app.update();
+
+              //if let Derive::Ok(Schematic { pos_map, .. }) = &app.model.inf.schematic {
+              //    println!("pos_map:  {:?}", pos_map);
+              //}
 
               unsafe {
                   if app.view.show_imgui_demo {
@@ -801,9 +806,12 @@ fn main() -> Result<(), String>{
 
                           ImDrawList_PushClipRect(draw_list, canvas_pos, canvas_lower, true);
 
+                          let mut lowest = std::f32::INFINITY;
+
                           for (k,v) in &s.lines {
                               //println!("{:?}, {:?}", k,v);
                               let mut hovered = false;
+                              let selected = if let Selection::Object(id) = &app.view.selection { id == k } else { false };
                               for i in 0..(v.len()-1) {
                                   let p1 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i]);
                                   let p2 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i+1]);
@@ -812,7 +820,10 @@ fn main() -> Result<(), String>{
                                       hovered_item = Some(*k);
                                   }
                                   ImDrawList_AddLine(draw_list, p1, p2, 
-                                                     if hovered { line_hover_col } else { line_col }, 2.0);
+                                                     if selected { selected_col }
+                                                     else if hovered { line_hover_col } else { line_col }, 2.0);
+                                  lowest = lowest.min(v[i].1);
+                                  lowest = lowest.min(v[i+1].1);
                               }
                           }
                           for (k,v) in &s.points {
@@ -822,12 +833,47 @@ fn main() -> Result<(), String>{
                               let br = ImVec2 { x: p.x + caret_right_halfsize.x, 
                                                  y: p.y + caret_right_halfsize.y };
 
+                              lowest = lowest.min(v.1);
+                              let selected = if let Selection::Object(id) = &app.view.selection { id == k } else { false };
                               let hover = igIsMouseHoveringRect(tl,br,false);
                               ImDrawList_AddText(draw_list, tl, 
-                                                 if hover { line_hover_col } else { line_col }, 
+                                                 if selected { selected_col } 
+                                                 else if hover { line_hover_col } else { line_col }, 
                                                  caret_right.as_ptr(), ptr::null());
                               if hover {
                                   hovered_item = Some(*k);
+                              }
+                          }
+
+                          let (mut last_x,mut line_no) = (None,0);
+                          for (x,_id,pos) in &s.pos_map {
+                              let x = *x;
+                              // TODO use line_no to calculate number of text heights to lower
+                              //println!("{:?}", lowest);
+                              ImDrawList_AddLine(draw_list,
+                                                 world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5)),
+                                                 world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5 - (line_no+1) as f32)),
+                                                 line_col, 1.0);
+                              if Some(x) == last_x {
+                                  line_no += 1;
+                              } else {
+                                  line_no = 0;
+                              }
+                              let s = CString::new(format!(" {}", pos)).unwrap();
+                              ImDrawList_AddText(draw_list, 
+                                                 world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5 - (line_no) as f32)),
+                                                 line_col,
+                                                 s.as_ptr(), ptr::null());
+                              last_x = Some(x);
+                          }
+
+                          if let Selection::Pos(pos, y, id) = &app.view.selection {
+                              if let Some(x) = s.find_pos(*pos) {
+                                  //println!("Drawing at {:?} {:?}", x, y);
+                                ImDrawList_AddLine(draw_list, 
+                                   world2screen(canvas_pos, canvas_lower, center, zoom, (x, y - 0.25)),
+                                   world2screen(canvas_pos, canvas_lower, center, zoom, (x, y + 0.25)),
+                                   selected_col, 2.0);
                               }
                           }
 
