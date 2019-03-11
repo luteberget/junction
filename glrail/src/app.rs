@@ -19,7 +19,6 @@ impl App {
             view: View {
                 selection: Selection::None,
                 viewport: ((0.0,0.0),10.0),
-                //selected_object: None,
                 hot_route: None,
                 selected_movement: None,
                 selected_dispatch: None,
@@ -30,6 +29,15 @@ impl App {
             },
         }
     }
+
+    pub fn middle_of_track(&self, obj :Option<EntityId>) -> Option<(EntityId, f32)> {
+        let id = obj?;
+        let Track { ref start_node, ref end_node, .. } = self.model.inf.get_track(id)?;
+        let (p1,_) = self.model.inf.get_node(start_node.0)?;
+        let (p2,_) = self.model.inf.get_node(end_node.0)?;
+        Some((id, 0.5*(p1+p2)))
+    }
+
 
     pub fn context_menu(&self) -> Option<CommandScreen> {
         match self.view.selection {
@@ -57,6 +65,42 @@ impl App {
                     _ => None,
                 }
             },
+            Selection::Pos(pos,y,id) => {
+                Some(CommandScreen::Menu(Menu { choices: vec![
+                    ('k', format!("out left sw"), |app| { 
+                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
+                        if let Some((curr_track, curr_pos)) = app.middle_of_track( id) {
+                        app.integrate(EditorAction::Inf(
+                            InfrastructureEdit::InsertNode(
+                            curr_track, curr_pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
+                        }
+                        None }),
+                    ('K', format!("in right sw"), |app| { 
+                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
+                        if let Some((curr_track, curr_pos)) = app.middle_of_track(id) {
+                        app.integrate(EditorAction::Inf(
+                            InfrastructureEdit::InsertNode(
+                            curr_track, curr_pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
+                        }
+                        None }),
+                    ('j', format!("out right sw"), |app| { 
+                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
+                        if let Some((curr_track, curr_pos)) = app.middle_of_track(id) {
+                        app.integrate(EditorAction::Inf(
+                            InfrastructureEdit::InsertNode(
+                            curr_track, curr_pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
+                        }
+                        None }),
+                    ('J', format!("in left sw"), |app| { 
+                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
+                        if let Some((curr_track, curr_pos)) = app.middle_of_track(id) {
+                        app.integrate(EditorAction::Inf(
+                            InfrastructureEdit::InsertNode(
+                            curr_track, curr_pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
+                        }
+                        None }),
+                ]}))
+            }
             _ => None,
         }
     }
