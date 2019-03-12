@@ -57,9 +57,40 @@ impl App {
                             }),
                         ]}))
                     },
-                    Some(Entity::Node(_,Node::BufferStop)) => {
+                    Some(Entity::Node(_,Node::BufferStop)) | Some(Entity::Node(_, Node::Macro(_))) => {
                         Some(CommandScreen::Menu(Menu { choices: vec![
-                            ('e', format!("extend end"), |_| None),
+                            ('e', format!("extend end"), |app| {
+                                let mut arguments = ArgumentListBuilder::new();
+                                if let Selection::Object(id) = &app.view.selection {
+                                    arguments.add_id_value("node", *id);
+                                } else {
+                                    arguments.add_id("node");
+                                }
+                                arguments.add_float_default("length", 50.0);
+                                arguments.set_action(|app :&mut App,args :&ArgumentListBuilder| {
+                                    let id = *args.get_id("node").unwrap();
+                                    let l  = *args.get_float("length").unwrap();
+                                    app.integrate(EditorAction::Inf(
+                                            InfrastructureEdit::ExtendTrack(id, l)));
+                                });
+                                Some(CommandScreen::ArgumentList(arguments))
+                            }),
+                            ('j', format!("join with node"), |app| {
+                                let mut arguments = ArgumentListBuilder::new();
+                                if let Selection::Object(id) = &app.view.selection {
+                                    arguments.add_id_value("node1",*id);
+                                } else {
+                                    arguments.add_id("node1");
+                                }
+                                arguments.add_id("node2");
+                                arguments.set_action(|app :&mut App, args :&ArgumentListBuilder| {
+                                    let n1 = *args.get_id("node1").unwrap();
+                                    let n2 = *args.get_id("node2").unwrap();
+                                    app.integrate(EditorAction::Inf(
+                                            InfrastructureEdit::JoinNodes(n1, n2)));
+                                });
+                                Some(CommandScreen::ArgumentList(arguments))
+                            }),
                         ]}))
                     },
                     _ => None,
@@ -68,35 +99,31 @@ impl App {
             Selection::Pos(pos,y,id) => {
                 Some(CommandScreen::Menu(Menu { choices: vec![
                     ('k', format!("out left sw"), |app| { 
-                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
-                        if let Some((curr_track, curr_pos)) = app.middle_of_track( id) {
+                        if let Selection::Pos(pos,_,track_id) = &app.view.selection {
                         app.integrate(EditorAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            curr_track, curr_pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
                         }
                         None }),
                     ('K', format!("in right sw"), |app| { 
-                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
-                        if let Some((curr_track, curr_pos)) = app.middle_of_track(id) {
+                        if let Selection::Pos(pos,_,track_id) = &app.view.selection {
                         app.integrate(EditorAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            curr_track, curr_pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
                         }
                         None }),
                     ('j', format!("out right sw"), |app| { 
-                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
-                        if let Some((curr_track, curr_pos)) = app.middle_of_track(id) {
+                        if let Selection::Pos(pos,_,track_id) = &app.view.selection {
                         app.integrate(EditorAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            curr_track, curr_pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
                         }
                         None }),
                     ('J', format!("in left sw"), |app| { 
-                        let id = if let Selection::Object(id) = &app.view.selection { Some(*id) } else {None };
-                        if let Some((curr_track, curr_pos)) = app.middle_of_track(id) {
+                        if let Selection::Pos(pos,_,track_id) = &app.view.selection {
                         app.integrate(EditorAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            curr_track, curr_pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
                         }
                         None }),
                 ]}))
@@ -154,6 +181,16 @@ impl App {
 
     pub fn clicked_object(&mut self, id :EntityId) {
         if let Some(cb) = &mut self.view.command_builder {
+            if let CommandScreen::ArgumentList(ref mut alb) = cb.current_screen() {
+                for (n,s,a) in &mut alb.arguments {
+                    if let Arg::Id(ref mut optid) = a {
+                        if let ArgStatus::NotDone = s {
+                            *optid = Some(id);
+                            break;
+                        }
+                    }
+                }
+            }
         } else {
             // todo check if we are in pos selection mode.
             self.view.selection = Selection::Object(id);
@@ -233,7 +270,10 @@ impl App {
                                 }));
                             },
                             _ => unimplemented!()
-                        }
+                        };
+
+                        self.view.selection = Selection::Object(new);
+
                     },
                     InfrastructureEdit::JoinNodes(n1,n2) => {
                         let inf = &mut self.model.inf;
@@ -497,7 +537,7 @@ impl Schematic {
         match self.pos_map.binary_search_by_key(&OrderedFloat(pos), |&(x,_,p)| OrderedFloat(p)) {
             Ok(i) => Some(self.pos_map[i].2),
             Err(i) => {
-                if i < 0 || i > self.pos_map.len()-1 {
+                if i <= 0 || i >= self.pos_map.len() {
                     return None;
                 }
                 let prev = self.pos_map[i-1];

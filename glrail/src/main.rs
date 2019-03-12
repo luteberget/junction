@@ -644,89 +644,6 @@ fn main() -> Result<(), String>{
                       }
                   }
 
-                  // if igButton(const_cstr!("Add track").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     app.integrate(EditorAction::Inf(
-                  //             InfrastructureEdit::NewTrack(0.0,100.0)));
-                  // }
-
-                  // pub fn middle_of_track(model :&Model, obj :Option<EntityId>) -> Option<(EntityId, f32)> {
-                  //     let id = obj?;
-                  //     let Track { ref start_node, ref end_node, .. } = model.inf.get_track(id)?;
-                  //     let (p1,_) = model.inf.get_node(start_node.0)?;
-                  //     let (p2,_) = model.inf.get_node(end_node.0)?;
-                  //     Some((id, 0.5*(p1+p2)))
-                  // }
-
-                  // if igButton(const_cstr!("Add up left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                  //         app.integrate(EditorAction::Inf(
-                  //                 InfrastructureEdit::InsertNode(
-                  //                     curr_track, curr_pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
-                  //     } else {
-                  //         println!("Track not selected.");
-                  //     }
-                  // }
-                  // if igButton(const_cstr!("Add up right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                  //         app.integrate(EditorAction::Inf(
-                  //                 InfrastructureEdit::InsertNode(
-                  //                     curr_track, curr_pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
-                  //     } else {
-                  //         println!("Track not selected.");
-                  //     }
-                  // }
-                  // if igButton(const_cstr!("Add down left switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                  //         app.integrate(EditorAction::Inf(
-                  //                 InfrastructureEdit::InsertNode(
-                  //                     curr_track, curr_pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
-                  //     } else {
-                  //         println!("Track not selected.");
-                  //     }
-                  // }
-                  // if igButton(const_cstr!("Add down right switch").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     if let Some((curr_track, curr_pos)) = middle_of_track(&app.model, app.view.selected_object) {
-                  //         app.integrate(EditorAction::Inf(
-                  //                 InfrastructureEdit::InsertNode(
-                  //                     curr_track, curr_pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
-                  //     } else {
-                  //         println!("Track not selected.");
-                  //     }
-                  // }
-
-                  // if igButton(const_cstr!("Extend track from end node").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-
-                  //     if let Some(id) = app.view.selected_object {
-                  //         app.integrate(EditorAction::Inf(
-                  //                 InfrastructureEdit::ExtendTrack(id, 100.0)));
-                  //     } else {
-                  //         println!("No obj selected.");
-                  //     }
-
-                  // }
-                  // if igButton(const_cstr!("Connect nodes").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-
-                  //     if let Selection::Object(id) = app.view.selection {
-                  //         //app.view.command_builder = Some(CommandBuilder::JoinOne(id));
-                  //     } else {
-                  //         //app.view.command_builder = Some(CommandBuilder::JoinTwo);
-                  //     }
-
-                  // }
-
-                  // if igButton(const_cstr!("Load").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     sdl2::messagebox::show_simple_message_box(
-                  //         sdl2::messagebox::MessageBoxFlag::empty(),
-                  //         "Load file", "Load file?", canvas.window());
-                  // }
-                  // if igButton(const_cstr!("Quit").as_ptr(), ImVec2 {x:  0.0, y: 0.0 }) {
-                  //     sdl2::messagebox::show_simple_message_box(
-                  //         sdl2::messagebox::MessageBoxFlag::empty(),
-                  //         "Quit", "Quit", canvas.window());
-                  //     break 'running;
-                  // }
-
-
 
                   if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
@@ -759,7 +676,7 @@ fn main() -> Result<(), String>{
                   capture_canvas_key = igIsWindowFocused(0);
 
                   let draw_list = igGetWindowDrawList();
-                  igText(const_cstr!("Here is the canvas:").as_ptr());
+                  //igText(const_cstr!("Here is the canvas:").as_ptr());
 
                   match &app.model.inf.schematic {
                       Derive::Wait => {
@@ -909,38 +826,42 @@ fn main() -> Result<(), String>{
 
 
 
+                  let mut overlay_start = || {
+                      igSetNextWindowBgAlpha(0.75);
+                      igSetNextWindowPos(ImVec2 { x: sidebar_size, y: 0.0 },
+                      //igSetNextWindowPos((*viewport).Pos, 
+                         ImGuiCond__ImGuiCond_Always as _, v2_0);
+                      igPushStyleColor(ImGuiCol__ImGuiCol_TitleBgActive as _, 
+                                     ImVec4 { x: 1.0, y: 0.65, z: 0.7, w: 1.0 });
+                      igBegin(const_cstr!("Command").as_ptr(), ptr::null_mut(),
+                        (ImGuiWindowFlags__ImGuiWindowFlags_AlwaysAutoResize | 
+                        ImGuiWindowFlags__ImGuiWindowFlags_NoMove | 
+                        ImGuiWindowFlags__ImGuiWindowFlags_NoResize) as _
+                        );
+
+                      capture_command_key = igIsWindowFocused(0);
+                  };
+                      
+                  let overlay_end = || {
+                      igEnd();
+                      igPopStyleColor(1);
+                  };
                   
                   // Overlay command builder
                   let mut new_screen_func = None;
+                  let mut alb_execute = false;
+                  let mut alb_cancel = false;
                   if let Some(ref mut command_builder) = &mut app.view.command_builder {
                       match command_builder.current_screen() {
                           CommandScreen::Menu(Menu { choices }) => {
                               // Draw menu
                               //
-
-                              igSetNextWindowBgAlpha(0.75);
-                              igSetNextWindowPos(ImVec2 { x: sidebar_size, y: 0.0 },
-                              //igSetNextWindowPos((*viewport).Pos, 
-                                 ImGuiCond__ImGuiCond_Always as _, v2_0);
-                              igPushStyleColor(ImGuiCol__ImGuiCol_TitleBgActive as _, 
-                                             ImVec4 { x: 1.0, y: 0.65, z: 0.7, w: 1.0 });
-                              igBegin(const_cstr!("Command").as_ptr(), ptr::null_mut(),
-                                (ImGuiWindowFlags__ImGuiWindowFlags_AlwaysAutoResize | 
-                                ImGuiWindowFlags__ImGuiWindowFlags_NoMove | 
-                                ImGuiWindowFlags__ImGuiWindowFlags_NoResize) as _
-                                );
-
-                              capture_command_key = igIsWindowFocused(0);
+                              overlay_start();
 
                               for (i,c) in choices.iter().enumerate() {
                                 igPushIDInt(i as _);
                                   if igSelectable(const_cstr!("##mnuitm").as_ptr(), false, 0, v2_0) {
                                       new_screen_func = Some(c.2);
-                                      //let new_screen = (c.2)(&mut app);
-                                      //match new_screen {
-                                      //    None => *command_builder = None,
-                                      //    Some(s) => command_builder.push_screen(s),
-                                      //}
                                   }
 
                                   igSameLine(0.0, -1.0);
@@ -954,8 +875,59 @@ fn main() -> Result<(), String>{
                                 igPopID();
                               }
 
-                              igEnd();
-                              igPopStyleColor(1);
+                              overlay_end();
+
+                          },
+                          CommandScreen::ArgumentList(alb) => {
+                              overlay_start();
+                              for (i,(name, status, arg)) in alb.arguments.iter_mut().enumerate() {
+                                  igPushIDInt(i as _);
+
+                                  let s = CString::new(name.as_str()).unwrap();
+                                  match status {
+                                      ArgStatus::Done => {
+                                          let c = ImVec4 { x: 0.55, y: 0.55, z: 0.80, w: 1.0 };
+                                          igTextColored(c, s.as_ptr());
+                                          igSameLine(0.0,-1.0);
+                                          match arg {
+                                              Arg::Id(Some(x)) => {
+                                                  show_text(&format!("obj:{}", x));
+                                              },
+                                              Arg::Float(val) => {
+                                                  show_text(&format!("{}", val));
+                                              },
+                                              _ => { panic!(); },
+                                          }
+                                      },
+                                      ArgStatus::NotDone => {
+                                          let c = ImVec4 { x: 0.95, y: 0.5,  z: 0.55, w: 1.0 };
+                                          igTextColored(c, s.as_ptr());
+                                          igSameLine(0.0,-1.0);
+                                          match arg {
+                                              Arg::Id(x) => {
+                                                  show_text(&format!("obj:{:?}", x));
+                                              },
+                                              Arg::Float(ref mut val) => {
+                                                igInputFloat(const_cstr!("##num").as_ptr(), 
+                                                             val as *mut _, 0.0, 1.0, 
+                                                             const_cstr!("%g").as_ptr(), 0);
+                                              },
+                                          }
+                                      },
+                                  };
+
+                                  igPopID();
+                              }
+
+                              if igButton(const_cstr!("\u{f04b} Execute").as_ptr(), v2_0) {
+                                  alb_execute = true;
+                              }
+
+                              igSameLine(0.0,-1.0);
+                              if igButton(const_cstr!("\u{f05e} Cancel").as_ptr(), v2_0) {
+                                  alb_cancel = true;
+                              }
+                              overlay_end();
                           },
                           _ => {},
                       }
@@ -969,6 +941,18 @@ fn main() -> Result<(), String>{
                       } else {
                           app.view.command_builder = None;
                       }
+                  }
+
+                  if alb_execute {
+                      use std::mem;
+                      let cb = mem::replace(&mut app.view.command_builder, None);
+                      if let Some(cb) = cb {
+                          cb.execute(&mut app);
+                      }
+                  }
+
+                  if alb_cancel {
+                      app.view.command_builder = None;
                   }
 
               }
