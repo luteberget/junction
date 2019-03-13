@@ -4,6 +4,7 @@ use std::path::PathBuf;
 fn main() {
     cc::Build::new()
         .cpp(true)
+        .flag("-std=c++11")
         .file("lib/cimgui.cpp")
         .file("lib/imgui.cpp")
         .file("lib/imgui_demo.cpp")

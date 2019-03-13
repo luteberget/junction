@@ -7,7 +7,8 @@ edition = "2018"
 [dependencies]
 imgui-sys-bindgen = { path = "../imgui-sys-bindgen" }
 imgui-sys-opengl = { path = "../imgui-sys-opengl" }
-sdl2 = "*"
+# sdl2 = { version = "*", features = ["bundled","static-link"] }
+sdl2 = { version = "*" }
 gl = "*"
 const-cstr="*"
 railplotlib = { path = "../../railplot/lib/railplotlib" }
@@ -16,3 +17,6 @@ simple-logging="*"
 serde_json="*"
 smallvec = "0.6"
 ordered-float = "*"
+
+[profile.release]
+lto = true

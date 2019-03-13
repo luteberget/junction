@@ -365,8 +365,6 @@ fn main() -> Result<(), String>{
     gui_init();
     let io = unsafe { imgui_sys_bindgen::sys::igGetIO() };
 
-
-
     unsafe {
             use imgui_sys_bindgen::sys::*;
         //    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
@@ -397,9 +395,12 @@ fn main() -> Result<(), String>{
         //    ImFontAtlas_Build((*io).Fonts);
 
         
+        igStyleColorsLight(ptr::null_mut());
         ImFontAtlas_AddFontFromFileTTF((*io).Fonts, 
-               const_cstr!("DejaVuSansMono.ttf").as_ptr(),
+        //       //const_cstr!("DejaVuSansMono.ttf").as_ptr(),
+               const_cstr!("Roboto-Medium.ttf").as_ptr(),
                16.0, ptr::null(), ptr::null());
+        //ImFontAtlas_AddFontDefault((*io).Fonts, ptr::null());
 
         let config = ImFontConfig_ImFontConfig();
         (*config).MergeMode = true;
@@ -410,7 +411,7 @@ fn main() -> Result<(), String>{
 
         ImFontAtlas_AddFontFromFileTTF((*io).Fonts,
             const_cstr!("fa-solid-900.ttf").as_ptr(),
-            16.0,  config, &ranges as _ );
+            14.0,  config, &ranges as _ );
 
         ImFontAtlas_Build((*io).Fonts);
     }
@@ -530,6 +531,9 @@ fn main() -> Result<(), String>{
         use imgui_sys_bindgen::sys::*;
         //(*imgui_sys_bindgen::sys::igGetIO()).IniFilename = ptr::null_mut();
         (*igGetIO()).ConfigFlags |= ImGuiConfigFlags__ImGuiConfigFlags_NavEnableKeyboard as i32;
+
+        //igMayaStyle();
+        //CherryTheme();
     }
 
     let mut user_data = serde_json::json!({});
