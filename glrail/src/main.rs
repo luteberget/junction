@@ -429,7 +429,8 @@ fn main() -> Result<(), String>{
         if let &Event::Quit { .. } = ev { true } else { false }
     }
 
-    fn app_event(ev :&Event, app :&mut App, command_input :bool) {
+    fn app_event(ev :&Event, app :&mut App, command_input :bool, canvas_input :bool) {
+        //println!("app event {:?}");
         match ev {
             Event::TextInput { ref text, .. } => {
                 for chr in text.chars() {
@@ -448,6 +449,48 @@ fn main() -> Result<(), String>{
                 }
             }
             _ => {},
+        }
+        if canvas_input {
+            use sdl2::keyboard::{Keycode, Mod};
+            let ctrl_mod = Mod::LCTRLMOD | Mod::RCTRLMOD;
+            let shift_mod = Mod::LSHIFTMOD | Mod::RSHIFTMOD;
+            match ev {
+                Event::KeyDown { keycode: Some(ref keycode), keymod, .. } => {
+                    println!("canvas {:?}", keycode);
+                    match keycode {
+                        Keycode::Left | Keycode::H => {
+                            if keymod.intersects(ctrl_mod) {
+                                app.move_view(InputDir::Left);
+                            } else {
+                                app.move_selection(InputDir::Left);
+                            }
+                        },
+                        Keycode::Right | Keycode::L => {
+                            if keymod.intersects(ctrl_mod) {
+                                app.move_view(InputDir::Right);
+                            } else {
+                                app.move_selection(InputDir::Right);
+                            }
+                        },
+                        Keycode::Up | Keycode::K => {
+                            if keymod.intersects(ctrl_mod) {
+                                app.move_view(InputDir::Up);
+                            } else {
+                                app.move_selection(InputDir::Up);
+                            }
+                        },
+                        Keycode::Down | Keycode::J => {
+                            if keymod.intersects(ctrl_mod) {
+                                app.move_view(InputDir::Down);
+                            } else {
+                                app.move_selection(InputDir::Down);
+                            }
+                        },
+                        _ => {},
+                    }
+                },
+                _ => {},
+            }
         }
 
         if command_input {
@@ -514,20 +557,20 @@ fn main() -> Result<(), String>{
               imgui_sdl.handle_event(&event);
               if exit_on(&event) { break 'running; }
               if not_mousemotion(&event) { render = true; }
-              app_event(&event, &mut app, capture_command_key);
+              app_event(&event, &mut app, capture_command_key, capture_canvas_key);
 
               for event2 in event_pump.poll_iter() {
                   imgui_sdl.handle_event(&event2);
                   if exit_on(&event2) { break 'running; }
                   if not_mousemotion(&event2) { render = true; }
-                  app_event(&event2, &mut app, capture_command_key);
+                  app_event(&event2, &mut app, capture_command_key, capture_canvas_key);
               }
 
             for _ in 1..=3 {
               for event2 in event_pump.poll_iter() {
                   imgui_sdl.handle_event(&event2);
                   if exit_on(&event2) { break 'running; }
-                  app_event(&event2, &mut app, capture_command_key);
+                  app_event(&event2, &mut app, capture_command_key, capture_canvas_key);
               }
 
               let c = sdl2::pixels::Color::RGB(15,15,15);

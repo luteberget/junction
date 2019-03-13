@@ -2,6 +2,10 @@ use crate::command_builder::*;
 use crate::selection::*;
 use ordered_float::OrderedFloat;
 
+pub enum InputDir {
+    Up, Down, Left, Right
+}
+
 pub struct App {
     pub model : Model,
     pub view : View,
@@ -27,6 +31,63 @@ impl App {
                 show_imgui_demo : false,
                 want_to_quit: false,
             },
+        }
+    }
+
+    pub fn move_view(&mut self, inputdir: InputDir) {
+        match inputdir {
+            InputDir::Left => (self.view.viewport.0).0 -= 0.15*self.view.viewport.1,
+            InputDir::Right => (self.view.viewport.0).0 += 0.15*self.view.viewport.1,
+            InputDir::Up => (self.view.viewport.0).1 += 0.15*self.view.viewport.1,
+            InputDir::Down => (self.view.viewport.0).1 -= 0.15*self.view.viewport.1,
+        }
+    }
+
+    pub fn include_in_view(&mut self, pt: (f32,f32))  {
+        unimplemented!()
+    }
+    pub fn entity_location(&self, obj :EntityId) -> (f32,f32) {
+        unimplemented!()
+    }
+
+    pub fn move_selection(&mut self, inputdir: InputDir) {
+        println!("move selection");
+        match &self.view.selection {
+            Selection::None => { 
+                if let Some(id) = self.model.inf.any_object() {
+                    self.view.selection = Selection::Object(id);
+                    self.include_in_view(self.entity_location(id));
+                }
+        println!("move selection: none");
+            },
+            Selection::Object(i) => {
+                //if let Some(Some(Entity::Node(_, n))) = self.model.inf.entities.get(*i) {
+                //    for p in app.model.inf.node_ports(i) {
+                //        match (n,p) {
+                //            (Node::BufferStop, Port::Out) => {
+                //                // ...
+                //            },
+                //        }
+                //    }
+                //}
+            },
+            Selection::Pos(pos, y, track_id) => {
+        println!("move selection: pos");
+                if let Some(Some(Entity::Track(Track { start_node, end_node, ..}))) = self.model.inf.entities.get(*track_id) {
+                    match inputdir {
+                        InputDir::Right => { 
+                            self.view.selection = Selection::Object(end_node.0);
+                            self.include_in_view(self.entity_location(end_node.0));
+                        },
+                        InputDir::Left => { 
+                            self.view.selection = Selection::Object(start_node.0);
+                            self.include_in_view(self.entity_location(start_node.0));
+                        },
+                        _ => {},
+                    }
+                }
+            },
+            _ => { unimplemented!() },
         }
     }
 
@@ -144,8 +205,16 @@ impl App {
                ('s', format!("selection"), |_| { 
                    Some(CommandScreen::Menu(Menu { choices: vec![
                        ('z', format!("none"),      |app| { app.view.selection = Selection::None; None }),
-                       ('o', format!("object"),    |app| { app.view.selection = Selection::None; None }),
-                       ('p', format!("pos"),       |app| { app.view.selection = Selection::None; None }),
+                       ('o', format!("object"),    |app| { 
+                           if let Some(id) = app.model.inf.any_object() {
+                               app.view.selection = Selection::Object(id);
+                           }
+                           None 
+                       }),
+                       ('p', format!("pos"),       |app| { 
+                           app.view.selection = Selection::None; 
+                           None 
+                       }),
                        ('r', format!("pos range"), |app| { app.view.selection = Selection::None; None }),
                        ('l', format!("path"),      |app| { app.view.selection = Selection::None; None }),
                        ('a', format!("area"),      |app| { app.view.selection = Selection::None; None }),
@@ -370,6 +439,15 @@ pub struct Infrastructure {
 }
 
 impl Infrastructure {
+    pub fn any_object(&self) -> Option<EntityId> {
+        for (i,x) in self.entities.iter().enumerate() {
+            if x.is_some() { 
+                return Some(i);
+            }
+        }
+        None
+    }
+
     pub fn delete(&mut self, id :EntityId) {
         match self.entities.get_mut(id) {
             Some(mut x) => *x = None,
