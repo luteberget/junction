@@ -248,21 +248,33 @@ impl App {
         }
     }
 
-    pub fn clicked_object(&mut self, id :EntityId) {
-        if let Some(cb) = &mut self.view.command_builder {
-            if let CommandScreen::ArgumentList(ref mut alb) = cb.current_screen() {
-                for (n,s,a) in &mut alb.arguments {
-                    if let Arg::Id(ref mut optid) = a {
-                        if let ArgStatus::NotDone = s {
-                            *optid = Some(id);
-                            break;
+    pub fn clicked_object(&mut self, id :Option<EntityId>, location: (f32,f32)) {
+        println!("Clicked {:?} {:?}", id, location);
+        if let Some(id) = id {
+            if let Some(cb) = &mut self.view.command_builder {
+                if let CommandScreen::ArgumentList(ref mut alb) = cb.current_screen() {
+                    for (n,s,a) in &mut alb.arguments {
+                        if let Arg::Id(ref mut optid) = a {
+                            if let ArgStatus::NotDone = s {
+                                *optid = Some(id);
+                                break;
+                            }
                         }
                     }
                 }
+            } else {
+                // todo check if we are in pos selection mode.
+
+                if let Some(Some(Entity::Track(_))) = self.model.inf.entities.get(id) {
+                    if let Derive::Ok(ref s) = &self.model.inf.schematic {
+                        if let Some(pos) = s.x_to_pos(location.0) {
+                            self.view.selection = Selection::Pos(pos, 0.0, id);
+                        }
+                    }
+                } else { 
+                    self.view.selection = Selection::Object(id);
+                }
             }
-        } else {
-            // todo check if we are in pos selection mode.
-            self.view.selection = Selection::Object(id);
         }
     }
 
@@ -611,6 +623,24 @@ pub struct Schematic {
 }
 
 impl Schematic {
+    pub fn x_to_pos(&self, x: f32) -> Option<f32> {
+        match self.pos_map.binary_search_by_key(&OrderedFloat(x), |&(x,_,p)| OrderedFloat(x)) {
+            Ok(i) => {
+                Some(self.pos_map[i].0)
+            },
+            Err(i) => {
+                if i <= 0 || i >= self.pos_map.len() {
+                    return None;
+                }
+                let prev = self.pos_map[i-1];
+                let next = self.pos_map[i];
+                //
+                // lerp prev->next by x
+                Some(prev.2 + (next.2-prev.2)*(x - prev.0)/(next.0 - prev.0))
+            }
+        }
+    }
+
     pub fn find_pos(&self, pos :f32) -> Option<f32> {
         match self.pos_map.binary_search_by_key(&OrderedFloat(pos), |&(x,_,p)| OrderedFloat(p)) {
             Ok(i) => Some(self.pos_map[i].2),

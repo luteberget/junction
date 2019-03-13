@@ -21,7 +21,7 @@ pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
           format!("{:#?}", t)
       },
       Some(Entity::Node(p,ref n)) => {
-          format!("Id: {}", id)
+          format!("Node at {}: {:#?}", p,n)
       },
       Some(Entity::Object(ref o)) => {
           format!("Id: {}", id)
@@ -40,6 +40,19 @@ pub fn world2screen(topleft: ImVec2, bottomright: ImVec2, center :(f64,f64), zoo
     let x = 0.5*(topleft.x + bottomright.x) as f64 + scale*(pt.0 as f64  - center.0);
     let y = 0.5*(topleft.y + bottomright.y) as f64 + scale*(-(pt.1 as f64 -  center.1));
     ImVec2 {x: x as _ , y: y as _ }
+}
+
+pub fn screen2world(topleft: ImVec2, bottomright: ImVec2, center: (f64, f64), zoom: f64, pt:ImVec2) -> (f32,f32) {
+    let scale = if bottomright.x - topleft.x < bottomright.y - topleft.y {
+        (bottomright.x-topleft.x) as f64 / zoom
+    } else {
+        (bottomright.y-topleft.y) as f64 / zoom
+    };
+    // mousex = 0.5 tlx + 0.5 brx + scale*ptx - scale*cx
+    // ptx = 1/scale*(mousex - 0.5tlx - 0.5brx + scale*cx)
+    let x = 1.0/scale*(pt.x as f64 - (0.5*(topleft.x + bottomright.x)) as f64) + center.0;
+    let y = 1.0/scale*(pt.y as f64 - (0.5*(topleft.y + bottomright.y)) as f64) + center.1;
+    (x as _,(-y) as _ )
 }
 
 pub fn screen2worldlength(topleft: ImVec2, bottomright: ImVec2, zoom: f64, d :f32) -> f32 {
@@ -748,6 +761,8 @@ fn main() -> Result<(), String>{
                                                             canvas_bg,
                                                     0.0, 0);
                           let clicked = igInvisibleButton(const_cstr!("canvasbtn").as_ptr(), canvas_size);
+                          let right_clicked = igIsItemHovered(0) && igIsMouseClicked(1,false);
+                          let canvas_hovered = igIsItemHovered(0);
 
                           let (center,zoom) = app.view.viewport;
 
@@ -785,7 +800,7 @@ fn main() -> Result<(), String>{
                                   }
                                   ImDrawList_AddLine(draw_list, p1, p2, 
                                                      if selected { selected_col }
-                                                     else if hovered { line_hover_col } else { line_col }, 2.0);
+                                                     else if canvas_hovered && hovered { line_hover_col } else { line_col }, 2.0);
                                   lowest = lowest.min(v[i].1);
                                   lowest = lowest.min(v[i+1].1);
                               }
@@ -802,7 +817,7 @@ fn main() -> Result<(), String>{
                               let hover = igIsMouseHoveringRect(tl,br,false);
                               ImDrawList_AddText(draw_list, tl, 
                                                  if selected { selected_col } 
-                                                 else if hover { line_hover_col } else { line_col }, 
+                                                 else if canvas_hovered && hover { line_hover_col } else { line_col }, 
                                                  caret_right.as_ptr(), ptr::null());
                               if hover {
                                   hovered_item = Some(*k);
@@ -843,13 +858,23 @@ fn main() -> Result<(), String>{
 
                           ImDrawList_PopClipRect(draw_list);
 
+                          if clicked {
+                              app.clicked_object(hovered_item, 
+                                                 screen2world(canvas_pos, canvas_lower, center, zoom, (*io).MousePos));
+                          }
+
+                          if right_clicked {
+                                if let Some(screen) = app.context_menu() {
+                                    app.view.command_builder = Some(CommandBuilder::new_screen(screen));
+                                }
+                          }
+
                           if let Some(id) = hovered_item {
-                              if clicked {
-                                  app.clicked_object(id);
+                              if canvas_hovered {
+                                  igBeginTooltip();
+                                  show_text(&entity_to_string(id, &app.model.inf));
+                                  igEndTooltip();
                               }
-                              igBeginTooltip();
-                              show_text(&entity_to_string(id, &app.model.inf));
-                              igEndTooltip();
                           }
 
                       },
