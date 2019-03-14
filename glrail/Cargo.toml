@@ -14,6 +14,8 @@ const-cstr="*"
 railplotlib = { path = "../../railplot/lib/railplotlib" }
 log="*"
 simple-logging="*"
+serde = "*"
+serde_derive = "*"
 serde_json="*"
 smallvec = "0.6"
 ordered-float = "*"

@@ -1,6 +1,7 @@
 use crate::command_builder::*;
 use crate::selection::*;
 use ordered_float::OrderedFloat;
+use serde_derive::{Deserialize, Serialize};
 
 pub enum InputDir {
     Up, Down, Left, Right
@@ -44,10 +45,12 @@ impl App {
     }
 
     pub fn include_in_view(&mut self, pt: (f32,f32))  {
-        unimplemented!()
+        //unimplemented!()
     }
+
     pub fn entity_location(&self, obj :EntityId) -> (f32,f32) {
-        unimplemented!()
+        return (0.0,0.0);
+        //unimplemented!()
     }
 
     pub fn move_selection(&mut self, inputdir: InputDir) {
@@ -55,12 +58,12 @@ impl App {
         match &self.view.selection {
             Selection::None => { 
                 if let Some(id) = self.model.inf.any_object() {
-                    self.view.selection = Selection::Object(id);
+                    self.view.selection = Selection::Entity(id);
                     self.include_in_view(self.entity_location(id));
                 }
         println!("move selection: none");
             },
-            Selection::Object(i) => {
+            Selection::Entity(i) => {
                 //if let Some(Some(Entity::Node(_, n))) = self.model.inf.entities.get(*i) {
                 //    for p in app.model.inf.node_ports(i) {
                 //        match (n,p) {
@@ -76,11 +79,11 @@ impl App {
                 if let Some(Some(Entity::Track(Track { start_node, end_node, ..}))) = self.model.inf.entities.get(*track_id) {
                     match inputdir {
                         InputDir::Right => { 
-                            self.view.selection = Selection::Object(end_node.0);
+                            self.view.selection = Selection::Entity(end_node.0);
                             self.include_in_view(self.entity_location(end_node.0));
                         },
                         InputDir::Left => { 
-                            self.view.selection = Selection::Object(start_node.0);
+                            self.view.selection = Selection::Entity(start_node.0);
                             self.include_in_view(self.entity_location(start_node.0));
                         },
                         _ => {},
@@ -102,12 +105,12 @@ impl App {
 
     pub fn context_menu(&self) -> Option<CommandScreen> {
         match self.view.selection {
-            Selection::Object(id) => {
+            Selection::Entity(id) => {
                 match self.model.inf.get(id) {
                     Some(Entity::Track(_)) => {
                         Some(CommandScreen::Menu(Menu { choices: vec![
                             ('p', format!("select mid pos"), |app| {
-                                if let Selection::Object(id) = &app.view.selection { 
+                                if let Selection::Entity(id) = &app.view.selection { 
                                     if let Some(Track { start_node, end_node, .. }) = app.model.inf.get_track(*id) {
                                         let (n1_pos,_) = app.model.inf.get_node(start_node.0).unwrap();
                                         let (n2_pos,_) = app.model.inf.get_node(end_node.0).unwrap();
@@ -122,7 +125,7 @@ impl App {
                         Some(CommandScreen::Menu(Menu { choices: vec![
                             ('e', format!("extend end"), |app| {
                                 let mut arguments = ArgumentListBuilder::new();
-                                if let Selection::Object(id) = &app.view.selection {
+                                if let Selection::Entity(id) = &app.view.selection {
                                     arguments.add_id_value("node", *id);
                                 } else {
                                     arguments.add_id("node");
@@ -138,7 +141,7 @@ impl App {
                             }),
                             ('j', format!("join with node"), |app| {
                                 let mut arguments = ArgumentListBuilder::new();
-                                if let Selection::Object(id) = &app.view.selection {
+                                if let Selection::Entity(id) = &app.view.selection {
                                     arguments.add_id_value("node1",*id);
                                 } else {
                                     arguments.add_id("node1");
@@ -187,6 +190,38 @@ impl App {
                             *track_id, *pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
                         }
                         None }),
+                    ('s', format!("signal up"), |app| {
+                        if let Selection::Pos(pos, _ , track_id) = &app.view.selection {
+                            app.integrate(EditorAction::Inf(
+                                    InfrastructureEdit::InsertObject(
+                                        *track_id, *pos, Object::Signal(Dir::Up))));
+                        }
+                        None
+                    }),
+                    ('S', format!("signal down"), |app| {
+                        if let Selection::Pos(pos, _ , track_id) = &app.view.selection {
+                            app.integrate(EditorAction::Inf(
+                                    InfrastructureEdit::InsertObject(
+                                        *track_id, *pos, Object::Signal(Dir::Down))));
+                        }
+                        None
+                    }),
+                    ('b', format!("balise"), |app| {
+                        if let Selection::Pos(pos, _ , track_id) = &app.view.selection {
+                            app.integrate(EditorAction::Inf(
+                                    InfrastructureEdit::InsertObject(
+                                        *track_id, *pos, Object::Balise(false))));
+                        }
+                        None
+                    }),
+                    ('d', format!("detector"), |app| {
+                        if let Selection::Pos(pos, _ , track_id) = &app.view.selection {
+                            app.integrate(EditorAction::Inf(
+                                    InfrastructureEdit::InsertObject(
+                                        *track_id, *pos, Object::Detector)));
+                        }
+                        None
+                    }),
                 ]}))
             }
             _ => None,
@@ -207,7 +242,7 @@ impl App {
                        ('z', format!("none"),      |app| { app.view.selection = Selection::None; None }),
                        ('o', format!("object"),    |app| { 
                            if let Some(id) = app.model.inf.any_object() {
-                               app.view.selection = Selection::Object(id);
+                               app.view.selection = Selection::Entity(id);
                            }
                            None 
                        }),
@@ -268,11 +303,13 @@ impl App {
                 if let Some(Some(Entity::Track(_))) = self.model.inf.entities.get(id) {
                     if let Derive::Ok(ref s) = &self.model.inf.schematic {
                         if let Some(pos) = s.x_to_pos(location.0) {
-                            self.view.selection = Selection::Pos(pos, 0.0, id);
+                            if let Some((pt,t)) = s.track_line_at(&id,pos) {
+                                self.view.selection = Selection::Pos(pos, pt.1, id);
+                            }
                         }
                     }
                 } else { 
-                    self.view.selection = Selection::Object(id);
+                    self.view.selection = Selection::Entity(id);
                 }
             }
         }
@@ -307,7 +344,10 @@ impl App {
                             start_node: (i1, Port { dir: Dir::Up, course: None }),
                             end_node:   (i2, Port { dir: Dir::Down, course: None }),
                         }));
-                    }
+                    },
+                    InfrastructureEdit::InsertObject(t,p,obj) => {
+                        let _id = self.new_entity(Entity::Object(t,p,obj));
+                    },
                     InfrastructureEdit::InsertNode(t,p,node,l) => {
                         let (straight_side, branch_side) = match node {
                             Node::Switch(_,side) => (side.other(), side),
@@ -353,7 +393,7 @@ impl App {
                             _ => unimplemented!()
                         };
 
-                        self.view.selection = Selection::Object(new);
+                        self.view.selection = Selection::Entity(new);
 
                     },
                     InfrastructureEdit::JoinNodes(n1,n2) => {
@@ -546,6 +586,8 @@ pub enum InfrastructureEdit {
     /// Extend a track by moving its end node forward. There must be enough 
     /// linear space before/after the node.
     ExtendTrack(EntityId, f32),
+    /// Insert an object onto a track at a given position.
+    InsertObject(EntityId, Pos, Object),
 }
 
 pub enum EditorAction {
@@ -561,13 +603,14 @@ pub type Map<K,V> = HashMap<K,V>;
 pub enum Entity {
     Track(Track),
     Node(Pos, Node),
-    Object(Object),
+    Object(EntityId, Pos, Object),
 }
 
 #[derive(Debug,Clone)]
 pub enum Object {
     Signal(Dir),
     Balise(bool),
+    Detector,
 }
 
 #[derive(Debug,Clone)]
@@ -622,7 +665,27 @@ pub struct Schematic {
     pub pos_map: Vec<(f32, EntityId, f32)>,
 }
 
+fn lerp(v0 :f32, v1 :f32, t: f32) -> f32 {
+    (1.0-t)*v0 + t*v1
+}
+
 impl Schematic {
+    pub fn track_line_at(&self, track :&EntityId, pos :f32) -> Option<((f32,f32),(f32,f32))> {
+        let x = self.find_pos(pos)?;
+        let line = self.lines.get(track)?;
+        for ((x0,y0),(x1,y1)) in line.iter().zip(line.iter().skip(1)) {
+            if *x0 <= x && x <= *x1 {
+                let y = lerp(*y0,*y1, (x-*x0)/(*x1-*x0));
+                let pt = (x,y);
+                let tangent = (*x1-*x0,*y1-*y0);
+                let len = ((*x1-*x0)*(*x1-*x0)+(*y1-*y0)*(*y1-*y0)).sqrt();
+                let tangent = (tangent.0 / len, tangent.1 / len);
+                return Some((pt,tangent));
+            }
+        }
+        None
+    }
+
     pub fn x_to_pos(&self, x: f32) -> Option<f32> {
         match self.pos_map.binary_search_by_key(&OrderedFloat(x), |&(x,_,p)| OrderedFloat(x)) {
             Ok(i) => {
@@ -673,6 +736,7 @@ pub struct Dispatch {
 
 pub struct Error {
 }
+
 
 
 

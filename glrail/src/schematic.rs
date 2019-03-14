@@ -133,7 +133,7 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
                     });
                     node_idxs.push(i);
                 },
-                Entity::Object(_) => {
+                Entity::Object(_,_,_) => {
                     // ignore for now...
                 },
             };
@@ -147,7 +147,11 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
         use railplotlib::solvers::SchematicSolver;
         use railplotlib::solvers::Goal;
         let solver = railplotlib::solvers::LevelsSatSolver {
-            criteria: vec![Goal::Bends, Goal::Height, Goal::Width],
+            criteria: vec![
+                Goal::Height, 
+                Goal::Bends, 
+                Goal::Width,
+            ],
             nodes_distinct: true,
         };
         solver.solve(model)

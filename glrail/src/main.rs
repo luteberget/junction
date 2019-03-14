@@ -23,8 +23,8 @@ pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
       Some(Entity::Node(p,ref n)) => {
           format!("Node at {}: {:#?}", p,n)
       },
-      Some(Entity::Object(ref o)) => {
-          format!("Id: {}", id)
+      Some(Entity::Object(_t, p, ref o)) => {
+          format!("Object at {}: {:#?}", p, o)
       },
       _ => { format!("Error id={} not found.", id) }
   }
@@ -669,21 +669,21 @@ fn main() -> Result<(), String>{
                               Some(Entity::Track(_))  => { 
                                   let s = CString::new(format!("Track##{}", i)).unwrap();
                                   if igSelectable(s.as_ptr(),
-                                                  app.view.selection == Selection::Object(i), 0, v2_0) {
+                                                  app.view.selection == Selection::Entity(i), 0, v2_0) {
                                       //println!("SET {}", i);
-                                      app.view.selection = Selection::Object(i);
+                                      app.view.selection = Selection::Entity(i);
                                   }
                               },
                               Some(Entity::Node(p,_))   => { 
                                   let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
                                   if igSelectable(s.as_ptr(), 
                     
-                              app.view.selection == Selection::Object(i), 0, v2_0) {
+                              app.view.selection == Selection::Entity(i), 0, v2_0) {
                                       //println!("SET NODE {}", i);
-                                      app.view.selection = Selection::Object(i);
+                                      app.view.selection = Selection::Entity(i);
                                   }
                               },
-                              Some(Entity::Object(_)) => { 
+                              Some(Entity::Object(_,_,_)) => { 
                                   igText(const_cstr!("Object#0").as_ptr()); 
                               },
                               _ => {},
@@ -694,7 +694,7 @@ fn main() -> Result<(), String>{
                   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                       match &app.view.selection {
-                          Selection::Object(id) => {
+                          Selection::Entity(id) => {
                               let s = entity_to_string(*id, &app.model.inf);
                               show_text(&s);
                           },
@@ -790,7 +790,7 @@ fn main() -> Result<(), String>{
                           for (k,v) in &s.lines {
                               //println!("{:?}, {:?}", k,v);
                               let mut hovered = false;
-                              let selected = if let Selection::Object(id) = &app.view.selection { id == k } else { false };
+                              let selected = if let Selection::Entity(id) = &app.view.selection { id == k } else { false };
                               for i in 0..(v.len()-1) {
                                   let p1 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i]);
                                   let p2 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i+1]);
@@ -813,7 +813,7 @@ fn main() -> Result<(), String>{
                                                  y: p.y + caret_right_halfsize.y };
 
                               lowest = lowest.min(v.1);
-                              let selected = if let Selection::Object(id) = &app.view.selection { id == k } else { false };
+                              let selected = if let Selection::Entity(id) = &app.view.selection { id == k } else { false };
                               let hover = igIsMouseHoveringRect(tl,br,false);
                               ImDrawList_AddText(draw_list, tl, 
                                                  if selected { selected_col } 
@@ -823,6 +823,45 @@ fn main() -> Result<(), String>{
                                   hovered_item = Some(*k);
                               }
                           }
+
+                          // TODO symbol locations are supposed to be stored in the schematic
+                          // object, not recalculated from Pos
+                          for (i,o) in app.model.inf.entities.iter().enumerate() {
+                              if let Some(Entity::Object(track_id, pos, obj)) = o {
+                                  if let Some((loc,tangent)) = s.track_line_at(track_id, *pos) {
+                                      let rightside = (tangent.1, -tangent.0);
+                                      match obj {
+                                          Object::Signal(Dir::Up) => {
+                                              let pw = (loc.0 + rightside.0*0.2, loc.1 + rightside.1*0.2);
+                                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
+                                              ImDrawList_AddText(draw_list, ps, line_col, const_cstr!("\u{f637}").as_ptr(), ptr::null());
+                                          },
+                                          Object::Signal(Dir::Down) => {
+                                              let pw = (loc.0 - rightside.0*0.2, loc.1 - rightside.1*0.2);
+                                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
+                                              ImDrawList_AddText(draw_list, ps, line_col, const_cstr!("\u{f637}").as_ptr(), ptr::null());
+                                          },
+                                          Object::Balise(filled) => {
+                                              let pw = (loc.0, loc.1);
+                                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
+                                              ImDrawList_AddText(draw_list, ps, line_col, const_cstr!("\u{f071}").as_ptr(), ptr::null());
+                                          },
+                                          Object::Detector => {
+                                              let pw1 = (loc.0 - rightside.0*0.1, loc.1 - rightside.1*0.1);
+                                              let pw2 = (loc.0 + rightside.0*0.1, loc.1 + rightside.1*0.1);
+                                              let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, pw1);
+                                              let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, pw2);
+                                              ImDrawList_AddLine(draw_list, ps1,ps2, line_col, 2.0);
+                                              let hovered = dist2(&mouse_pos, &line_closest_pt(&ps1, &ps2, &mouse_pos)) < 100.0;
+                                              if hovered {
+                                                  hovered_item = Some(i);
+                                              }
+                                          },
+                                      }
+                                  }
+                              }
+                          }
+
 
                           let (mut last_x,mut line_no) = (None,0);
                           for (x,_id,pos) in &s.pos_map {
