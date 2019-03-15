@@ -1,0 +1,5 @@
+[workspace]
+members = ["glrail", "lib/imgui-sys-bindgen", "lib/imgui-sys-opengl"]
+
+[profile.release]
+lto = true

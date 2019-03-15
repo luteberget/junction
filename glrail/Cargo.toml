@@ -5,8 +5,8 @@ authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-imgui-sys-bindgen = { path = "../imgui-sys-bindgen" }
-imgui-sys-opengl = { path = "../imgui-sys-opengl" }
+imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
+imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }
 # sdl2 = { version = "*", features = ["bundled","static-link"] }
 sdl2 = { version = "*" }
 gl = "*"
@@ -19,6 +19,3 @@ serde_derive = "*"
 serde_json="*"
 smallvec = "0.6"
 ordered-float = "*"
-
-[profile.release]
-lto = true
