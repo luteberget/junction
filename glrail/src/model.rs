@@ -11,6 +11,14 @@ pub enum Derive<T> {
     Err(String),
 }
 
+pub enum ModelUpdateResult {
+    NoChange,
+    InfrastructureChanged,
+    //SchematicChanged,
+    //ViewChanged,
+    InterlockingChanged,
+}
+
 pub enum ModelAction {
     Inf(InfrastructureEdit),
 }
@@ -39,7 +47,14 @@ impl Model {
         //println!("select pos {:?}", self.view.selection);
     }
 
-    pub fn integrate(&mut self, action :ModelAction) {
+    pub fn integrate(&mut self, action :ModelAction) -> ModelUpdateResult {
+        match self.handle_event(action) {
+            Ok(r) => r,
+            Err(s) => {
+                println!("ERROR: {:?}", s);
+                ModelUpdateResult::NoChange
+            },
+        }
     }
 
     pub fn iter_issues(&self) -> impl Iterator<Item = Issue> {
@@ -115,7 +130,7 @@ impl Model {
         Some((id, 0.5*(p1+p2)))
     }
 
-    pub fn handle_event(&mut self, action :ModelAction) -> Result<(), String> {
+    pub fn handle_event(&mut self, action :ModelAction) -> Result<ModelUpdateResult, String> {
         match action {
             ModelAction::Inf(ie) => {
                 match ie {
@@ -222,9 +237,7 @@ impl Model {
                         *node_pos += length;
                     },
                 };
-                // infrastructure changed, update schematic
-                // TODO self.model.inf.update_schematic();
-                Ok(())
+                Ok(ModelUpdateResult::InfrastructureChanged)
             },
             _ => {
                 Err("Unhandled ModelAction!".to_string())

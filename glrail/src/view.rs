@@ -16,7 +16,7 @@ pub struct View {
 impl View {
     pub fn new_default() -> Self {
         View {
-            viewport: ((5.0,5.0),10.0),
+            viewport: ((0.5,2.0),10.0),
             selection: Selection::None,
             hot_route: None,
             selected_movement: None,

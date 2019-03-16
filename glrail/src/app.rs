@@ -14,6 +14,11 @@ pub struct App {
     pub show_imgui_demo :bool,
 }
 
+pub enum AppAction {
+    Model(ModelAction),
+    DerivedSchematic(Derive<Schematic>),
+}
+
 pub struct BackgroundProcesses {
     schematic_updater: SchematicUpdater,
 }
@@ -38,8 +43,40 @@ impl App {
         }
     }
 
+    pub fn integrate(&mut self, action :AppAction) {
+        match action {
+            AppAction::Model(action) => {
+                let result = self.model.integrate(action);
+                match result {
+                    ModelUpdateResult::NoChange => {},
+                    ModelUpdateResult::InfrastructureChanged => {
+                        self.background_processes.schematic_updater.start_update(self.model.inf.entities.clone());
+                        self.model.schematic = Derive::Wait;
+                        //self.background_processes.interlocking_updater.send(self.model.inf);
+                    },
+                    ModelUpdateResult::InterlockingChanged => {
+                        // self.background_processes.scenario_dispatches_update();
+                    },
+                }
+            },
+            AppAction::DerivedSchematic(s) => {
+                // TODO does this trigger more updates?
+                self.model.schematic = s;
+            }
+        }
+    }
+
     pub fn update_background_processes(&mut self) {
-        // TODO
+        // Check all background updates
+
+        // 1. schematic
+        if let Some(s) =self.background_processes.schematic_updater.get_update() {
+            self.integrate(AppAction::DerivedSchematic(s));
+        }
+
+        // 2. detection sections?
+
+        // 2. route derivation ...
     }
 
     pub fn context_menu(&self) -> Option<CommandScreen> {
@@ -73,8 +110,8 @@ impl App {
                                 arguments.set_action(|app :&mut App,args :&ArgumentListBuilder| {
                                     let id = *args.get_id("node").unwrap();
                                     let l  = *args.get_float("length").unwrap();
-                                    app.model.integrate(ModelAction::Inf(
-                                            InfrastructureEdit::ExtendTrack(id, l)));
+                                    app.integrate(AppAction::Model(ModelAction::Inf(
+                                            InfrastructureEdit::ExtendTrack(id, l))));
                                 });
                                 Some(CommandScreen::ArgumentList(arguments))
                             }),
@@ -89,8 +126,8 @@ impl App {
                                 arguments.set_action(|app :&mut App, args :&ArgumentListBuilder| {
                                     let n1 = *args.get_id("node1").unwrap();
                                     let n2 = *args.get_id("node2").unwrap();
-                                    app.model.integrate(ModelAction::Inf(
-                                            InfrastructureEdit::JoinNodes(n1, n2)));
+                                    app.integrate(AppAction::Model(ModelAction::Inf(
+                                            InfrastructureEdit::JoinNodes(n1, n2))));
                                 });
                                 Some(CommandScreen::ArgumentList(arguments))
                             }),
@@ -103,61 +140,61 @@ impl App {
                 Some(CommandScreen::Menu(Menu { choices: vec![
                     ('k', format!("out left sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
-                        app.model.integrate(ModelAction::Inf(
+                        app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Up, Side::Left), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Up, Side::Left), 50.0))));
                         }
                         None }),
                     ('K', format!("in right sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
-                        app.model.integrate(ModelAction::Inf(
+                        app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Down, Side::Right), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Down, Side::Right), 50.0))));
                         }
                         None }),
                     ('j', format!("out right sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
-                        app.model.integrate(ModelAction::Inf(
+                        app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Up, Side::Right), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Up, Side::Right), 50.0))));
                         }
                         None }),
                     ('J', format!("in left sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
-                        app.model.integrate(ModelAction::Inf(
+                        app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Down, Side::Left), 50.0)));
+                            *track_id, *pos, Node::Switch(Dir::Down, Side::Left), 50.0))));
                         }
                         None }),
                     ('s', format!("signal up"), |app| {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
-                            app.model.integrate(ModelAction::Inf(
+                            app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Signal(Dir::Up))));
+                                        *track_id, *pos, Object::Signal(Dir::Up)))));
                         }
                         None
                     }),
                     ('S', format!("signal down"), |app| {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
-                            app.model.integrate(ModelAction::Inf(
+                            app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Signal(Dir::Down))));
+                                        *track_id, *pos, Object::Signal(Dir::Down)))));
                         }
                         None
                     }),
                     ('b', format!("balise"), |app| {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
-                            app.model.integrate(ModelAction::Inf(
+                            app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Balise(false))));
+                                        *track_id, *pos, Object::Balise(false)))));
                         }
                         None
                     }),
                     ('d', format!("detector"), |app| {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
-                            app.model.integrate(ModelAction::Inf(
+                            app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Detector)));
+                                        *track_id, *pos, Object::Detector))));
                         }
                         None
                     }),
@@ -215,7 +252,7 @@ impl App {
         if self.model.inf.entities.len() == 0 {
             if let CommandScreen::Menu(Menu { choices }) = self.command_builder.as_mut().unwrap().current_screen() {
                 choices.push(('a', format!("add track"), |app| {
-                    app.model.integrate(ModelAction::Inf(InfrastructureEdit::NewTrack(0.0,100.0)));
+                    app.integrate(AppAction::Model(ModelAction::Inf(InfrastructureEdit::NewTrack(0.0,100.0))));
                     None
                 }));
             }
