@@ -5,11 +5,13 @@ use std::sync::mpsc;
 use railplotlib;
 use crate::model::*;
 use crate::infrastructure::*;
+use serde::{Serialize, Deserialize};
 
 pub type Pt = (f32,f32);
 pub type PLine = Vec<Pt>;
 pub type Map<K,V> = HashMap<K,V>;
 
+#[derive(Serialize, Deserialize)]
 pub struct Schematic {
     pub lines :Map<EntityId, PLine>,
     pub points: Map<EntityId, Pt>,

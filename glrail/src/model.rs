@@ -4,7 +4,10 @@ use crate::interlocking::*;
 use crate::view::*;
 use crate::issue::*;
 use crate::selection::*;
+use serde::{Serialize, Deserialize};
 
+
+#[derive(Serialize, Deserialize)]
 pub enum Derive<T> {
     Wait,
     Ok(T),
@@ -23,6 +26,7 @@ pub enum ModelAction {
     Inf(InfrastructureEdit),
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Model {
     pub inf :Infrastructure,
     pub schematic :Derive<Schematic>,

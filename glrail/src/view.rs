@@ -1,9 +1,13 @@
 use crate::selection::*;
+use serde::{Deserialize, Serialize};
 
+
+#[derive(Serialize, Deserialize)]
 pub enum InputDir {
     Up, Down, Left, Right
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct View {
     pub viewport : ((f64,f64),f64),
     pub selection :Selection,

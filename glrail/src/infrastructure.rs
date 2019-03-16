@@ -1,3 +1,7 @@
+use serde::{Serialize, Deserialize};
+
+
+#[derive(Serialize, Deserialize)]
 pub struct Infrastructure {
     pub entities :Vec<Option<Entity>>,
 }
@@ -81,6 +85,7 @@ pub type EntityId = usize;
 
 
 #[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum Entity {
     Track(Track),
     Node(Pos, Node),
@@ -88,6 +93,7 @@ pub enum Entity {
 }
 
 #[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum Object {
     Signal(Dir),
     Balise(bool),
@@ -95,20 +101,27 @@ pub enum Object {
 }
 
 #[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Track {
     pub start_node: (EntityId,Port),
     pub end_node: (EntityId,Port),
 }
 
 #[derive(Debug,Clone,Copy)]
+#[derive(Serialize, Deserialize)]
 pub struct Port {
     pub dir: Dir, // Up = pointing outwards from the node, Down = inwards
     pub course: Option<Side>, // None = trunk/begin/end, Some(Left) = Left switch/crossing
 }
+
 #[derive(Debug,Clone,Copy)]
+#[derive(Serialize, Deserialize)]
 pub enum Dir { Up, Down }
+
 #[derive(Debug,Clone,Copy)]
+#[derive(Serialize, Deserialize)]
 pub enum Side { Left, Right }
+
 impl Side {
     pub fn other(&self) -> Self {
         match self {
@@ -119,6 +132,7 @@ impl Side {
 }
 
 #[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum Node {
     Switch(Dir,Side),
     Crossing,

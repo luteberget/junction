@@ -4,7 +4,7 @@ use crate::model::*;
 use crate::infrastructure::*;
 use crate::schematic::*;
 use ordered_float::OrderedFloat;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub struct App {
     pub model :Model,
@@ -77,6 +77,46 @@ impl App {
         // 2. detection sections?
 
         // 2. route derivation ...
+    }
+
+    pub fn save_dialog(&self) -> Result<(),()> {
+       let filename = tinyfiledialogs::save_file_dialog("Save glrail document", "")
+           .ok_or(())?;
+
+       use std::fs::File;
+       use std::path::Path;
+
+       let json_path = Path::new(&filename);
+       let json_file = File::create(json_path).map_err(|e|{
+           println!("CREATE FILE ERROR {:?}", e);
+           ()
+       })?;
+
+       serde_json::to_writer_pretty(json_file, &self.model)
+           .map_err(|e| {
+               println!("Serialize or write error: {:?}", e);
+               ()
+           })?;
+
+       Ok(())
+    }
+
+    pub fn load_dialog(&mut self) -> Result<(),()> {
+       let filename = tinyfiledialogs::open_file_dialog("Open glrail document", "", None)
+           .ok_or(())?;
+
+       use std::fs::File;
+       use std::path::Path;
+
+       let json_path = Path::new(&filename);
+       let json_file = File::open(json_path).map_err(|_| ())?;
+       let loaded_model : Model = serde_json::from_reader(json_file)
+           .map_err(|e| {
+               println!("Deserialize error: {:?}", e);
+               ()
+           })?;
+       self.model = loaded_model;
+       Ok(())
     }
 
     pub fn context_menu(&self) -> Option<CommandScreen> {
@@ -210,8 +250,8 @@ impl App {
        let main_menu = Menu {
            choices: vec![
                ('c', format!("context"), |app| { app.context_menu() }),
-               ('l', format!("load"),    close ),
-               ('s', format!("save"),    close ),
+               ('l', format!("load"),    |app| { app.load_dialog().ok(); None }),
+               ('s', format!("save"),    |app| { app.save_dialog().ok(); None }),
                ('q', format!("quit"),    |app| { app.want_to_quit = true; None } ),
                ('s', format!("selection"), |_| { 
                    Some(CommandScreen::Menu(Menu { choices: vec![

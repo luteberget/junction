@@ -1,0 +1,330 @@
+{
+  "inf": {
+    "entities": [
+      {
+        "Node": [
+          0.0,
+          "BufferStop"
+        ]
+      },
+      {
+        "Node": [
+          800.0,
+          "BufferStop"
+        ]
+      },
+      {
+        "Track": {
+          "start_node": [
+            0,
+            {
+              "dir": "Up",
+              "course": null
+            }
+          ],
+          "end_node": [
+            3,
+            {
+              "dir": "Down",
+              "course": null
+            }
+          ]
+        }
+      },
+      {
+        "Node": [
+          34.375,
+          {
+            "Switch": [
+              "Up",
+              "Left"
+            ]
+          }
+        ]
+      },
+      {
+        "Track": {
+          "start_node": [
+            7,
+            {
+              "dir": "Up",
+              "course": null
+            }
+          ],
+          "end_node": [
+            1,
+            {
+              "dir": "Down",
+              "course": null
+            }
+          ]
+        }
+      },
+      null,
+      {
+        "Track": {
+          "start_node": [
+            11,
+            {
+              "dir": "Up",
+              "course": null
+            }
+          ],
+          "end_node": [
+            7,
+            {
+              "dir": "Down",
+              "course": "Right"
+            }
+          ]
+        }
+      },
+      {
+        "Node": [
+          541.7219,
+          {
+            "Switch": [
+              "Down",
+              "Right"
+            ]
+          }
+        ]
+      },
+      {
+        "Track": {
+          "start_node": [
+            3,
+            {
+              "dir": "Up",
+              "course": "Right"
+            }
+          ],
+          "end_node": [
+            7,
+            {
+              "dir": "Down",
+              "course": "Left"
+            }
+          ]
+        }
+      },
+      null,
+      null,
+      {
+        "Node": [
+          315.50247,
+          {
+            "Switch": [
+              "Down",
+              "Right"
+            ]
+          }
+        ]
+      },
+      {
+        "Track": {
+          "start_node": [
+            3,
+            {
+              "dir": "Up",
+              "course": "Left"
+            }
+          ],
+          "end_node": [
+            11,
+            {
+              "dir": "Down",
+              "course": "Left"
+            }
+          ]
+        }
+      },
+      {
+        "Node": [
+          265.50247,
+          "BufferStop"
+        ]
+      },
+      {
+        "Track": {
+          "start_node": [
+            13,
+            {
+              "dir": "Up",
+              "course": null
+            }
+          ],
+          "end_node": [
+            11,
+            {
+              "dir": "Down",
+              "course": "Right"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "schematic": {
+    "Ok": {
+      "lines": {
+        "2": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ],
+        "12": [
+          [
+            1.0,
+            0.0
+          ],
+          [
+            2.0,
+            1.0
+          ],
+          [
+            4.0,
+            1.0
+          ]
+        ],
+        "8": [
+          [
+            1.0,
+            0.0
+          ],
+          [
+            6.0,
+            0.0
+          ]
+        ],
+        "6": [
+          [
+            4.0,
+            1.0
+          ],
+          [
+            5.0,
+            1.0
+          ],
+          [
+            6.0,
+            0.0
+          ]
+        ],
+        "4": [
+          [
+            6.0,
+            0.0
+          ],
+          [
+            7.0,
+            0.0
+          ]
+        ],
+        "14": [
+          [
+            2.0,
+            2.0
+          ],
+          [
+            3.0,
+            2.0
+          ],
+          [
+            4.0,
+            1.0
+          ]
+        ]
+      },
+      "points": {
+        "7": [
+          6.0,
+          0.0
+        ],
+        "13": [
+          2.0,
+          2.0
+        ],
+        "1": [
+          7.0,
+          0.0
+        ],
+        "0": [
+          0.0,
+          0.0
+        ],
+        "11": [
+          4.0,
+          1.0
+        ],
+        "3": [
+          1.0,
+          0.0
+        ]
+      },
+      "pos_map": [
+        [
+          0.0,
+          0,
+          0.0
+        ],
+        [
+          1.0,
+          3,
+          34.375
+        ],
+        [
+          2.0,
+          13,
+          265.50247
+        ],
+        [
+          4.0,
+          11,
+          315.50247
+        ],
+        [
+          6.0,
+          7,
+          541.7219
+        ],
+        [
+          7.0,
+          1,
+          800.0
+        ]
+      ]
+    }
+  },
+  "view": {
+    "viewport": [
+      [
+        -1.9382899403572083,
+        0.3546137250959873
+      ],
+      6.52298346000024
+    ],
+    "selection": {
+      "Pos": [
+        266.46774,
+        0.0,
+        8
+      ]
+    },
+    "hot_route": null,
+    "selected_movement": null,
+    "selected_dispatch": null,
+    "time": 0.0
+  },
+  "interlocking": {
+    "derive": {},
+    "routes": {
+      "Ok": []
+    }
+  }
+}

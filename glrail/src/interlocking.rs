@@ -1,6 +1,8 @@
 use crate::model::*;
 use crate::infrastructure::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Interlocking {
     derive :Option<DeriveInterlocking>,
     routes :Derive<Vec<Route>>,
@@ -15,6 +17,7 @@ impl Interlocking {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct DeriveInterlocking {
 }
 
@@ -24,6 +27,7 @@ impl DeriveInterlocking {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Route {
     pub start :usize,
     pub end :usize,
