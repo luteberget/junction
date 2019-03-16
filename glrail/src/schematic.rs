@@ -1,13 +1,87 @@
-use crate::app::{Entity, Track, Node, Object, Pos, Dir, Side,Schematic, Port};
+use crate::app::*;
 use std::collections::HashMap;
 use ordered_float::OrderedFloat;
+use std::sync::mpsc;
+use railplotlib;
+use crate::model::*;
+use crate::infrastructure::*;
+
+pub type Pt = (f32,f32);
+pub type PLine = Vec<Pt>;
+pub type Map<K,V> = HashMap<K,V>;
+
+pub struct Schematic {
+    pub lines :Map<EntityId, PLine>,
+    pub points: Map<EntityId, Pt>,
+    pub pos_map: Vec<(f32, EntityId, f32)>,
+}
+
+
+fn lerp(v0 :f32, v1 :f32, t: f32) -> f32 {
+    (1.0-t)*v0 + t*v1
+}
+
+impl Schematic {
+    pub fn new_empty() -> Self {
+        Schematic {
+            lines: Map::new(),
+            points: Map::new(),
+            pos_map: Vec::new(),
+        }
+    }
+    pub fn track_line_at(&self, track :&EntityId, pos :f32) -> Option<((f32,f32),(f32,f32))> {
+        let x = self.find_pos(pos)?;
+        let line = self.lines.get(track)?;
+        for ((x0,y0),(x1,y1)) in line.iter().zip(line.iter().skip(1)) {
+            if *x0 <= x && x <= *x1 {
+                let y = lerp(*y0,*y1, (x-*x0)/(*x1-*x0));
+                let pt = (x,y);
+                let tangent = (*x1-*x0,*y1-*y0);
+                let len = ((*x1-*x0)*(*x1-*x0)+(*y1-*y0)*(*y1-*y0)).sqrt();
+                let tangent = (tangent.0 / len, tangent.1 / len);
+                return Some((pt,tangent));
+            }
+        }
+        None
+    }
+    pub fn x_to_pos(&self, x: f32) -> Option<f32> {
+        match self.pos_map.binary_search_by_key(&OrderedFloat(x), |&(x,_,p)| OrderedFloat(x)) {
+            Ok(i) => {
+                Some(self.pos_map[i].0)
+            },
+            Err(i) => {
+                if i <= 0 || i >= self.pos_map.len() {
+                    return None;
+                }
+                let prev = self.pos_map[i-1];
+                let next = self.pos_map[i];
+                //
+                // lerp prev->next by x
+                Some(prev.2 + (next.2-prev.2)*(x - prev.0)/(next.0 - prev.0))
+            }
+        }
+    }
+
+    pub fn find_pos(&self, pos :f32) -> Option<f32> {
+        match self.pos_map.binary_search_by_key(&OrderedFloat(pos), |&(x,_,p)| OrderedFloat(p)) {
+            Ok(i) => Some(self.pos_map[i].2),
+            Err(i) => {
+                if i <= 0 || i >= self.pos_map.len() {
+                    return None;
+                }
+                let prev = self.pos_map[i-1];
+                let next = self.pos_map[i];
+
+                // lerp prev->next by pos
+                Some(prev.0 + (next.0-prev.0)*(pos - prev.2)/(next.2 - prev.2))
+            },
+        }
+    }
+}
+
 
 // This file should encapsulate railplotlib, it is to be
 // the only interface to railplotlib in glrail.
-
-
-use railplotlib;
-
 
 fn conv_side(side :Side) -> railplotlib::model::Side {
     match side {
@@ -185,4 +259,47 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     }
 
     Ok(output)
+}
+
+pub struct SchematicUpdater {
+    jobs: mpsc::Sender<Vec<Option<Entity>>>,
+    results: mpsc::Receiver<Result<Schematic,String>>,
+}
+
+impl SchematicUpdater {
+    pub fn new() -> Self {
+        use std::thread;
+
+        let (jobs_tx, jobs_rx) = mpsc::channel();
+        let (results_tx, results_rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            use crate::schematic;
+            while let Ok(job) = jobs_rx.recv() {
+                let r = schematic::solve(&job);
+                results_tx.send(r).unwrap();
+                super::wake();
+            }
+        });
+
+        SchematicUpdater {
+            jobs: jobs_tx,
+            results: results_rx,
+        }
+    }
+
+    pub fn start_update(&mut self, inf :Vec<Option<Entity>>) {
+        self.jobs.send(inf).unwrap();
+    }
+
+    pub fn get_update(&mut self) -> Option<Derive<Schematic>> {
+        let mut result = None;
+        while let Ok(s) = self.results.try_recv() {
+            match s {
+                Ok(s) => result = Some(Derive::Ok(s)),
+                Err(s) => result = Some(Derive::Err(s)),
+            }
+        }
+        result
+    }
 }

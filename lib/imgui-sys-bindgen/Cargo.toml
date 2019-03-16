@@ -10,3 +10,5 @@ cc = "*"
 bindgen = "*"
 
 [dependencies]
+const-cstr = "*"
+serde_json = "*"
