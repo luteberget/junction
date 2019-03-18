@@ -23,6 +23,12 @@ impl<T :Default> Default for Derive<T> {
     }
 }
 
+impl<T> Derive<T> {
+    pub fn get(&self) -> Option<&T> {
+        if let Derive::Ok(val) = self { Some(val) } else { None }
+    }
+}
+
 pub enum ModelUpdateResult {
     NoChange,
     InfrastructureChanged,

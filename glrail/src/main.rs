@@ -29,6 +29,7 @@ use self::view::*;
 use self::infrastructure::*;
 use self::command_builder::*;
 use self::selection::*;
+use crate::dgraph::*;
 
 pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
   match inf.get(id) {
@@ -366,6 +367,7 @@ fn main() -> Result<(), String>{
     let mut issues_size :f32 = 200.0;
     let canvas_bg = 60 + (60<<8) + (60<<16) + (255<<24);
     let line_col  = 208 + (208<<8) + (175<<16) + (255<<24);
+    let tvd_col  = 175 + (255<<8) + (175<<16) + (255<<24);
     let selected_col  = 175 + (175<<8) + (255<<16) + (255<<24);
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -539,15 +541,29 @@ fn main() -> Result<(), String>{
 
                   if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                      let mut hovered = None;
                       match app.model.interlocking.routes {
                           Derive::Ok(ref r) if r.len() > 0 => {
-                              for x in r.iter() {
+                              for (i,x) in r.iter().enumerate() {
+                                  igPushIDInt(i as _);
+
+                                  if igSelectable(const_cstr!("").as_ptr(), false, 0, v2_0) {
+                                  }
+                                  if igIsItemHovered(0) {
+                                      hovered = Some(i);
+                                  }
+                                  igSameLine(0.0,-1.0);
                                   show_text(&format!("entry: {:?}, exit: {:?}", x.entry, x.exit));
+
+                                  igPopID();
                               }
                           },
                           _ => show_text("No routes available."),
                       }
+
+                      app.model.view.hot_route = hovered;
                   }
+                  ////println!("hot route: {:?}", app.model.view.hot_route);
                   // if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
                   //                       ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                   //     //for r in &app.model.scenarios {
@@ -642,6 +658,29 @@ fn main() -> Result<(), String>{
                                   lowest = lowest.min(v[i+1].1);
                               }
                           }
+
+                          // Example plot of a detection section 
+                          // TODO trigger by selecting/hovering routes in the menu
+                          if let Derive::Ok(DGraph { tvd_sections, edge_intervals, .. }) = &app.model.dgraph {
+                              if let Some((sec_id, edges)) = tvd_sections.iter().nth(0) {
+                                  for e in edges.iter() {
+                                      if let Some(Interval { track_idx, p1, p2 }) = edge_intervals.get(e) {
+
+                                          if let Some((loc1,_)) = s.track_line_at(track_idx, *p1) {
+                                          if let Some((loc2,_)) = s.track_line_at(track_idx, *p2) {
+
+                                              let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, loc1);
+                                              let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, loc2);
+                                              ImDrawList_AddLine(draw_list, ps1,ps2, tvd_col, 5.0);
+
+                                          }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+
+
                           for (k,v) in &s.points {
                               let mut p = world2screen(canvas_pos, canvas_lower, center, zoom, *v);
                               let tl = ImVec2 { x: p.x - caret_right_halfsize.x, 
@@ -725,6 +764,19 @@ fn main() -> Result<(), String>{
                                                  line_col,
                                                  s.as_ptr(), ptr::null());
                               last_x = Some(x);
+                          }
+
+                          // highlight ruote
+                          if let Some(route_idx) = &app.model.view.hot_route {
+                              if let Derive::Ok(routes) = &app.model.interlocking.routes {
+                                if let Some(route) = routes.get(*route_idx) {
+                                    // Draw start signal / boundary green
+                                    // Draw end signal/boundary red
+                                    // Draw switch positions
+                                    // Draw sections
+                                    // ... and color release groups differently?
+                                }
+                              }
                           }
 
                           if let Selection::Pos(pos, y, id) = &app.model.view.selection {

@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
+route_finder = { path = "../lib/route_finder" }
 imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }
 # sdl2 = { version = "*", features = ["bundled","static-link"] }
 sdl2 = { version = "*" }
@@ -22,4 +23,4 @@ nalgebra = "*"
 tinyfiledialogs = "*"
 threadpool="*"
 railml2dgraph = { path = "../../trainspotting/railml2dgraph" }
-
+rolling = { path = "../../trainspotting/rolling" }

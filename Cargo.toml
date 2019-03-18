@@ -1,5 +1,5 @@
 [workspace]
-members = ["glrail", "lib/imgui-sys-bindgen", "lib/imgui-sys-opengl"]
+members = ["glrail", "lib/imgui-sys-bindgen", "lib/imgui-sys-opengl", "lib/route_finder"]
 
 [profile.release]
 lto = true

@@ -46,12 +46,15 @@ impl BackgroundUpdates {
             match res {
                 Ok(s) => model.schematic = Derive::Ok(s),
                 Err(s) => model.schematic = Derive::Err(s),
-            }
+            };
+            self.schematic_rx = None;
         }
 
+        //println!("Checking for updates {:?}.",self.il_rx);
         if let Some(Ok(res)) = self.il_rx.as_mut().map(|f| f.try_recv()) {
             match res {
                 Ok((dgraph,routes,issues)) => {
+                    println!("RECEIVED dg {:?}", dgraph);
                     println!("RECEIVED routes {:?}", routes);
                     println!("RECEIVED routes {:?}", issues);
                     model.dgraph = Derive::Ok(dgraph);
@@ -61,10 +64,12 @@ impl BackgroundUpdates {
                     }
                 },
                 Err(s) =>  {
+                    println!("ROUTE ERR {:?}", s);
                     model.dgraph = Derive::Err(s.clone());
                     model.interlocking.routes = Derive::Err(s);
                 },
-            }
+            };
+            self.il_rx = None;
         }
     }
 
@@ -87,6 +92,7 @@ impl BackgroundUpdates {
     }
 
     pub fn invalidate_dynamic(&mut self, model :&mut Model) {
+        println!("Invalidate dynamic");
         // Delete dgraph
         model.dgraph = Derive::Wait;
         // Delete routes
@@ -103,12 +109,11 @@ impl BackgroundUpdates {
         let (il_tx,il_rx) = mpsc::channel();
         let entities = model.inf.entities.clone();
         self.pool.execute(move || {
-            let res = dgraph::convert_entities(&entities)
-                .map(|dg| (dg, Vec::new())); // TODO get issues from dgraph conversion.
+            let res = dgraph::convert_entities(&entities);
             let res = res.and_then(|(dg,mut issues)| {
                 let (routes,mut route_issues) = dgraph::make_routes(&dg);
-                issues.extend(route_issues);
-                Ok((dg, routes, issues))
+                //issues.extend(route_issues);
+                Ok((dg, routes, route_issues))
             });
 
             if il_tx.send(res).is_ok() { wake(); }
