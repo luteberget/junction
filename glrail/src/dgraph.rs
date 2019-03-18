@@ -7,8 +7,7 @@ use std::collections::HashMap;
 use std::collections::HashSet; 
 use ordered_float::OrderedFloat;
 
-// TODO move to route derive crate
-pub use railml2dgraph::routes::ConvertRouteIssue;
+pub use route_finder::ConvertRouteIssue;
 
 #[derive(Debug)]
 pub struct DGraph {
@@ -42,12 +41,6 @@ pub struct Interval {
     pub track_idx :EntityId,
     pub p1 :f32,
     pub p2 :f32,
-}
-
-
-pub fn make_routes(dgraph :&DGraph) -> (Vec<Route>, Vec<ConvertRouteIssue>) {
-    // TODO
-    (vec![],vec![])
 }
 
 pub enum DGraphConvertIssue {

@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 rolling = {path = "../../../trainspotting/rolling"}
 petgraph = "*"
+smallvec = "*"

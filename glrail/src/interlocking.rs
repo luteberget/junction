@@ -2,7 +2,7 @@ use crate::model::*;
 use crate::infrastructure::*;
 use serde::{Serialize, Deserialize};
 
-pub use railml2dgraph::routes::Route;
+pub use rolling::input::staticinfrastructure::Route;
 
 #[derive(Serialize, Deserialize)]
 pub struct Interlocking {

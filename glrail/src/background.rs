@@ -111,7 +111,10 @@ impl BackgroundUpdates {
         self.pool.execute(move || {
             let res = dgraph::convert_entities(&entities);
             let res = res.and_then(|(dg,mut issues)| {
-                let (routes,mut route_issues) = dgraph::make_routes(&dg);
+                let (routes,mut route_issues) = 
+                    route_finder::find_routes(Default::default(), &dg.rolling_inf)
+                    .map_err(|_| format!("find routes error"))?;
+                    //dgraph::make_routes(&dg);
                 //issues.extend(route_issues);
                 Ok((dg, routes, route_issues))
             });

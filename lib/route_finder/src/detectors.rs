@@ -64,8 +64,8 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
                 let exit  = new_object(&mut m.objects, StaticObject::TVDLimit { exit:  Some(tvd), enter: None });
 
                 // Attach these objects to their nodes
-                inserts.push((i, exit));
-                inserts.push((n.other_node, entry));
+                inserts.push((i, entry));
+                inserts.push((n.other_node, exit));
             } else {
                 // Section connects to a boundary, we don't make it a detection section.
             }
