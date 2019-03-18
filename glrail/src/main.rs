@@ -29,6 +29,7 @@ use self::view::*;
 use self::infrastructure::*;
 use self::command_builder::*;
 use self::selection::*;
+use self::scenario::*;
 use crate::dgraph::*;
 
 pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
@@ -574,6 +575,49 @@ fn main() -> Result<(), String>{
                   if igCollapsingHeader(const_cstr!("User data editor").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                       json_editor(&json_types, user_data.as_object_mut().unwrap(), &mut open_object);
+                  }
+
+                  if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
+                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+
+                      for (si,sc) in app.model.scenarios.iter().enumerate() {
+                          igPushIDInt(si as _);
+                          match sc {
+                              Scenario::Dispatch(dispatch) => {
+                                  show_text("dispatch1");
+                              },
+                              Scenario::Movement(movement, dispatches) => {
+
+                                  show_text("movement1");
+
+                                  match dispatches {
+                                      Derive::Ok(dispatches) => {
+                                          for (di,dispatch) in dispatches.iter().enumerate() {
+                                              igPushIDInt(di as _);
+                                              show_text("mdispatch1");
+                                              igPopID();
+                                          }
+                                      },
+                                      Derive::Err(msg) => {
+                                          show_text("error: "); igSameLine(0.0, -1.0); show_text(&msg);
+                                      }
+                                      Derive::Wait => {
+                                          show_text("calulating...");
+                                      }
+                                  }
+                              }
+                          }
+                          igPopID();
+                      }
+
+                      if igButton(const_cstr!("\u{f11b} Add dispatch").as_ptr(), v2_0) {
+                          app.integrate(AppAction::Model(ModelAction::Scenario(
+                                      ScenarioEdit::NewDispatch)));
+                      }
+                      if igButton(const_cstr!("\u{f56c} Add auto dispatch").as_ptr(), v2_0) {
+                          app.integrate(AppAction::Model(ModelAction::Scenario(
+                                      ScenarioEdit::NewMovement)));
+                      }
                   }
 
                   igEndChild();

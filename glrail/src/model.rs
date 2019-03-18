@@ -35,10 +35,13 @@ pub enum ModelUpdateResult {
     //SchematicChanged,
     //ViewChanged,
     InterlockingChanged,
+    ScenarioChanged(usize),
 }
 
 pub enum ModelAction {
     Inf(InfrastructureEdit),
+    //Interlocking(InterlockingEdit),
+    Scenario(ScenarioEdit),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -265,8 +268,25 @@ impl Model {
                 };
                 Ok(ModelUpdateResult::InfrastructureChanged)
             },
-            _ => {
-                Err("Unhandled ModelAction!".to_string())
+            ModelAction::Scenario(se) => {
+                match se {
+                    ScenarioEdit::NewDispatch => {
+                        let i = self.scenarios.len();
+                        self.scenarios.push(Scenario::Dispatch(Default::default()));
+                        Ok(ModelUpdateResult::ScenarioChanged(i))
+                    },
+                    ScenarioEdit::NewMovement => {
+                        let i = self.scenarios.len();
+                        self.scenarios.push(Scenario::Movement(Default::default(), Default::default()));
+                        Ok(ModelUpdateResult::ScenarioChanged(i))
+                    },
+                    ScenarioEdit::AddCommand(i,time,cmd) => {
+                        Ok(ModelUpdateResult::ScenarioChanged(i))
+                    },
+                    ScenarioEdit::ModifyCommand(i, cmd_idx, new) => {
+                        Ok(ModelUpdateResult::ScenarioChanged(i))
+                    },
+                }
             }
         }
     }

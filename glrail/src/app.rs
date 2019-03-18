@@ -18,7 +18,6 @@ pub struct App {
 
 pub enum AppAction {
     Model(ModelAction),
-    DerivedSchematic(Derive<Schematic>),
 }
 
 impl App {
@@ -45,6 +44,9 @@ impl App {
                     },
                     ModelUpdateResult::InterlockingChanged => {
                     },
+                    ModelUpdateResult::ScenarioChanged(idx) => {
+                        self.background.invalidate_scenario(idx, &mut self.model);
+                    }
                 }
             },
             _ => {},
