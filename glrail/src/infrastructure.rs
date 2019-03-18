@@ -79,6 +79,8 @@ pub enum InfrastructureEdit {
     ExtendTrack(EntityId, f32),
     /// Insert an object onto a track at a given position.
     InsertObject(EntityId, Pos, Object),
+    /// Update entity
+    UpdateEntity(EntityId, Entity),
 }
 
 pub type EntityId = usize;

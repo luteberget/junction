@@ -2,10 +2,14 @@ use crate::model::*;
 use crate::infrastructure::*;
 use serde::{Serialize, Deserialize};
 
+pub use railml2dgraph::routes::Route;
+
 #[derive(Serialize, Deserialize)]
 pub struct Interlocking {
-    derive :Option<DeriveInterlocking>,
-    routes :Derive<Vec<Route>>,
+    pub derive :Option<DeriveInterlocking>,
+
+    #[serde(skip)]
+    pub routes :Derive<Vec<Route>>,
 }
 
 impl Interlocking {
@@ -27,9 +31,4 @@ impl DeriveInterlocking {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Route {
-    pub start :usize,
-    pub end :usize,
-}
 

@@ -3,13 +3,15 @@ use crate::selection::*;
 use crate::model::*;
 use crate::infrastructure::*;
 use crate::schematic::*;
+use crate::background::*;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
+
 
 pub struct App {
     pub model :Model,
     pub command_builder: Option<CommandBuilder>,
-    pub background_processes: BackgroundProcesses, 
+    pub background: BackgroundUpdates,
     pub want_to_quit :bool,
     pub show_imgui_demo :bool,
 }
@@ -19,25 +21,13 @@ pub enum AppAction {
     DerivedSchematic(Derive<Schematic>),
 }
 
-pub struct BackgroundProcesses {
-    schematic_updater: SchematicUpdater,
-}
-
-impl BackgroundProcesses {
-    pub fn new() -> Self {
-        BackgroundProcesses {
-            schematic_updater: SchematicUpdater::new(),
-        }
-    }
-}
-
 impl App {
 
     pub fn new() -> Self {
         App {
             model: Model::new_empty(),
             command_builder: None,
-            background_processes: BackgroundProcesses::new(),
+            background: BackgroundUpdates::new(),
             want_to_quit: false,
             show_imgui_demo: false,
         }
@@ -46,37 +36,23 @@ impl App {
     pub fn integrate(&mut self, action :AppAction) {
         match action {
             AppAction::Model(action) => {
+        println!("integrate model action");
                 let result = self.model.integrate(action);
                 match result {
                     ModelUpdateResult::NoChange => {},
                     ModelUpdateResult::InfrastructureChanged => {
-                        self.background_processes.schematic_updater.start_update(self.model.inf.entities.clone());
-                        self.model.schematic = Derive::Wait;
-                        //self.background_processes.interlocking_updater.send(self.model.inf);
+                        self.background.invalidate_inf(&mut self.model);
                     },
                     ModelUpdateResult::InterlockingChanged => {
-                        // self.background_processes.scenario_dispatches_update();
                     },
                 }
             },
-            AppAction::DerivedSchematic(s) => {
-                // TODO does this trigger more updates?
-                self.model.schematic = s;
-            }
+            _ => {},
         }
     }
 
     pub fn update_background_processes(&mut self) {
-        // Check all background updates
-
-        // 1. schematic
-        if let Some(s) =self.background_processes.schematic_updater.get_update() {
-            self.integrate(AppAction::DerivedSchematic(s));
-        }
-
-        // 2. detection sections?
-
-        // 2. route derivation ...
+        self.background.poll_updates(&mut self.model);
     }
 
     pub fn save_dialog(&self) -> Result<(),()> {

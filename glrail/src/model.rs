@@ -1,10 +1,13 @@
 use crate::infrastructure::*;
+use crate::dgraph::*;
 use crate::schematic::*;
 use crate::interlocking::*;
 use crate::view::*;
 use crate::issue::*;
 use crate::selection::*;
+use crate::scenario::*;
 use serde::{Serialize, Deserialize};
+
 
 
 #[derive(Serialize, Deserialize)]
@@ -12,6 +15,12 @@ pub enum Derive<T> {
     Wait,
     Ok(T),
     Err(String),
+}
+
+impl<T :Default> Default for Derive<T> {
+    fn default() -> Self {
+        Derive::Ok(Default::default())
+    }
 }
 
 pub enum ModelUpdateResult {
@@ -32,9 +41,19 @@ pub struct Model {
     pub schematic :Derive<Schematic>,
     pub view :View,
     pub interlocking: Interlocking,
+    pub scenarios :Vec<Scenario>,
+
+    #[serde(skip)]
+    pub dgraph: Derive<DGraph>,
 }
 
+
 impl Model {
+
+    pub fn selected_entity(&mut self) -> Option<(EntityId, &Entity)> {
+        let id = if let Selection::Entity(id) = self.view.selection { Some(id) } else { None } ?;
+        self.inf.entities.get(id)?.as_ref().map(|e| (id,e))
+    }
 
     pub fn new_empty() -> Self {
         Model {
@@ -42,6 +61,8 @@ impl Model {
             schematic: Derive::Ok(Schematic::new_empty()),
             view: View::new_default(),
             interlocking: Interlocking::new_default(),
+            dgraph: Default::default(),
+            scenarios : Vec::new(),
         }
     }
 
@@ -126,14 +147,6 @@ impl Model {
         }
     }
 
-    pub fn middle_of_track(&self, obj :Option<EntityId>) -> Option<(EntityId, f32)> {
-        let id = obj?;
-        let Track { ref start_node, ref end_node, .. } = self.inf.get_track(id)?;
-        let (p1,_) = self.inf.get_node(start_node.0)?;
-        let (p2,_) = self.inf.get_node(end_node.0)?;
-        Some((id, 0.5*(p1+p2)))
-    }
-
     pub fn handle_event(&mut self, action :ModelAction) -> Result<ModelUpdateResult, String> {
         match action {
             ModelAction::Inf(ie) => {
@@ -150,6 +163,9 @@ impl Model {
                     InfrastructureEdit::InsertObject(t,p,obj) => {
                         let _id = self.inf.new_entity(Entity::Object(t,p,obj));
                     },
+                    InfrastructureEdit::UpdateEntity(id,e) => {
+                        self.inf.entities[id] = Some(e);
+                    }
                     InfrastructureEdit::InsertNode(t,p,node,l) => {
                         let (straight_side, branch_side) = match node {
                             Node::Switch(_,side) => (side.other(), side),

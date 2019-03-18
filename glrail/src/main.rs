@@ -9,11 +9,13 @@ mod sdlinput;
 
 // App
 mod app;
+mod background;
 mod command_builder;
 
 // Domain
 mod model;
 mod infrastructure;
+mod dgraph;
 mod schematic;
 mod view;
 mod selection;
@@ -134,7 +136,7 @@ pub fn wake() {
 
 fn main() -> Result<(), String>{
     use log::LevelFilter;
-    simple_logging::log_to_stderr(LevelFilter::Debug);
+    simple_logging::log_to_stderr(LevelFilter::Warn);
 
     let json_types: [*const i8; 6] = [
         const_cstr!("Null").as_ptr(),
@@ -497,24 +499,55 @@ fn main() -> Result<(), String>{
 
                   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
                                         ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      match &app.model.view.selection {
-                          Selection::Entity(id) => {
-                              let s = entity_to_string(*id, &app.model.inf);
-                              show_text(&s);
+                      let mut editaction = None;
+                      let entity = app.model.selected_entity();
+                      match entity {
+                          Some((id, Entity::Node(p, Node::BufferStop))) 
+                              | Some((id,Entity::Node(p, Node::Macro(_)))) => {
+                              let l_buffer = const_cstr!("Buffer stop");
+                              let l_macro = const_cstr!("Boundary");
+                              let is_buffer = if let Some((_, Entity::Node(_,Node::BufferStop))) = entity  { true } else {false };
+
+                              if igBeginCombo(const_cstr!("##endtype").as_ptr(), 
+                                              if is_buffer { l_buffer.as_ptr() } else { l_macro.as_ptr() },
+                                              0) {
+                                  if igSelectable(l_buffer.as_ptr(), is_buffer, 0, v2_0) && !is_buffer {
+                                      editaction = Some(InfrastructureEdit::UpdateEntity(id,
+                                                            Entity::Node(*p, Node::BufferStop)));
+                                  }
+                                  if igSelectable(l_macro.as_ptr(), !is_buffer, 0, v2_0) && is_buffer {
+                                      editaction = Some(InfrastructureEdit::UpdateEntity(id,
+                                                            Entity::Node(*p, Node::Macro(None))));
+                                  }
+                                  igEndCombo();
+                              }
                           },
-                          _ => {
-                              igText(const_cstr!("No object selected.").as_ptr());
+                          Some(_) => {
+                              show_text("Other entity");
+                          },
+                          _ =>  {
+                              show_text("No entity selected.");
                           }
                       }
+
+                      if let Some(action) = editaction {
+                          app.integrate(AppAction::Model(ModelAction::Inf(action)));
+                      }
+
                   }
 
 
-                  // if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
-                  //                       ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                  //     //for r in &app.model.interlocking.routes {
-
-                  //     //}
-                  // }
+                  if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
+                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                      match app.model.interlocking.routes {
+                          Derive::Ok(ref r) if r.len() > 0 => {
+                              for x in r.iter() {
+                                  show_text(&format!("entry: {:?}, exit: {:?}", x.entry, x.exit));
+                              }
+                          },
+                          _ => show_text("No routes available."),
+                      }
+                  }
                   // if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
                   //                       ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
                   //     //for r in &app.model.scenarios {
@@ -615,6 +648,11 @@ fn main() -> Result<(), String>{
                                                  y: p.y - caret_right_halfsize.y };
                               let br = ImVec2 { x: p.x + caret_right_halfsize.x, 
                                                  y: p.y + caret_right_halfsize.y };
+                              let symbol = match app.model.inf.get(*k) {
+                                  Some(Entity::Node(_,Node::BufferStop)) => caret_right.as_ptr(),
+                                  Some(Entity::Node(_,Node::Macro(_))) => const_cstr!("O").as_ptr(),
+                                  _ => const_cstr!("?").as_ptr(),
+                              };
 
                               lowest = lowest.min(v.1);
                               let selected = if let Selection::Entity(id) = &app.model.view.selection { id == k } else { false };
@@ -622,7 +660,7 @@ fn main() -> Result<(), String>{
                               ImDrawList_AddText(draw_list, tl, 
                                                  if selected { selected_col } 
                                                  else if canvas_hovered && hover { line_hover_col } else { line_col }, 
-                                                 caret_right.as_ptr(), ptr::null());
+                                                 symbol, ptr::null());
                               if hover {
                                   hovered_item = Some(*k);
                               }

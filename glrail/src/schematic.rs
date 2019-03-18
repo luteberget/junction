@@ -217,7 +217,7 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     }
 
     let model = railplotlib::model::SchematicGraph { nodes, edges };
-    println!("Model: {:#?}", model);
+    //println!("Model: {:#?}", model);
 
     let sol = {
         use railplotlib::solvers::SchematicSolver;
@@ -233,10 +233,10 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
         solver.solve(model)
     }?;
 
-    println!("{:?}", sol.nodes);
-    println!("{:#?}", sol.lines);
+    //println!("{:?}", sol.nodes);
+    //println!("{:#?}", sol.lines);
 
-    println!("\n\n\n");
+    //println!("\n\n\n");
 
     // now, convert it back.
     // j
@@ -261,47 +261,4 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     }
 
     Ok(output)
-}
-
-pub struct SchematicUpdater {
-    jobs: mpsc::Sender<Vec<Option<Entity>>>,
-    results: mpsc::Receiver<Result<Schematic,String>>,
-}
-
-impl SchematicUpdater {
-    pub fn new() -> Self {
-        use std::thread;
-
-        let (jobs_tx, jobs_rx) = mpsc::channel();
-        let (results_tx, results_rx) = mpsc::channel();
-
-        thread::spawn(move || {
-            use crate::schematic;
-            while let Ok(job) = jobs_rx.recv() {
-                let r = schematic::solve(&job);
-                results_tx.send(r).unwrap();
-                super::wake();
-            }
-        });
-
-        SchematicUpdater {
-            jobs: jobs_tx,
-            results: results_rx,
-        }
-    }
-
-    pub fn start_update(&mut self, inf :Vec<Option<Entity>>) {
-        self.jobs.send(inf).unwrap();
-    }
-
-    pub fn get_update(&mut self) -> Option<Derive<Schematic>> {
-        let mut result = None;
-        while let Ok(s) = self.results.try_recv() {
-            match s {
-                Ok(s) => result = Some(Derive::Ok(s)),
-                Err(s) => result = Some(Derive::Err(s)),
-            }
-        }
-        result
-    }
 }
