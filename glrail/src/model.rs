@@ -281,6 +281,9 @@ impl Model {
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
                     ScenarioEdit::AddCommand(i,time,cmd) => {
+                        if let Some(Scenario::Dispatch(Dispatch { commands, ..  })) = self.scenarios.get_mut(i) {
+                            commands.push((time,cmd));
+                        }
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
                     ScenarioEdit::ModifyCommand(i, cmd_idx, new) => {

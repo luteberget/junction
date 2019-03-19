@@ -1,4 +1,5 @@
 use crate::selection::*;
+use crate::infrastructure::*;
 use serde::{Deserialize, Serialize};
 
 
@@ -12,8 +13,9 @@ pub struct View {
     pub viewport : ((f64,f64),f64),
     pub selection :Selection,
     pub hot_route :Option<usize>,
-    pub selected_movement :Option<usize>,
     pub selected_dispatch :Option<usize>,
+    pub selected_movement :Option<(usize,Option<usize>)>,
+    pub canvas_context_menu_item :Option<EntityId>,
     pub time :f32,
 }
 
@@ -25,6 +27,7 @@ impl View {
             hot_route: None,
             selected_movement: None,
             selected_dispatch: None,
+            canvas_context_menu_item: None,
             time :0.0,
         }
     }

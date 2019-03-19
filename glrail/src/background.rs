@@ -23,12 +23,14 @@ use crate::wake;
 //use futures_cpupool::{CpuPool, CpuFuture};
 use std::sync::mpsc;
 use threadpool::ThreadPool;
+use std::collections::HashMap;
 
 
 pub struct BackgroundUpdates {
     pool: ThreadPool,
     schematic_rx :Option<mpsc::Receiver<Result<Schematic, String>>>,
     il_rx :Option<mpsc::Receiver<Result<(DGraph, Vec<Route>, Vec<ConvertRouteIssue>), String>>>,
+    sim_rx :HashMap<usize, mpsc::Receiver<Result<History, String>>>,
 }
 
 impl BackgroundUpdates {
@@ -37,7 +39,15 @@ impl BackgroundUpdates {
             pool: ThreadPool::new(2),
             schematic_rx : None,
             il_rx : None,
+            sim_rx : HashMap::new(),
         }
+    }
+
+    pub fn status_str(&self) -> String {
+        format!("bg jobs: {}/{} ({})", 
+                self.pool.active_count(),
+                self.pool.max_count(),
+                self.pool.queued_count())
     }
 
     pub fn poll_updates(&mut self, model :&mut Model) {
@@ -70,6 +80,21 @@ impl BackgroundUpdates {
                 },
             };
             self.il_rx = None;
+        }
+        
+        for (k,v) in self.sim_rx.iter_mut() {
+            if let Ok(res) = v.try_recv() {
+                match res {
+                    Ok(h) => {
+                        println!("Received sim results.");
+                        model.scenarios[*k].set_history(Derive::Ok(h));
+                    },
+                    Err(s) => {
+                        println!("Received sim error {:?}.",s);
+                        model.scenarios[*k].set_history(Derive::Err(s));
+                    }
+                }
+            }
         }
     }
 
@@ -129,6 +154,18 @@ impl BackgroundUpdates {
         match &mut model.scenarios[idx] {
             Scenario::Dispatch(Dispatch { ref mut history, ..  }) => {
                 *history = Derive::Wait;
+
+                let (sim_tx,sim_rx) = mpsc::channel();
+                //
+                // TODO put inside Arc since it is immutable anyway
+                let dgraph = model.dgraph.get().unwrap().rolling_inf.clone(); 
+
+                self.pool.execute(move || {
+                    let r :Result<History,String> = Ok(Default::default());
+                    if sim_tx.send(r).is_ok() { wake(); }
+                });
+
+                self.sim_rx.insert(idx, sim_rx);
             },
             Scenario::Movement(_, ref mut dispatches) => {
                 *dispatches = Derive::Wait;

@@ -19,6 +19,15 @@ pub enum Scenario {
     Movement(Movement, Derive<Vec<Dispatch>>),
 }
 
+impl Scenario {
+    pub fn set_history(&mut self, h :Derive<History>)  {
+        match self {
+            Scenario::Dispatch(Dispatch { ref mut history, .. }) => *history = h,
+            _ => {},
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Dispatch {
     pub commands :Vec<(f32, Command)>,
@@ -26,7 +35,10 @@ pub struct Dispatch {
 }
 impl Default for Dispatch {
     fn default() -> Dispatch { Dispatch {
-        commands: Vec::new(),
+        commands: vec![
+            (10.553151, Command::Train(5,5)),
+            (53.12, Command::Route(9)),
+            (53.19, Command::Route(8))],
         history: Default::default(),
     }}
 }
@@ -52,4 +64,9 @@ impl Default for History {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Command {}
+pub enum Command {
+    Route(usize),
+    Train(usize,usize),
+}
+
+

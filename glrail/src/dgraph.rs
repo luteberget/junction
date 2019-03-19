@@ -6,13 +6,14 @@ use crate::interlocking::{ Route };
 use std::collections::HashMap; 
 use std::collections::HashSet; 
 use ordered_float::OrderedFloat;
+use std::sync::Arc;
 
 pub use route_finder::ConvertRouteIssue;
 
 #[derive(Debug)]
 pub struct DGraph {
     /// static infrastructure with internal indexing (names do not correspond to glrail entities)
-    pub rolling_inf : StaticInfrastructure,
+    pub rolling_inf : Arc<StaticInfrastructure>,
     /// Reference from rolling dgraph indices to glrail entitiy vec
     pub entity_names : HashMap<EntityId, usize>,
     /// tvd sections mapped to set of edges
@@ -26,7 +27,7 @@ pub struct DGraph {
 impl Default for DGraph {
     fn default() -> Self {
         DGraph {
-            rolling_inf: StaticInfrastructure { nodes: vec![], objects: vec![] },
+            rolling_inf: Arc::new(StaticInfrastructure { nodes: vec![], objects: vec![] }),
             entity_names: HashMap::new(),
             tvd_sections: HashMap::new(),
             edge_intervals: HashMap::new(),
@@ -136,9 +137,11 @@ pub fn convert_entities(ent :&Vec<Option<Entity>>) -> Result<(DGraph,Vec<DGraphC
         //
         match t.start {
             (Node::BufferStop, _) => {},
-            (Node::Macro(name), _) => {
+            (Node::Macro(name), (eid,_)) => {
                 model.nodes[na].edges = Edges::ModelBoundary;
+                entity_names.insert(eid, na);
                 if let Some(name) = name { boundary_names.insert(name.clone(),na); }
+                else { issues.push(DGraphConvertIssue::UnnamedBoundary(eid)); }
             },
             (Node::Switch(Dir::Down, side), (sw_idx, Port { dir: Dir::Up, .. })) => {
                 dswitches.get_mut(&sw_idx).unwrap().trunk = Some(na);
@@ -204,10 +207,11 @@ pub fn convert_entities(ent :&Vec<Option<Entity>>) -> Result<(DGraph,Vec<DGraphC
 
         match t.end {
             (Node::BufferStop, _) => {},
-            (Node::Macro(name), (idx,_)) => {
+            (Node::Macro(name), (eid,_)) => {
                 model.nodes[nb].edges = Edges::ModelBoundary;
-                if let Some(name) = name { boundary_names.insert(name.clone(),na); }
-                else { issues.push(DGraphConvertIssue::UnnamedBoundary(idx)); }
+                entity_names.insert(eid, nb);
+                if let Some(name) = name { boundary_names.insert(name.clone(),nb); }
+                else { issues.push(DGraphConvertIssue::UnnamedBoundary(eid)); }
             },
             (Node::Switch(Dir::Up, side), (sw_idx, Port { dir :Dir::Down, ..})) => {
                 dswitches.get_mut(&sw_idx).unwrap().trunk = Some(nb);
@@ -263,7 +267,7 @@ pub fn convert_entities(ent :&Vec<Option<Entity>>) -> Result<(DGraph,Vec<DGraphC
     // Call tvd section finder
 
     let dgraph = DGraph {
-        rolling_inf: model,
+        rolling_inf: Arc::new(model),
         entity_names: entity_names,
         tvd_sections: tvd_sections,
         edge_intervals: edge_intervals,

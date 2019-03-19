@@ -11,6 +11,7 @@ mod sdlinput;
 mod app;
 mod background;
 mod command_builder;
+mod ui;
 
 // Domain
 mod model;
@@ -45,56 +46,6 @@ pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
       },
       _ => { format!("Error id={} not found.", id) }
   }
-}
-
-use imgui_sys_bindgen::sys::ImVec2;
-pub fn world2screen(topleft: ImVec2, bottomright: ImVec2, center :(f64,f64), zoom: f64, pt :(f32,f32)) -> ImVec2 {
-    let scale = if bottomright.x - topleft.x < bottomright.y - topleft.y {
-        (bottomright.x-topleft.x) as f64 / zoom
-    } else {
-        (bottomright.y-topleft.y) as f64 / zoom
-    };
-    let x = 0.5*(topleft.x + bottomright.x) as f64 + scale*(pt.0 as f64  - center.0);
-    let y = 0.5*(topleft.y + bottomright.y) as f64 + scale*(-(pt.1 as f64 -  center.1));
-    ImVec2 {x: x as _ , y: y as _ }
-}
-
-pub fn screen2world(topleft: ImVec2, bottomright: ImVec2, center: (f64, f64), zoom: f64, pt:ImVec2) -> (f32,f32) {
-    let scale = if bottomright.x - topleft.x < bottomright.y - topleft.y {
-        (bottomright.x-topleft.x) as f64 / zoom
-    } else {
-        (bottomright.y-topleft.y) as f64 / zoom
-    };
-    // mousex = 0.5 tlx + 0.5 brx + scale*ptx - scale*cx
-    // ptx = 1/scale*(mousex - 0.5tlx - 0.5brx + scale*cx)
-    let x = 1.0/scale*(pt.x as f64 - (0.5*(topleft.x + bottomright.x)) as f64) + center.0;
-    let y = 1.0/scale*(pt.y as f64 - (0.5*(topleft.y + bottomright.y)) as f64) + center.1;
-    (x as _,(-y) as _ )
-}
-
-pub fn screen2worldlength(topleft: ImVec2, bottomright: ImVec2, zoom: f64, d :f32) -> f32 {
-    let scale = if bottomright.x - topleft.x < bottomright.y - topleft.y {
-        (bottomright.x-topleft.x) as f64 / zoom
-    } else {
-        (bottomright.y-topleft.y) as f64 / zoom
-    };
-
-    ((d as f64)/scale) as f32
-}
-
-pub fn  line_closest_pt(a :&ImVec2, b :&ImVec2, p :&ImVec2) -> ImVec2 {
-    let ap = ImVec2{ x: p.x - a.x, y:  p.y - a.y};
-    let ab_dir = ImVec2 { x: b.x - a.x, y: b.y - a.y };
-    let dot = ap.x * ab_dir.x + ap.y * ab_dir.y;
-    if dot < 0.0 { return *a; }
-    let ab_len_sqr = ab_dir.x * ab_dir.x + ab_dir.y * ab_dir.y;
-    if dot > ab_len_sqr { return *b; }
-    let ac = ImVec2{ x: ab_dir.x * dot / ab_len_sqr, y: ab_dir.y * dot / ab_len_sqr } ;
-    ImVec2 { x : a.x + ac.x, y: a.y + ac.y }
-}
-
-pub fn dist2(a :&ImVec2, b :&ImVec2) -> f32 { 
-    (a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y)
 }
 
 
@@ -366,6 +317,8 @@ fn main() -> Result<(), String>{
 
     let mut sidebar_size :f32 = 200.0;
     let mut issues_size :f32 = 200.0;
+    let mut graph_size :f32 = 200.0;
+
     let canvas_bg = 60 + (60<<8) + (60<<16) + (255<<24);
     let line_col  = 208 + (208<<8) + (175<<16) + (255<<24);
     let tvd_col  = 175 + (255<<8) + (175<<16) + (255<<24);
@@ -407,16 +360,6 @@ fn main() -> Result<(), String>{
 
               imgui_sdl.frame(&canvas.window(), &event_pump.mouse_state());
 
-              // TODO move this out of main loop
-                let caret_right = const_cstr!("\u{f0da}");
-                let caret_left = const_cstr!("\u{f0d9}");
-                let (caret_left_halfsize,caret_right_halfsize) = unsafe {
-                    let mut l = igCalcTextSize(caret_left.as_ptr(), ptr::null(), false, -1.0);
-                    let mut r = igCalcTextSize(caret_right.as_ptr(), ptr::null(), false, -1.0);
-                    l.x *= 0.5; l.y *= 0.5; r.x *= 0.5; r.y *= 0.5;
-                    (l,r)
-                };
-
               use self::app::*;
               use imgui_sys_bindgen::sys::*;
               let v2_0 = ImVec2 { x: 0.0, y: 0.0 };
@@ -448,425 +391,70 @@ fn main() -> Result<(), String>{
 
                   igBegin(const_cstr!("Root").as_ptr(), ptr::null_mut(), dockspace_window_flags as _ );
                   
-                  let mut root_size = igGetContentRegionAvail();
-                  let mut main_size = ImVec2 { x: root_size.x - sidebar_size, ..root_size };
+                  let root_size = igGetContentRegionAvail();
+                  let mut main_column_size = ImVec2 { x: root_size.x - sidebar_size, y: root_size.y };
 
-                  igSplitter(true, 2.0, &mut sidebar_size as _, &mut main_size.x as _, 100.0, 100.0, -1.0);
-
-                  igBeginChild(const_cstr!("Sidebar").as_ptr(), ImVec2 { x: sidebar_size, y: root_size.y } , false,0);
-
-                  // Start new command
-                    if igButton(const_cstr!("\u{f044}").as_ptr(), ImVec2 { x: 0.0, y: 0.0 })  {
-                        app.main_menu();
-                    }
-
-                    //igSameLine(0.0,-1.0);
-
-//                  match app.command_builder {
-//                      None => igText(const_cstr!("App default state.").as_ptr()),
-//                      Some(CommandBuilder::MainMenu) => igText(const_cstr!("Main menu").as_ptr()),
-//                      Some(CommandBuilder::JoinTwo) => igText(const_cstr!("Select two points for joining.").as_ptr()),
-//                      Some(CommandBuilder::JoinOne(_)) => igText(const_cstr!("Select one more point for joining.").as_ptr()),
-//                  }
-//
-
-                  
-                  if igCollapsingHeader(const_cstr!("All objects").as_ptr(),
-                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      for (i,e) in app.model.inf.entities.iter().enumerate() {
-                          match e {
-                              Some(Entity::Track(_))  => { 
-                                  let s = CString::new(format!("Track##{}", i)).unwrap();
-                                  if igSelectable(s.as_ptr(),
-                                                  app.model.view.selection == Selection::Entity(i), 0, v2_0) {
-                                      //println!("SET {}", i);
-                                      app.model.view.selection = Selection::Entity(i);
-                                  }
-                              },
-                              Some(Entity::Node(p,_))   => { 
-                                  let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
-                                  if igSelectable(s.as_ptr(), 
-                    
-                              app.model.view.selection == Selection::Entity(i), 0, v2_0) {
-                                      //println!("SET NODE {}", i);
-                                      app.model.view.selection = Selection::Entity(i);
-                                  }
-                              },
-                              Some(Entity::Object(_,_,_)) => { 
-                                  igText(const_cstr!("Object#0").as_ptr()); 
-                              },
-                              _ => {},
-                          }
-                      }
-                  }
-
-                  if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
-                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      let mut editaction = None;
-                      let entity = app.model.selected_entity();
-                      match entity {
-                          Some((id, Entity::Node(p, Node::BufferStop))) 
-                              | Some((id,Entity::Node(p, Node::Macro(_)))) => {
-                              let l_buffer = const_cstr!("Buffer stop");
-                              let l_macro = const_cstr!("Boundary");
-                              let is_buffer = if let Some((_, Entity::Node(_,Node::BufferStop))) = entity  { true } else {false };
-
-                              if igBeginCombo(const_cstr!("##endtype").as_ptr(), 
-                                              if is_buffer { l_buffer.as_ptr() } else { l_macro.as_ptr() },
-                                              0) {
-                                  if igSelectable(l_buffer.as_ptr(), is_buffer, 0, v2_0) && !is_buffer {
-                                      editaction = Some(InfrastructureEdit::UpdateEntity(id,
-                                                            Entity::Node(*p, Node::BufferStop)));
-                                  }
-                                  if igSelectable(l_macro.as_ptr(), !is_buffer, 0, v2_0) && is_buffer {
-                                      editaction = Some(InfrastructureEdit::UpdateEntity(id,
-                                                            Entity::Node(*p, Node::Macro(None))));
-                                  }
-                                  igEndCombo();
-                              }
-                          },
-                          Some(_) => {
-                              show_text("Other entity");
-                          },
-                          _ =>  {
-                              show_text("No entity selected.");
-                          }
-                      }
-
-                      if let Some(action) = editaction {
-                          app.integrate(AppAction::Model(ModelAction::Inf(action)));
-                      }
-
-                  }
+                  igSplitter(true, 4.0, &mut sidebar_size as _, &mut main_column_size.x as _, 100.0, 100.0, -1.0);
 
 
-                  if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
-                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      let mut hovered = None;
-                      match app.model.interlocking.routes {
-                          Derive::Ok(ref r) if r.len() > 0 => {
-                              for (i,x) in r.iter().enumerate() {
-                                  igPushIDInt(i as _);
+                  //
+                  // SIDEBAR
+                  //
+                  //
+                  ui::sidebar::sidebar(ImVec2{ x: sidebar_size, y: root_size.y }, &mut app);
 
-                                  if igSelectable(const_cstr!("").as_ptr(), false, 0, v2_0) {
-                                  }
-                                  if igIsItemHovered(0) {
-                                      hovered = Some(i);
-                                  }
-                                  igSameLine(0.0,-1.0);
-                                  show_text(&format!("entry: {:?}, exit: {:?}", x.entry, x.exit));
 
-                                  igPopID();
-                              }
-                          },
-                          _ => show_text("No routes available."),
-                      }
-
-                      app.model.view.hot_route = hovered;
-                  }
-                  ////println!("hot route: {:?}", app.model.view.hot_route);
-                  // if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
-                  //                       ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                  //     //for r in &app.model.scenarios {
-
-                  //     //}
-                  // }
-
-                  if igCollapsingHeader(const_cstr!("User data editor").as_ptr(),
-                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-                      json_editor(&json_types, user_data.as_object_mut().unwrap(), &mut open_object);
-                  }
-
-                  if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
-                                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-
-                      for (si,sc) in app.model.scenarios.iter().enumerate() {
-                          igPushIDInt(si as _);
-                          match sc {
-                              Scenario::Dispatch(dispatch) => {
-                                  show_text("dispatch1");
-                              },
-                              Scenario::Movement(movement, dispatches) => {
-
-                                  show_text("movement1");
-
-                                  match dispatches {
-                                      Derive::Ok(dispatches) => {
-                                          for (di,dispatch) in dispatches.iter().enumerate() {
-                                              igPushIDInt(di as _);
-                                              show_text("mdispatch1");
-                                              igPopID();
-                                          }
-                                      },
-                                      Derive::Err(msg) => {
-                                          show_text("error: "); igSameLine(0.0, -1.0); show_text(&msg);
-                                      }
-                                      Derive::Wait => {
-                                          show_text("calulating...");
-                                      }
-                                  }
-                              }
-                          }
-                          igPopID();
-                      }
-
-                      if igButton(const_cstr!("\u{f11b} Add dispatch").as_ptr(), v2_0) {
-                          app.integrate(AppAction::Model(ModelAction::Scenario(
-                                      ScenarioEdit::NewDispatch)));
-                      }
-                      if igButton(const_cstr!("\u{f56c} Add auto dispatch").as_ptr(), v2_0) {
-                          app.integrate(AppAction::Model(ModelAction::Scenario(
-                                      ScenarioEdit::NewMovement)));
-                      }
-                  }
-
-                  igEndChild();
+                  // main column
                   igSameLine(0.0, -1.0);
-                  igBeginChild(const_cstr!("CanvasandIssues").as_ptr(), main_size, false, 0);
+                  igBeginChild(const_cstr!("CanvasandIssues").as_ptr(), main_column_size, false, 0);
+                  //let graph_size_open = if app.model.view.selected_dispatch.is_some() { graph_size } else { 0.0 };
 
-                  let mut mainmain_size = ImVec2 { y: main_size.y - issues_size, ..main_size };
-                  igSplitter(false, 2.0, &mut mainmain_size.y as _, &mut issues_size as _, 100.0, 100.0, -1.0);
+                  let mut canvasgraph_size = ImVec2 { 
+                      x: main_column_size.x, 
+                      y: main_column_size.y - issues_size };
+                  igSplitter(false, 4.0, &mut canvasgraph_size.y as _, &mut issues_size as _, 100.0, 100.0, -1.0);
 
-                  // CANVAS!
+                  //
+                  // CANVAS
+                  //
+                  //
 
-                  igBeginChild(const_cstr!("Canvas").as_ptr(), mainmain_size, false, 0);
-                  capture_canvas_key = igIsWindowFocused(0);
+                  let graph_open = app.model.view.selected_dispatch.is_some();
+                  let canvas_size = if graph_open {
 
-                  let draw_list = igGetWindowDrawList();
-                  //igText(const_cstr!("Here is the canvas:").as_ptr());
+                      let mut canvas_size_y = canvasgraph_size.y - graph_size;
 
-                  match &app.model.schematic {
-                      Derive::Wait => {
-                          igText(const_cstr!("Solving...").as_ptr());
-                      },
-                      Derive::Err(ref e) => {
-                          let s = CString::new(format!("Error: {}", e)).unwrap();
-                          igText(s.as_ptr());
-                      },
-                      Derive::Ok(ref s) => {
-                          let mut hovered_item = None;
-                          let canvas_pos = igGetCursorScreenPos();
-                          let mut canvas_size = igGetContentRegionAvail();
-                          let canvas_lower = ImVec2 { x: canvas_pos.x + canvas_size.x,
-                                                      y: canvas_pos.y + canvas_size.y };
-                          if canvas_size.x < 10.0 { canvas_size.x = 10.0 }
+                      igBeginChild(const_cstr!("canvasandgraph").as_ptr(), 
+                                   canvasgraph_size, false, 0);
 
-                          if canvas_size.y < 10.0 { canvas_size.y = 10.0 }
-                          ImDrawList_AddRectFilled(draw_list, canvas_pos,
-                                                   ImVec2 { x: canvas_pos.x + canvas_size.x,
-                                                            y: canvas_pos.y + canvas_size.y, },
-                                                            canvas_bg,
-                                                    0.0, 0);
-                          let clicked = igInvisibleButton(const_cstr!("canvasbtn").as_ptr(), canvas_size);
-                          let right_clicked = igIsItemHovered(0) && igIsMouseClicked(1,false);
-                          let canvas_hovered = igIsItemHovered(0);
+                      igSplitter(false, 4.0, 
+                                 &mut canvas_size_y as _, 
+                                 &mut graph_size,
+                                 100.0, 100.0, -1.0);
 
-                          let (center,zoom) = app.model.view.viewport;
+                      ImVec2 {
+                          x: main_column_size.x,
+                          y: canvas_size_y}
+                  } else {
+                      canvasgraph_size
+                  };
 
-                          if igIsItemActive() && igIsMouseDragging(0,-1.0) {
-                              (app.model.view.viewport.0).0 -= screen2worldlength(canvas_pos, canvas_lower, zoom, (*io).MouseDelta.x) as f64;
-                              (app.model.view.viewport.0).1 += screen2worldlength(canvas_pos, canvas_lower, zoom, (*io).MouseDelta.y) as f64;
-                          }
+                  capture_canvas_key = ui::canvas::canvas(canvas_size, &mut app);
 
-                          if igIsItemHovered(0) {
-                              let wheel = (*io).MouseWheel;
-                              //println!("{}", wheel);
-                              let wheel2 = 1.0-0.2*(*io).MouseWheel;
-                              //println!("{}", wheel2);
-                              (app.model.view.viewport.1) *= wheel2 as f64;
-                          }
-                          
+                  if graph_open {
+                      let size = ImVec2 { x: main_column_size.x, y: graph_size };
+                      // TODO capture graph key commands?
+                      let capture_graph_key = ui::graph::graph(size, &mut app);
 
-                          // Iterate the schematic 
-
-
-                          ImDrawList_PushClipRect(draw_list, canvas_pos, canvas_lower, true);
-
-                          let mut lowest = std::f32::INFINITY;
-
-                          for (k,v) in &s.lines {
-                              //println!("{:?}, {:?}", k,v);
-                              let mut hovered = false;
-                              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == k } else { false };
-                              for i in 0..(v.len()-1) {
-                                  let p1 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i]);
-                                  let p2 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i+1]);
-                                  let hovered = dist2(&mouse_pos, &line_closest_pt(&p1, &p2, &mouse_pos)) < 100.0;
-                                  if hovered {
-                                      hovered_item = Some(*k);
-                                  }
-                                  ImDrawList_AddLine(draw_list, p1, p2, 
-                                                     if selected { selected_col }
-                                                     else if canvas_hovered && hovered { line_hover_col } else { line_col }, 2.0);
-                                  lowest = lowest.min(v[i].1);
-                                  lowest = lowest.min(v[i+1].1);
-                              }
-                          }
-
-                          // Example plot of a detection section 
-                          // TODO trigger by selecting/hovering routes in the menu
-                          if let Derive::Ok(DGraph { tvd_sections, edge_intervals, .. }) = &app.model.dgraph {
-                              if let Some((sec_id, edges)) = tvd_sections.iter().nth(0) {
-                                  for e in edges.iter() {
-                                      if let Some(Interval { track_idx, p1, p2 }) = edge_intervals.get(e) {
-
-                                          if let Some((loc1,_)) = s.track_line_at(track_idx, *p1) {
-                                          if let Some((loc2,_)) = s.track_line_at(track_idx, *p2) {
-
-                                              let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, loc1);
-                                              let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, loc2);
-                                              ImDrawList_AddLine(draw_list, ps1,ps2, tvd_col, 5.0);
-
-                                          }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-
-
-                          for (k,v) in &s.points {
-                              let mut p = world2screen(canvas_pos, canvas_lower, center, zoom, *v);
-                              let tl = ImVec2 { x: p.x - caret_right_halfsize.x, 
-                                                 y: p.y - caret_right_halfsize.y };
-                              let br = ImVec2 { x: p.x + caret_right_halfsize.x, 
-                                                 y: p.y + caret_right_halfsize.y };
-                              let symbol = match app.model.inf.get(*k) {
-                                  Some(Entity::Node(_,Node::BufferStop)) => caret_right.as_ptr(),
-                                  Some(Entity::Node(_,Node::Macro(_))) => const_cstr!("O").as_ptr(),
-                                  _ => const_cstr!("?").as_ptr(),
-                              };
-
-                              lowest = lowest.min(v.1);
-                              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == k } else { false };
-                              let hover = igIsMouseHoveringRect(tl,br,false);
-                              ImDrawList_AddText(draw_list, tl, 
-                                                 if selected { selected_col } 
-                                                 else if canvas_hovered && hover { line_hover_col } else { line_col }, 
-                                                 symbol, ptr::null());
-                              if hover {
-                                  hovered_item = Some(*k);
-                              }
-                          }
-
-                          // TODO symbol locations are supposed to be stored in the schematic
-                          // object, not recalculated from Pos
-                          for (i,o) in app.model.inf.entities.iter().enumerate() {
-                              if let Some(Entity::Object(track_id, pos, obj)) = o {
-                                  if let Some((loc,tangent)) = s.track_line_at(track_id, *pos) {
-                                      let rightside = (tangent.1, -tangent.0);
-                                      match obj {
-                                          Object::Signal(Dir::Up) => {
-                                              let pw = (loc.0 + rightside.0*0.2, loc.1 + rightside.1*0.2);
-                                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
-                                              ImDrawList_AddText(draw_list, ps, line_col, const_cstr!("\u{f637}").as_ptr(), ptr::null());
-                                          },
-                                          Object::Signal(Dir::Down) => {
-                                              let pw = (loc.0 - rightside.0*0.2, loc.1 - rightside.1*0.2);
-                                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
-                                              ImDrawList_AddText(draw_list, ps, line_col, const_cstr!("\u{f637}").as_ptr(), ptr::null());
-                                          },
-                                          Object::Balise(filled) => {
-                                              let pw = (loc.0, loc.1);
-                                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
-                                              ImDrawList_AddText(draw_list, ps, line_col, const_cstr!("\u{f071}").as_ptr(), ptr::null());
-                                          },
-                                          Object::Detector => {
-                                              let pw1 = (loc.0 - rightside.0*0.1, loc.1 - rightside.1*0.1);
-                                              let pw2 = (loc.0 + rightside.0*0.1, loc.1 + rightside.1*0.1);
-                                              let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, pw1);
-                                              let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, pw2);
-                                              ImDrawList_AddLine(draw_list, ps1,ps2, line_col, 2.0);
-                                              let hovered = dist2(&mouse_pos, &line_closest_pt(&ps1, &ps2, &mouse_pos)) < 100.0;
-                                              if hovered {
-                                                  hovered_item = Some(i);
-                                              }
-                                          },
-                                      }
-                                  }
-                              }
-                          }
-
-
-                          let (mut last_x,mut line_no) = (None,0);
-                          for (x,_id,pos) in &s.pos_map {
-                              let x = *x;
-                              // TODO use line_no to calculate number of text heights to lower
-                              //println!("{:?}", lowest);
-                              ImDrawList_AddLine(draw_list,
-                                                 world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5)),
-                                                 world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5 - (line_no+1) as f32)),
-                                                 line_col, 1.0);
-                              if Some(x) == last_x {
-                                  line_no += 1;
-                              } else {
-                                  line_no = 0;
-                              }
-                              let s = CString::new(format!(" {}", pos)).unwrap();
-                              ImDrawList_AddText(draw_list, 
-                                                 world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5 - (line_no) as f32)),
-                                                 line_col,
-                                                 s.as_ptr(), ptr::null());
-                              last_x = Some(x);
-                          }
-
-                          // highlight ruote
-                          if let Some(route_idx) = &app.model.view.hot_route {
-                              if let Derive::Ok(routes) = &app.model.interlocking.routes {
-                                if let Some(route) = routes.get(*route_idx) {
-                                    // Draw start signal / boundary green
-                                    // Draw end signal/boundary red
-                                    // Draw switch positions
-                                    // Draw sections
-                                    // ... and color release groups differently?
-                                }
-                              }
-                          }
-
-                          if let Selection::Pos(pos, y, id) = &app.model.view.selection {
-                              if let Some(x) = s.find_pos(*pos) {
-                                  //println!("Drawing at {:?} {:?}", x, y);
-                                ImDrawList_AddLine(draw_list, 
-                                   world2screen(canvas_pos, canvas_lower, center, zoom, (x, y - 0.25)),
-                                   world2screen(canvas_pos, canvas_lower, center, zoom, (x, y + 0.25)),
-                                   selected_col, 2.0);
-                              }
-                          }
-
-                          ImDrawList_PopClipRect(draw_list);
-
-                          if clicked {
-                              app.clicked_object(hovered_item, 
-                                                 screen2world(canvas_pos, canvas_lower, center, zoom, (*io).MousePos));
-                          }
-
-                          if right_clicked {
-                                if let Some(screen) = app.context_menu() {
-                                    app.command_builder = Some(CommandBuilder::new_screen(screen));
-                                }
-                          }
-
-                          if let Some(id) = hovered_item {
-                              if canvas_hovered {
-                                  igBeginTooltip();
-                                  show_text(&entity_to_string(id, &app.model.inf));
-                                  igEndTooltip();
-                              }
-                          }
-
-                      },
+                      igEndChild();
                   }
 
-                  igEndChild();
 
-
-                  igBeginChild(const_cstr!("Issues").as_ptr(),ImVec2 { x: main_size.x, y: issues_size } ,false,0);
-                  igText(const_cstr!("Here are the issues:").as_ptr());
-                  for issue in app.model.iter_issues() {
-
-                  }
-                  igEndChild();
-
+                  //
+                  // ISSUES
+                  //
+                  //
+                   ui::issues::issues(ImVec2 { x: main_column_size.x, y: issues_size } ,&mut app);
 
 
                   igEndChild();
@@ -874,135 +462,14 @@ fn main() -> Result<(), String>{
                   igEnd();
 
 
+                  //
+                  // COMMAND BUILDER 
+                  // overlay window
+                  //
+                  //
 
-                  let mut overlay_start = || {
-                      igSetNextWindowBgAlpha(0.75);
-                      igSetNextWindowPos(ImVec2 { x: sidebar_size, y: 0.0 },
-                      //igSetNextWindowPos((*viewport).Pos, 
-                         ImGuiCond__ImGuiCond_Always as _, v2_0);
-                      igPushStyleColor(ImGuiCol__ImGuiCol_TitleBgActive as _, 
-                                     ImVec4 { x: 1.0, y: 0.65, z: 0.7, w: 1.0 });
-                      igBegin(const_cstr!("Command").as_ptr(), ptr::null_mut(),
-                        (ImGuiWindowFlags__ImGuiWindowFlags_AlwaysAutoResize | 
-                        ImGuiWindowFlags__ImGuiWindowFlags_NoMove | 
-                        ImGuiWindowFlags__ImGuiWindowFlags_NoResize) as _
-                        );
 
-                      capture_command_key = igIsWindowFocused(0);
-                  };
-                      
-                  let overlay_end = || {
-                      igEnd();
-                      igPopStyleColor(1);
-                  };
-                  
-                  // Overlay command builder
-                  let mut new_screen_func = None;
-                  let mut alb_execute = false;
-                  let mut alb_cancel = false;
-                  if let Some(ref mut command_builder) = &mut app.command_builder {
-                      match command_builder.current_screen() {
-                          CommandScreen::Menu(Menu { choices }) => {
-                              // Draw menu
-                              //
-                              overlay_start();
-
-                              for (i,c) in choices.iter().enumerate() {
-                                igPushIDInt(i as _);
-                                  if igSelectable(const_cstr!("##mnuitm").as_ptr(), false, 0, v2_0) {
-                                      new_screen_func = Some(c.2);
-                                  }
-
-                                  igSameLine(0.0, -1.0);
-
-                                  let s = CString::new(format!("{} - ", c.0)).unwrap();
-                                  igTextColored( ImVec4 { x: 0.95, y: 0.5, z: 0.55, w: 1.0 }, s.as_ptr());
-
-                                  igSameLine(0.0, -1.0);
-                                  //igText(const_cstr!("context").as_ptr());
-                                  show_text(&c.1);
-                                igPopID();
-                              }
-
-                              overlay_end();
-
-                          },
-                          CommandScreen::ArgumentList(alb) => {
-                              overlay_start();
-                              for (i,(name, status, arg)) in alb.arguments.iter_mut().enumerate() {
-                                  igPushIDInt(i as _);
-
-                                  let s = CString::new(name.as_str()).unwrap();
-                                  match status {
-                                      ArgStatus::Done => {
-                                          let c = ImVec4 { x: 0.55, y: 0.55, z: 0.80, w: 1.0 };
-                                          igTextColored(c, s.as_ptr());
-                                          igSameLine(0.0,-1.0);
-                                          match arg {
-                                              Arg::Id(Some(x)) => {
-                                                  show_text(&format!("obj:{}", x));
-                                              },
-                                              Arg::Float(val) => {
-                                                  show_text(&format!("{}", val));
-                                              },
-                                              _ => { panic!(); },
-                                          }
-                                      },
-                                      ArgStatus::NotDone => {
-                                          let c = ImVec4 { x: 0.95, y: 0.5,  z: 0.55, w: 1.0 };
-                                          igTextColored(c, s.as_ptr());
-                                          igSameLine(0.0,-1.0);
-                                          match arg {
-                                              Arg::Id(x) => {
-                                                  show_text(&format!("obj:{:?}", x));
-                                              },
-                                              Arg::Float(ref mut val) => {
-                                                igInputFloat(const_cstr!("##num").as_ptr(), 
-                                                             val as *mut _, 0.0, 1.0, 
-                                                             const_cstr!("%g").as_ptr(), 0);
-                                              },
-                                          }
-                                      },
-                                  };
-
-                                  igPopID();
-                              }
-
-                              if igButton(const_cstr!("\u{f04b} Execute").as_ptr(), v2_0) {
-                                  alb_execute = true;
-                              }
-
-                              igSameLine(0.0,-1.0);
-                              if igButton(const_cstr!("\u{f05e} Cancel").as_ptr(), v2_0) {
-                                  alb_cancel = true;
-                              }
-                              overlay_end();
-                          },
-                          _ => {},
-                      }
-                  }
-
-                  if let Some(f) = new_screen_func {
-                      if let Some(s) = f(&mut app) {
-                          if let Some(ref mut c) = app.command_builder {
-                              c.push_screen(s);
-                          }
-                      } else {
-                          app.command_builder = None;
-                      }
-                  }
-
-                  if alb_execute {
-                      use std::mem;
-                      let cb = mem::replace(&mut app.command_builder, None);
-                      if let Some(cb) = cb {
-                          cb.execute(&mut app);
-                      }
-                  }
-
-                  if alb_cancel {
-                      app.command_builder = None;
-                  }
+                  capture_command_key = ui::command::command(ImVec2 { x: sidebar_size, y: 0.0 },&mut app);
 
               }
 
