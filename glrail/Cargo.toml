@@ -22,5 +22,5 @@ ordered-float = "*"
 nalgebra = "*"
 tinyfiledialogs = "*"
 threadpool="*"
-railml2dgraph = { path = "../../trainspotting/railml2dgraph" }
 rolling = { path = "../../trainspotting/rolling" }
+planner = { path = "../../trainspotting/planner" }

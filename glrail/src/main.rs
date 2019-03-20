@@ -19,6 +19,7 @@ mod infrastructure;
 mod dgraph;
 mod schematic;
 mod view;
+mod vehicle;
 mod selection;
 mod interlocking;
 mod scenario;
@@ -419,7 +420,7 @@ fn main() -> Result<(), String>{
                   //
                   //
 
-                  let graph_open = app.model.view.selected_dispatch.is_some();
+                  let graph_open = app.model.view.selected_scenario.has_dispatch();
                   let canvas_size = if graph_open {
 
                       let mut canvas_size_y = canvasgraph_size.y - graph_size;

@@ -126,7 +126,7 @@ impl BackgroundUpdates {
         for scenario in &mut model.scenarios {
             match scenario {
                 Scenario::Dispatch(Dispatch { ref mut history, ..  }) => *history = Derive::Wait,
-                Scenario::Movement(_, ref mut dispatches) => *dispatches = Derive::Wait,
+                Scenario::Usage(_, ref mut dispatches) => *dispatches = Derive::Wait,
             }
         }
 
@@ -167,7 +167,7 @@ impl BackgroundUpdates {
 
                 self.sim_rx.insert(idx, sim_rx);
             },
-            Scenario::Movement(_, ref mut dispatches) => {
+            Scenario::Usage(_, ref mut dispatches) => {
                 *dispatches = Derive::Wait;
             },
         }

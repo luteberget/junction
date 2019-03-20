@@ -8,6 +8,7 @@ use crate::infrastructure::*;
 use crate::selection::*;
 use crate::dgraph::*;
 use crate::command_builder::*;
+use crate::view::*;
 use std::ptr;
 use std::ffi::CString;
 use const_cstr::const_cstr;
@@ -295,7 +296,7 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
               } else {
                   line_no = 0;
               }
-              let s = CString::new(format!(" {}", pos)).unwrap();
+              let s = CString::new(format!(" {:.3}", pos)).unwrap();
               ImDrawList_AddText(draw_list, 
                                  world2screen(canvas_pos, canvas_lower, center, zoom, (x, lowest - 0.5 - (line_no) as f32)),
                                  line_col,
@@ -350,12 +351,12 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
               match app.model.view.canvas_context_menu_item.and_then(|id| app.model.inf.get(id).map(|v| (id,v))) {
                   Some((id, Entity::Node(_, Node::Macro(name)))) => {
                       show_text("Boundary node");
-                      if let Some(disp_id) = &app.model.view.selected_dispatch {
+                      if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
                           if let Some(d) = app.model.dgraph.get() {
                               for (i,r) in app.model.interlocking.routes_from_boundary(d,id).enumerate() {
                                   igPushIDInt(i as _);
                                   if igSelectable(const_cstr!("##bdrt").as_ptr(), false, 0, v2_0) {
-                                      cmd = Some(ScenarioEdit::AddCommand(*disp_id, 
+                                      cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 
                                                                           app.model.view.time, 
                                                                           Command::Route(i))); // TODO i is wrong
                                   }

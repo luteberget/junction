@@ -8,6 +8,7 @@ use crate::model::*;
 use crate::scenario::*;
 use crate::infrastructure::*;
 use crate::selection::*;
+use crate::view::*;
 use std::ptr;
 use std::ffi::CString;
 use const_cstr::const_cstr;
@@ -27,8 +28,26 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
     igSameLine(0.0,-1.0); 
     show_text(&app.background.status_str());
 
+  if igCollapsingHeader(const_cstr!("Vehicles").as_ptr(), 0) {
+      for (i,v) in app.model.vehicles.iter_mut().enumerate() {
+          igPushIDInt(i as _);
+          if igCollapsingHeader(const_cstr!("Vehicle").as_ptr(), 0) {
+
+              input_text_string(const_cstr!("Name").as_cstr(), Some(const_cstr!("Name").as_cstr()), 
+                                &mut v.name, 0);
+              let format = const_cstr!("%.3f").as_ptr();
+              igSliderFloat(const_cstr!("Length").as_ptr(), &mut v.length as *mut _, 1.0, 1000.0, format, 1.0);
+              igSliderFloat(const_cstr!("Accel").as_ptr(), &mut v.max_accel as *mut _, 0.05, 1.5, format, 1.0);
+              igSliderFloat(const_cstr!("Brake").as_ptr(), &mut v.max_brake as *mut _, 0.05, 1.5, format, 1.0);
+              igSliderFloat(const_cstr!("Max.vel").as_ptr(), &mut v.max_velocity as *mut _, 1.0, 200.0, format, 1.0);
+          }
+          igPopID();
+      }
+  }
+
   if igCollapsingHeader(const_cstr!("All objects").as_ptr(),
-                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                        0) {
+                        //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
       for (i,e) in app.model.inf.entities.iter().enumerate() {
           match e {
               Some(Entity::Track(_))  => { 
@@ -57,7 +76,8 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
   }
 
   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
-                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                        0) {
+                        //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
       let mut editaction = None;
       let entity = app.model.selected_entity();
       match entity {
@@ -97,7 +117,8 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
 
 
   if igCollapsingHeader(const_cstr!("Routes").as_ptr(),
-                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                        0) {
+                        //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
       let mut hovered = None;
       match app.model.interlocking.routes {
           Derive::Ok(ref r) if r.len() > 0 => {
@@ -120,32 +141,22 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
 
       app.model.view.hot_route = hovered;
   }
-  ////println!("hot route: {:?}", app.model.view.hot_route);
-  // if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
-  //                       ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-  //     //for r in &app.model.scenarios {
-
-  //     //}
-  // }
-
-  //if igCollapsingHeader(const_cstr!("User data editor").as_ptr(),
-  //                      ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-  //    json_editor(&json_types, user_data.as_object_mut().unwrap(), &mut open_object);
-  //}
 
   if igCollapsingHeader(const_cstr!("Scenarios").as_ptr(),
-                        ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+                        0) {
+                        //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
 
-      for (si,sc) in app.model.scenarios.iter_mut().enumerate() {
+      let mut scenario_action = None;
+
+      for (si,sc) in app.model.scenarios.iter().enumerate() {
           igPushIDInt(si as _);
           match sc {
               Scenario::Dispatch(dispatch) => {
 
-                  let selected = Some(si) == app.model.view.selected_dispatch;
-                  //println!("selected {:?} {:?}", app.model.view.selected_dispatch, selected);
+                  let selected = SelectedScenario::Dispatch(si) == app.model.view.selected_scenario;
                   if igSelectable(const_cstr!("##dispatch").as_ptr(), selected, 0, v2_0) {
-                      app.model.view.selected_dispatch = if selected { None } else { Some(si) };
-                      println!("clicked");
+                      app.model.view.selected_scenario = if selected { SelectedScenario::None } 
+                                                      else { SelectedScenario::Dispatch(si) };
                   }
                   igSameLine(0.0,-1.0);
                   show_text("Dispatch ");
@@ -153,64 +164,101 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                   show_text(&format!("{}", si));
 
                   if selected {
-                      show_text("Commands:");
-
-                      igColumns(3, const_cstr!("c").as_ptr(), false);
-
-                      for (i,(t,v)) in dispatch.commands.iter_mut().enumerate() {
-                          igPushIDInt(i as _);
-
-                          igInputFloat(const_cstr!("##dtime").as_ptr(),
-                                        t as *mut _, 0.0, 1.0, const_cstr!("%g").as_ptr(), 0);
-
-                          igNextColumn();
-
-                          match v {
-                              Command::Route(r) => {
-                                  show_text(&format!("\u{f637} Route {}", r));
-                              },
-                              Command::Train(t,br) => {
-                                  show_text(&format!("\u{f238} Train {}@{}", t, br));
-                              }
-                          }
-
-
-                          igNextColumn();
-
-                          if igButton(const_cstr!("\u{f55a}").as_ptr(),v2_0) {
-                              println!("delete");
-                          }
-
-                          igNextColumn();
-                          
-                          igPopID();
+                      if let Some(cmd) = show_dispatch_command_list(&dispatch.commands) {
+                          scenario_action = Some(cmd);
                       }
-
-                      igColumns(1, ptr::null(), false);
                   }
 
               },
 
-              Scenario::Movement(movement, dispatches) => {
+              Scenario::Usage(movement, dispatches) => {
                   // TODO 
+                  let movement_selected = if let SelectedScenario::Usage(mi,_) = &app.model.view.selected_scenario {
+                      si == *mi } else { false };
 
-                  //show_text("movement1");
+                  if igSelectable(const_cstr!("##usage").as_ptr(), movement_selected, 0, v2_0) {
+                      app.model.view.selected_scenario = if movement_selected { SelectedScenario::None }
+                                                      else { SelectedScenario::Usage(si,None) };
 
-                  //match dispatches {
-                  //    Derive::Ok(dispatches) => {
-                  //        for (di,dispatch) in dispatches.iter().enumerate() {
-                  //            igPushIDInt(di as _);
-                  //            show_text("mdispatch1");
-                  //            igPopID();
-                  //        }
-                  //    },
-                  //    Derive::Err(msg) => {
-                  //        show_text("error: "); igSameLine(0.0, -1.0); show_text(&msg);
-                  //    }
-                  //    Derive::Wait => {
-                  //        show_text("calulating...");
-                  //    }
-                  //}
+                  }
+                  igSameLine(0.0,-1.0);
+                  show_text("Usage ");
+                  igSameLine(0.0,-1.0);
+                  show_text(&format!("{}", si));
+
+                  if movement_selected {
+
+                      // movements have
+                      // 1. movements
+                      //    a. movement specs
+                      //       i. 
+                      //       ii. list of visits
+                      //    b. timing constraints
+                      //       i. refs to visits in a movement (2 indices)
+                      //       ii. optional time
+                      // 2. derived dispatches from this spec
+
+                      show_text("MovementSpecs");
+                      for (i,m) in movement.movements.iter().enumerate() {
+                          igPushIDInt(i as _);
+
+                          show_text("Movement.");
+
+                          // TODO will need slot maps on all of these? vehicle ref, visit ref, etc.
+                          let curr_name = 
+                              if let Some(v) = app.model.vehicles.get(m.vehicle_ref) {
+                                  CString::new(v.name.clone()).unwrap()
+                              } else { CString::new("?").unwrap() };
+                          if igBeginCombo(const_cstr!("Vehicle").as_ptr(), 
+                                          curr_name.as_ptr(),
+                                          0) {
+                              for (v_i,v) in app.model.vehicles.iter().enumerate() {
+                                  igPushIDInt(v_i as _);
+                                  if igSelectable(const_cstr!("##sveh").as_ptr(), m.vehicle_ref == v_i, 0, v2_0) 
+                                      && m.vehicle_ref != v_i {
+
+                                          scenario_action = Some(ScenarioEdit::SetUsageMovementVehicle(si,i,v_i));
+
+                                  }
+                                  igSameLine(0.0,-1.0);
+                                  show_text(&v.name);
+                                  igPopID();
+                              }
+                              igEndCombo();
+                          }
+
+                          for (j,v) in m.visits.iter().enumerate() {
+                              igPushIDInt(j as _);
+                              show_text("Visit.");
+                              show_text(&format!("{:?}", m.visits));
+                              igPopID();
+                          }
+
+                          if igButton(const_cstr!("\u{f11b} Add visit").as_ptr(), v2_0) {
+                              scenario_action = Some(ScenarioEdit::AddUsageMovementVisit(si,i));
+                          }
+
+                          igPopID();
+                      }
+
+                      if igButton(const_cstr!("\u{f11b} Add movement").as_ptr(), v2_0) {
+                          //println!(" NEW movement.");
+                          scenario_action = Some(ScenarioEdit::AddUsageMovement(si));
+                      }
+                      
+
+                      match dispatches {
+                          Derive::Wait => { show_text("waiting for solver"); }
+                          Derive::Err(s) => { show_text("solver error:"); igSameLine(0.0,-1.0); show_text(s); },
+                          Derive::Ok(dispatches) => {
+                              show_text(&format!("We have {} dispatches.", dispatches.len()));
+                              for d in dispatches {
+                                  show_dispatch_command_list(&d.commands);
+                              }
+                          }
+                      }
+
+                  }
               }
           }
           igPopID();
@@ -220,13 +268,52 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
           app.integrate(AppAction::Model(ModelAction::Scenario(
                       ScenarioEdit::NewDispatch)));
       }
-      if igButton(const_cstr!("\u{f56c} Add auto dispatch").as_ptr(), v2_0) {
+      if igButton(const_cstr!("\u{f56c} Add usage (auto dispatch)").as_ptr(), v2_0) {
           app.integrate(AppAction::Model(ModelAction::Scenario(
-                      ScenarioEdit::NewMovement)));
+                      ScenarioEdit::NewUsage)));
+      }
+      // check if any action was requested
+      if let Some(action) = scenario_action {
+          app.integrate(AppAction::Model(ModelAction::Scenario(action)));
       }
   }
 
   igEndChild();
+
+
     }
 
+}
+
+pub fn show_dispatch_command_list(cmds :&[(f32, Command)]) -> Option<ScenarioEdit> {
+    let v2_0 = ImVec2 { x: 0.0, y: 0.0 };
+    unsafe {
+  show_text("Commands:");
+  igColumns(3, const_cstr!("c").as_ptr(), false);
+  for (i,(t,v)) in cmds.iter().enumerate() {
+      igPushIDInt(i as _);
+      let mut time = *t;
+      igInputFloat(const_cstr!("##dtime").as_ptr(),
+                    &mut time as *mut _, 0.0, 1.0, const_cstr!("%g").as_ptr(), 0);
+      // TODO if edited, create action
+      igNextColumn();
+      match v {
+          Command::Route(r) => {
+              show_text(&format!("\u{f637} Route {}", r));
+          },
+          Command::Train(t,br) => {
+              show_text(&format!("\u{f238} Train {}@{}", t, br));
+          }
+      }
+      igNextColumn();
+      if igButton(const_cstr!("\u{f55a}").as_ptr(),v2_0) {
+          println!("delete");
+      }
+      igNextColumn();
+      igPopID();
+  }
+  igColumns(1, ptr::null(), false);
+    }
+
+    None
 }

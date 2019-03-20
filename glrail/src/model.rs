@@ -5,6 +5,7 @@ use crate::interlocking::*;
 use crate::view::*;
 use crate::issue::*;
 use crate::selection::*;
+use crate::vehicle::*;
 use crate::scenario::*;
 use serde::{Serialize, Deserialize};
 
@@ -51,6 +52,7 @@ pub struct Model {
     pub view :View,
     pub interlocking: Interlocking,
     pub scenarios :Vec<Scenario>,
+    pub vehicles :Vec<Vehicle>,
 
     #[serde(skip)]
     pub dgraph: Derive<DGraph>,
@@ -72,6 +74,7 @@ impl Model {
             interlocking: Interlocking::new_default(),
             dgraph: Default::default(),
             scenarios : Vec::new(),
+            vehicles: vec![default_vehicle()],
         }
     }
 
@@ -162,8 +165,8 @@ impl Model {
                 match ie {
                     InfrastructureEdit::NewTrack(p1,p2) => {
                         let inf = &mut self.inf;
-                        let i1 = self.inf.new_entity(Entity::Node(p1, Node::BufferStop));
-                        let i2 = self.inf.new_entity(Entity::Node(p2, Node::BufferStop));
+                        let i1 = self.inf.new_entity(Entity::Node(p1, Node::Macro(None)));
+                        let i2 = self.inf.new_entity(Entity::Node(p2, Node::Macro(None)));
                         let t =  self.inf.new_entity(Entity::Track(Track {
                             start_node: (i1, Port { dir: Dir::Up, course: None }),
                             end_node:   (i2, Port { dir: Dir::Down, course: None }),
@@ -275,20 +278,25 @@ impl Model {
                         self.scenarios.push(Scenario::Dispatch(Default::default()));
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
-                    ScenarioEdit::NewMovement => {
+                    ScenarioEdit::NewUsage => {
                         let i = self.scenarios.len();
-                        self.scenarios.push(Scenario::Movement(Default::default(), Default::default()));
+                        self.scenarios.push(Scenario::Usage(Default::default(), Default::default()));
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
-                    ScenarioEdit::AddCommand(i,time,cmd) => {
+                    ScenarioEdit::AddDispatchCommand(i,time,cmd) => {
                         if let Some(Scenario::Dispatch(Dispatch { commands, ..  })) = self.scenarios.get_mut(i) {
                             commands.push((time,cmd));
                         }
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
-                    ScenarioEdit::ModifyCommand(i, cmd_idx, new) => {
+                    ScenarioEdit::ModifyDispatchCommand(i, cmd_idx, new) => {
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
+
+                    _ => {
+                        println!("UNIMPLEMENTED");
+                        Ok(ModelUpdateResult::NoChange)
+                    }
                 }
             }
         }
