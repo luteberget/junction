@@ -229,8 +229,26 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
 
                           for (j,v) in m.visits.iter().enumerate() {
                               igPushIDInt(j as _);
-                              show_text("Visit.");
-                              show_text(&format!("{:?}", m.visits));
+                              igPushItemWidth(igGetContentRegionAvailWidth() * 0.65 - 16.0 ); 
+                              // TODO encapsulate custom textfield/button widget
+                              // TODO correct calculation see https://github.com/ocornut/imgui/issues/1658
+                              let mut s = format!("{:?}", v);
+                              igPushDisable();
+                              input_text_string(const_cstr!("##x").as_cstr(), Some(const_cstr!("visit").as_cstr()),
+                                &mut s, 0);
+                              igPopDisable();
+                              igSameLine(0.0,-1.0);
+
+
+                              if igButton(const_cstr!("\u{f05b}").as_ptr(), v2_0) {
+                                  println!("Start command.");
+                              }
+
+                              igSameLine(0.0,-1.0);
+                              show_text("Visit");
+                              igSameLine(0.0,-1.0);
+                              show_text(&format!("#{}", j+1));
+                              igPopItemWidth();
                               igPopID();
                           }
 

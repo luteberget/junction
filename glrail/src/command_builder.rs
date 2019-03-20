@@ -58,7 +58,7 @@ pub enum ArgStatus {
 
 pub struct ArgumentListBuilder {
     pub arguments : Vec<(String, ArgStatus, Arg)>,
-    pub function: Option<fn(app :&mut App, alb :&ArgumentListBuilder)>,
+    pub function: Option<Box<FnMut(&mut App,&ArgumentListBuilder)>>,
 }
 
 impl ArgumentListBuilder {
@@ -93,13 +93,13 @@ impl ArgumentListBuilder {
         None
     }
 
-    pub fn set_action(&mut self, f :fn(app :&mut App, alb :&ArgumentListBuilder)) {
+    pub fn set_action(&mut self, f :Box<FnMut(&mut App,&ArgumentListBuilder)>) {
         self.function = Some(f);
     }
 
     pub fn execute(&mut self, app :&mut App) {
         // TODO: should this function return a new screen?
-        if let Some(f) = self.function {
+        if let Some(mut f) = self.function.take() {
             f(app, self);
         }
     }

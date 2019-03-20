@@ -13,11 +13,10 @@ pub enum ScenarioEdit {
     ModifyDispatchCommand(usize, usize, Option<(f32, Command)>),
 
     NewUsage,
-    // TODO NAMING movement/movementspec/train/etc.
     AddUsageMovement(usize),
     AddUsageMovementVisit(usize, usize),
     SetUsageMovementVehicle(usize, usize, usize),
-    SetUsageMovementVisitNode(usize, usize, usize, Vec<NodeId>),
+    SetUsageMovementVisitNodes(usize, usize, usize, Vec<NodeId>),
 }
 
 
@@ -76,6 +75,14 @@ pub struct Movement {
     pub visits: Vec<Visit>,
 }
 
+
+impl Default for Movement {
+    fn default() -> Movement { Movement {
+        vehicle_ref: 0,
+        visits: vec![],
+    }}
+}
+
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 pub struct Visit {
@@ -83,10 +90,10 @@ pub struct Visit {
     pub time :Option<f32>,
 }
 
-impl Default for Movement {
-    fn default() -> Movement { Movement {
-        vehicle_ref: 0,
-        visits: vec![],
+impl Default for Visit {
+    fn default() -> Visit { Visit {
+        nodes: vec![],
+        time: None,
     }}
 }
 

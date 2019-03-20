@@ -273,14 +273,10 @@ impl Model {
             },
             ModelAction::Scenario(se) => {
                 match se {
+                    // DISPATCH
                     ScenarioEdit::NewDispatch => {
                         let i = self.scenarios.len();
                         self.scenarios.push(Scenario::Dispatch(Default::default()));
-                        Ok(ModelUpdateResult::ScenarioChanged(i))
-                    },
-                    ScenarioEdit::NewUsage => {
-                        let i = self.scenarios.len();
-                        self.scenarios.push(Scenario::Usage(Default::default(), Default::default()));
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
                     ScenarioEdit::AddDispatchCommand(i,time,cmd) => {
@@ -293,10 +289,45 @@ impl Model {
                         Ok(ModelUpdateResult::ScenarioChanged(i))
                     },
 
-                    _ => {
-                        println!("UNIMPLEMENTED");
-                        Ok(ModelUpdateResult::NoChange)
-                    }
+                    // USAGE
+                    ScenarioEdit::NewUsage => {
+                        let i = self.scenarios.len();
+                        self.scenarios.push(Scenario::Usage(Default::default(), Default::default()));
+                        Ok(ModelUpdateResult::ScenarioChanged(i))
+                    },
+                    ScenarioEdit::AddUsageMovement(si) => {
+                        if let Some(Scenario::Usage(ref mut usage, _)) = self.scenarios.get_mut(si) {
+                            usage.movements.push(Default::default());
+                        }
+                        Ok(ModelUpdateResult::ScenarioChanged(si))
+                    },
+                    ScenarioEdit::SetUsageMovementVehicle(si,mi,vi) => {
+                        if let Some(Scenario::Usage(ref mut usage, _)) = self.scenarios.get_mut(si) {
+                            if let Some(movement) = usage.movements.get_mut(mi) {
+                                movement.vehicle_ref = vi;
+                            }
+                        }
+                        Ok(ModelUpdateResult::ScenarioChanged(si))
+                    },
+                    ScenarioEdit::AddUsageMovementVisit(si,mi) => {
+                        if let Some(Scenario::Usage(ref mut usage, _)) = self.scenarios.get_mut(si) {
+                            if let Some(movement) = usage.movements.get_mut(mi) {
+                                movement.visits.push(Default::default());
+                            }
+                        }
+                        Ok(ModelUpdateResult::ScenarioChanged(si))
+                    },
+
+                    ScenarioEdit::SetUsageMovementVisitNodes(si,mi,vi,nodes) => {
+                        if let Some(Scenario::Usage(ref mut usage, _)) = self.scenarios.get_mut(si) {
+                            if let Some(movement) = usage.movements.get_mut(mi) {
+                                if let Some(visit) = movement.visits.get_mut(vi) {
+                                    visit.nodes = nodes;
+                                }
+                            }
+                        }
+                        Ok(ModelUpdateResult::ScenarioChanged(si))
+                    },
                 }
             }
         }

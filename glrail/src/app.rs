@@ -125,12 +125,12 @@ impl App {
                                     arguments.add_id("node");
                                 }
                                 arguments.add_float_default("length", 50.0);
-                                arguments.set_action(|app :&mut App,args :&ArgumentListBuilder| {
+                                arguments.set_action(Box::new(|app :&mut App,args :&ArgumentListBuilder| {
                                     let id = *args.get_id("node").unwrap();
                                     let l  = *args.get_float("length").unwrap();
                                     app.integrate(AppAction::Model(ModelAction::Inf(
                                             InfrastructureEdit::ExtendTrack(id, l))));
-                                });
+                                }));
                                 Some(CommandScreen::ArgumentList(arguments))
                             }),
                             ('j', format!("join with node"), |app| {
@@ -141,12 +141,12 @@ impl App {
                                     arguments.add_id("node1");
                                 }
                                 arguments.add_id("node2");
-                                arguments.set_action(|app :&mut App, args :&ArgumentListBuilder| {
+                                arguments.set_action(Box::new(|app :&mut App, args :&ArgumentListBuilder| {
                                     let n1 = *args.get_id("node1").unwrap();
                                     let n2 = *args.get_id("node2").unwrap();
                                     app.integrate(AppAction::Model(ModelAction::Inf(
                                             InfrastructureEdit::JoinNodes(n1, n2))));
-                                });
+                                }));
                                 Some(CommandScreen::ArgumentList(arguments))
                             }),
                         ]}))

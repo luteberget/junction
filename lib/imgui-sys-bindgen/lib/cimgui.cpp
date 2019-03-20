@@ -4820,6 +4820,23 @@ CIMGUI_API void ImVector_ImWchar_UnInit(ImVector_ImWchar* p)
 	p->~ImVector<ImWchar>();
 }
 
+
+//
+//
+// GLRAIL custom stuff
+//
+//
+
+CIMGUI_API void igPushDisable() {
+	ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+}
+
+CIMGUI_API void igPopDisable() {
+	ImGui::PopItemFlag();
+}
+
+
+
 //              if (SplitterBehavior(bb, GetID("##Splitter"), axis, &cur_size_0, &cur_size_1, min_size_0, min_size_1, WINDOWS_RESIZE_FROM_EDGES_HALF_THICKNESS, WINDOWS_RESIZE_FROM_EDGES_FEEDBACK_TIMER))
 
 
