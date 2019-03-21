@@ -351,17 +351,27 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
               match app.model.view.canvas_context_menu_item.and_then(|id| app.model.inf.get(id).map(|v| (id,v))) {
                   Some((id, Entity::Node(_, Node::Macro(name)))) => {
                       show_text("Boundary node");
+                      igSeparator();
                       if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
                           if let Some(d) = app.model.dgraph.get() {
-                              for (i,r) in app.model.interlocking.routes_from_boundary(d,id).enumerate() {
-                                  igPushIDInt(i as _);
-                                  if igSelectable(const_cstr!("##bdrt").as_ptr(), false, 0, v2_0) {
-                                      cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 
-                                                                          app.model.view.time, 
-                                                                          Command::Route(i))); // TODO i is wrong
+                              for (ri,r) in app.model.interlocking.routes_from_boundary(d,id).enumerate() {
+                                  igPushIDInt(ri as _);
+
+                                  let train_to = CString::new(format!("Train to {:?}", r.exit)).unwrap();
+                                  if igBeginMenu(train_to.as_ptr(), true) {
+                                      for (vi,vehicle) in app.model.vehicles.iter().enumerate() {
+                                          igPushIDInt(vi as _);
+                                          let vname = CString::new(vehicle.name.clone()).unwrap();
+                                          if igMenuItemBool(vname.as_ptr(), ptr::null(), false, true) {
+                                            cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 
+                                                        app.model.view.time, 
+                                                        Command::Train(vi,ri))); // TODO i is wrong  (??)
+                                          }
+                                          igPopID();
+                                      }
+                                      igEndMenu();
                                   }
-                                  igSameLine(0.0,-1.0);
-                                  show_text(&format!("to {:?}", r.exit));
+
                                   igPopID();
                               }
                           }

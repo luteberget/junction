@@ -5,6 +5,7 @@
 use crate::model::*;
 use serde::{Serialize, Deserialize};
 use rolling::input::staticinfrastructure::NodeId;
+pub use rolling::output::history::History;
 
 #[derive(Debug)]
 pub enum ScenarioEdit {
@@ -38,6 +39,8 @@ impl Scenario {
 #[derive(Serialize, Deserialize)]
 pub struct Dispatch {
     pub commands :Vec<(f32, Command)>,
+
+    #[serde(skip)]
     pub history :Derive<History>,
 }
 impl Default for Dispatch {
@@ -48,6 +51,7 @@ impl Default for Dispatch {
 }
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Usage {
     pub movements :Vec<Movement>,
     pub timings :Vec<TimingSpec>,
@@ -63,6 +67,7 @@ impl Default for Usage {
 pub type VisitRef = (usize,usize); // .0 indexes Usage.movements, .1 indexes Movement.visits
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct TimingSpec {
     pub visit_a :VisitRef,
     pub visit_b :VisitRef,
@@ -70,6 +75,7 @@ pub struct TimingSpec {
 }
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Movement {
     pub vehicle_ref: usize,
     pub visits: Vec<Visit>,
@@ -85,6 +91,7 @@ impl Default for Movement {
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct Visit {
     pub nodes :Vec<NodeId>,
     pub time :Option<f32>,
@@ -97,18 +104,19 @@ impl Default for Visit {
     }}
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct History {
-    pub moves : Vec<()>,
-}
-impl Default for History {
-    fn default() -> History { History {
-        moves: Vec::new(),
-    }}
-}
+//#[derive(Serialize, Deserialize)]
+//pub struct History {
+//    pub moves : Vec<()>,
+//}
+//impl Default for History {
+//    fn default() -> History { History {
+//        moves: Vec::new(),
+//    }}
+//}
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
+#[derive(Copy, Clone)]
 pub enum Command {
     Route(usize),
     Train(usize,usize),

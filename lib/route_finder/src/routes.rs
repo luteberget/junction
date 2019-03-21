@@ -244,7 +244,7 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
         println!("Release length and route length differ by {} {} {:?} {:?}", 
                  state.length, sum_releases_length, entry, exit);
         releases.last_mut().unwrap().length += state.length - sum_releases_length;
-    }
+    } 
 
     Ok(Route {
         entry: entry,

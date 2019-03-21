@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Vehicle {
     pub name :String,
     pub length :f32,

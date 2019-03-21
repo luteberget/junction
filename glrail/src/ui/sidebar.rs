@@ -9,6 +9,7 @@ use crate::scenario::*;
 use crate::infrastructure::*;
 use crate::selection::*;
 use crate::view::*;
+use crate::command_builder::*;
 use std::ptr;
 use std::ffi::CString;
 use const_cstr::const_cstr;
@@ -199,10 +200,10 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                       // 2. derived dispatches from this spec
 
                       show_text("MovementSpecs");
-                      for (i,m) in movement.movements.iter().enumerate() {
-                          igPushIDInt(i as _);
+                      for (mi,m) in movement.movements.iter().enumerate() {
+                          igPushIDInt(mi as _);
 
-                          show_text("Movement.");
+                          show_text("\u{f337} Movement.");
 
                           // TODO will need slot maps on all of these? vehicle ref, visit ref, etc.
                           let curr_name = 
@@ -217,7 +218,7 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                                   if igSelectable(const_cstr!("##sveh").as_ptr(), m.vehicle_ref == v_i, 0, v2_0) 
                                       && m.vehicle_ref != v_i {
 
-                                          scenario_action = Some(ScenarioEdit::SetUsageMovementVehicle(si,i,v_i));
+                                          scenario_action = Some(ScenarioEdit::SetUsageMovementVehicle(si,mi,v_i));
 
                                   }
                                   igSameLine(0.0,-1.0);
@@ -227,8 +228,8 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                               igEndCombo();
                           }
 
-                          for (j,v) in m.visits.iter().enumerate() {
-                              igPushIDInt(j as _);
+                          for (vi,v) in m.visits.iter().enumerate() {
+                              igPushIDInt(vi as _);
                               igPushItemWidth(igGetContentRegionAvailWidth() * 0.65 - 16.0 ); 
                               // TODO encapsulate custom textfield/button widget
                               // TODO correct calculation see https://github.com/ocornut/imgui/issues/1658
@@ -241,25 +242,39 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
 
 
                               if igButton(const_cstr!("\u{f05b}").as_ptr(), v2_0) {
-                                  println!("Start command.");
+                                  let mut alb = ArgumentListBuilder::new();
+                                  alb.add_id_value("scenario",si);
+                                  alb.add_id_value("movement",mi);
+                                  alb.add_id_value("visit",vi);
+                                  alb.add_id("location");
+                                  alb.set_action(Box::new(|app,args| {
+                                      let si = *args.get_id("scenario").unwrap();
+                                      let mi = *args.get_id("movement").unwrap();
+                                      let vi = *args.get_id("visit").unwrap();
+                                      let ni = *args.get_id("location").unwrap();
+                                      app.integrate(AppAction::Model(ModelAction::Scenario(
+                                                  ScenarioEdit::SetUsageMovementVisitNodes(si,mi,vi,vec![ni]))));
+                                  }));
+                                  app.command_builder = Some(CommandBuilder::new_screen(
+                                          CommandScreen::ArgumentList(alb)));
                               }
 
                               igSameLine(0.0,-1.0);
-                              show_text("Visit");
+                              show_text("\u{f276} Visit");
                               igSameLine(0.0,-1.0);
-                              show_text(&format!("#{}", j+1));
+                              show_text(&format!("#{}", vi+1));
                               igPopItemWidth();
                               igPopID();
                           }
 
-                          if igButton(const_cstr!("\u{f11b} Add visit").as_ptr(), v2_0) {
-                              scenario_action = Some(ScenarioEdit::AddUsageMovementVisit(si,i));
+                          if igButton(const_cstr!("\u{f276} Add visit").as_ptr(), v2_0) {
+                              scenario_action = Some(ScenarioEdit::AddUsageMovementVisit(si,mi));
                           }
 
                           igPopID();
                       }
 
-                      if igButton(const_cstr!("\u{f11b} Add movement").as_ptr(), v2_0) {
+                      if igButton(const_cstr!("\u{f337} Add movement").as_ptr(), v2_0) {
                           //println!(" NEW movement.");
                           scenario_action = Some(ScenarioEdit::AddUsageMovement(si));
                       }

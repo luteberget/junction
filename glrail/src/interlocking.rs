@@ -4,20 +4,21 @@ use crate::infrastructure::*;
 use serde::{Serialize, Deserialize};
 
 pub use rolling::input::staticinfrastructure::Route;
+use std::sync::Arc;
 
 #[derive(Serialize, Deserialize)]
 pub struct Interlocking {
     pub derive :Option<DeriveInterlocking>,
 
     #[serde(skip)]
-    pub routes :Derive<Vec<Route>>,
+    pub routes :Derive<Arc<Vec<Route>>>,
 }
 
 impl Interlocking {
     pub fn new_default() -> Self {
         Interlocking {
             derive :Some(DeriveInterlocking::new_default()),
-            routes :Derive::Ok(Vec::new()),
+            routes :Derive::Ok(Arc::new(Vec::new())),
         }
     }
 
