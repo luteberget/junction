@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use crate::scenario::{Usage, Dispatch, Command, History};
-use planner::input::Problem;
+use planner::input::{Problem, RoutePlan};
 use rolling::input::staticinfrastructure::{StaticInfrastructure, Routes, Route, Release, RouteEntryExit};
 use crate::vehicle::Vehicle;
+use crate::model::Derive;
 
 //kk
 // TODO: routes contain nodes
@@ -94,7 +95,10 @@ pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> P
                 let mut conflicting_routes = HashSet::new();
                 for resource in rel.resources.iter() {
                     if let Some(conflicts) = partial_route_resources.get(resource) {
-                        conflicting_routes.extend(conflicts.iter().cloned().map(|pr| (pr,0)));
+                        conflicting_routes.extend(conflicts.iter().cloned()
+                                                 // does not conflict with itself
+                                                  .filter(|(pr_e,pr_p)| pr_e != rn)
+                                                  .map(|pr| (pr,0)));
                     }
                 }
 
@@ -139,11 +143,63 @@ pub fn get_dispatches(vehicles :&[Vehicle], inf :&StaticInfrastructure, routes :
     println!("PROBLEM {:#?}", problem);
     let config = Config { n_before: 3, n_after: 3 };
 
-    let dispatch = plan(&config, &problem, |_| true);
+    let routeplan = plan(&config, &problem, |_| true);
     // convert dispatch
 
-    println!("plan() returned {:#?}.", dispatch);
+    println!("plan() returned {:#?}.", routeplan);
 
-    unimplemented!()
+    if let Some(routeplan) = routeplan {
+        let commands = convert_dispatch_commands(&routeplan, routes, usage);
+        println!("converted to glrail commands: {:#?}", commands);
+
+        // Run simulation on this to get history
+
+        use crate::analysis::sim;
+        let history = sim::get_history(vehicles, inf, routes, &commands)?;
+
+        //unimplemented!()
+        Ok(vec![Dispatch {
+            commands,
+            history: Derive::Ok(history),
+        }])
+    } else {
+        Err(format!("No plans found."))
+    }
 }
 
+pub fn convert_dispatch_commands(routeplan :&RoutePlan, routes :&Routes<usize>, usage :&Usage) -> Vec<(f32,Command)> {
+    use std::collections::BTreeSet;
+    use crate::scenario::*;
+    let mut commands = Vec::new();
+    let mut last_active_routes = BTreeSet::new();
+    for state in routeplan.iter() {
+        let active_routes = state.iter().filter_map(|((elementary,part),train_id)| {
+            // use first partial as representative for elementary route
+            if *part == 0 && train_id.is_some() {
+                Some((*elementary,train_id.unwrap()))
+            } else {
+                None
+            }
+        }).collect::<BTreeSet<_>>();
+
+        for (new_route,train_id) in active_routes.difference(&last_active_routes) {
+            // check if the route is the birth of a train (comes from boundary)
+            match routes[new_route].entry {
+                RouteEntryExit::Boundary(_) => {
+                    commands.push((0.0, Command::Train(
+                                usage.movements[*train_id].vehicle_ref,
+                                *new_route)));
+                },
+                RouteEntryExit::Signal(_) | RouteEntryExit::SignalTrigger { .. } => {
+                    commands.push((0.0, Command::Route(*new_route)));
+                }
+            }
+        }
+
+        // TODO barrier?
+
+        last_active_routes = active_routes;
+    }
+
+    commands
+}

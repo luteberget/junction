@@ -20,9 +20,7 @@ use crate::wake;
 use crate::analysis::sim;
 use crate::analysis::plan;
 
-// This file should encapsulate all use of futures_cpupool.
-//use futures::{Future, Async};
-//use futures_cpupool::{CpuPool, CpuFuture};
+// This file should encapsulate the thread pool
 use std::sync::mpsc;
 use std::sync::Arc;
 use threadpool::ThreadPool;
@@ -74,9 +72,9 @@ impl BackgroundUpdates {
         if let Some(Ok(res)) = self.il_rx.as_mut().map(|f| f.try_recv()) {
             match res {
                 Ok((dgraph,routes,issues)) => {
-                    println!("RECEIVED dg {:?}", dgraph);
-                    println!("RECEIVED routes {:?}", routes);
-                    println!("RECEIVED routes {:?}", issues);
+                    println!("RECEIVED dg {:#?}", dgraph);
+                    println!("RECEIVED routes {:#?}", routes);
+                    println!("RECEIVED issues {:#?}", issues);
                     model.dgraph = Derive::Ok(dgraph);
                     model.interlocking.routes = Derive::Ok(Arc::new(routes));
                     for i in 0..(model.scenarios.len()) {
@@ -102,6 +100,20 @@ impl BackgroundUpdates {
                     Err(s) => {
                         println!("Received sim error {:?}.",s);
                         model.scenarios[*k].set_history(Derive::Err(s));
+                    }
+                }
+            }
+        }
+        for (k,v) in self.plan_rx.iter_mut() {
+            if let Ok(res) = v.try_recv() {
+                match res {
+                    Ok(d) => {
+                        println!("Received plan results.");
+                        model.scenarios[*k].set_usage_dispatches(Derive::Ok(d));
+                    },
+                    Err(s) => {
+                        println!("Received plan error {:?}.",s);
+                        model.scenarios[*k].set_usage_dispatches(Derive::Err(s));
                     }
                 }
             }

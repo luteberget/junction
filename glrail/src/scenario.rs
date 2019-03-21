@@ -34,6 +34,13 @@ impl Scenario {
             _ => {},
         }
     }
+
+    pub fn set_usage_dispatches(&mut self, vd :Derive<Vec<Dispatch>>) {
+        match self {
+            Scenario::Usage(_, ref mut v) => *v = vd,
+            _ => {},
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
