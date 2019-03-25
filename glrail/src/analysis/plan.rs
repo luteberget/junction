@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use crate::scenario::{Usage, Dispatch, Command, History};
-use planner::input::{Problem, RoutePlan};
-use rolling::input::staticinfrastructure::{StaticInfrastructure, Routes, Route, Release, RouteEntryExit};
 use crate::vehicle::Vehicle;
 use crate::model::Derive;
+
+use rolling::input::staticinfrastructure as rolling_inf;
+use planner;
+
 
 //kk
 // TODO: routes contain nodes
@@ -15,38 +17,22 @@ use crate::model::Derive;
 
 // convert problem
 
-pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> Problem {
-    use planner::input::*;
-
-    // rolling Routes  ->  planner partial routes + elementary routes
-
-    // hs: convertRoutes: resolve_conflicts (join routeparts) ,, splitName routeParts
-    //
-    
-
+pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infrastructure {
 
     // first, convert each route to a set fo partial routes
     // then check resource conflict between partial routes
 
-    struct SplitRoute {
-        name: (usize,usize),
-        entry: Option<usize>,
-        exit: Option<usize>,
-        length: f64,
-        resources: HashSet<usize>, //?
-        nodes :HashSet<usize>, //?
-    }
-
     let mut partial_routes = HashMap::new();
     let mut elementary_routes = Vec::new();
-    let mut partial_route_resources :HashMap<usize, HashSet<PartialRouteId>> = HashMap::new();
+    let mut partial_route_resources :HashMap<usize, HashSet<planner::input::PartialRouteId>> = HashMap::new();
     let mut fresh = { let mut i = 0; move || { i += 1; i } };
 
-    fn convert_routeentryexit(e :&RouteEntryExit) -> SignalId {
+    fn convert_routeentryexit(e :&rolling_inf::RouteEntryExit) -> planner::input::SignalId {
         match e {
-            RouteEntryExit::Boundary(_) => SignalId::Boundary,
-            RouteEntryExit::Signal(s) => SignalId::ExternalId(*s),
-            RouteEntryExit::SignalTrigger { signal, .. } => SignalId::ExternalId(*signal),
+            rolling_inf::RouteEntryExit::Boundary(_) => planner::input::SignalId::Boundary,
+            rolling_inf::RouteEntryExit::Signal(s) => planner::input::SignalId::ExternalId(*s),
+            rolling_inf::RouteEntryExit::SignalTrigger { signal, .. } => 
+                planner::input::SignalId::ExternalId(*signal),
         }
     }
 
@@ -54,7 +40,7 @@ pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> P
         let mut signals = vec![convert_routeentryexit(&route.entry)];
         if route.resources.releases.len() > 0 {
             for i in 0..(route.resources.releases.len()-1) { 
-                signals.push(SignalId::Anonymous(fresh()));
+                signals.push(planner::input::SignalId::Anonymous(fresh()));
             }
         }
         signals.push(convert_routeentryexit(&route.exit));
@@ -69,7 +55,7 @@ pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> P
                 (route.length, std::iter::empty().collect())
             };
 
-            partial_routes.insert((*route_name,i), PartialRoute {
+            partial_routes.insert((*route_name,i), planner::input::PartialRoute {
                 entry: *entry, exit: *exit, 
                 conflicts: vec![], // calculated below
                 wait_conflict: None, // TODO support overlaps and timeout in route finder
@@ -112,7 +98,12 @@ pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> P
         }
     }
 
+    planner::input::Infrastructure { partial_routes, elementary_routes }
+}
 
+
+
+pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usage {
 
     // movement -> train
     let mut trains  = HashMap::new();
@@ -120,7 +111,7 @@ pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> P
 
     for (m_i,movement) in usage.movements.iter().enumerate() {
         let vehicle = &vehicles[movement.vehicle_ref];
-        let train = Train {
+        let train = planner::input::Train {
             length: vehicle.length,
             visits: movement.visits.iter().map(|v| {
                 v.nodes.iter().cloned().collect() }).collect(),
@@ -128,22 +119,23 @@ pub fn convert(vehicles :&[Vehicle], routes :&Routes<usize>, usage :&Usage) -> P
 
         trains.insert(m_i, train);
     }
-
     // TODO timing spec
-
-    Problem { partial_routes, elementary_routes, trains, train_ord }
+     planner::input::Usage { trains, train_ord }
 }
 
 
-pub fn get_dispatches(vehicles :&[Vehicle], inf :&StaticInfrastructure, routes :&Routes<usize>, usage :&Usage) -> Result<Vec<Dispatch>, String> {
-    use planner::input::*;
-    use planner::solver::*;
+pub fn get_dispatches(vehicles :&[Vehicle], 
+                      inf :&rolling_inf::StaticInfrastructure, 
+                      routes :&rolling_inf::Routes<usize>, 
+                      usage :&Usage) -> Result<Vec<Dispatch>, String> {
 
-    let problem = convert(vehicles, routes, usage);
-    println!("PROBLEM {:#?}", problem);
-    let config = Config { n_before: 3, n_after: 3 };
+    let plan_inf = convert_inf(routes);
+    let plan_usage = convert_usage(usage);
+    //let (plan_inf, plan_usage) = convert(vehicles, routes, usage);
+    println!("PROBLEM {:#?} \n {:#?}", plan_inf, plan_usage);
+    let config = planner::input::Config { n_before: 3, n_after: 3, exact_n: None, optimize_signals: false };
 
-    let routeplan = plan(&config, &problem, |_| true);
+    let routeplan = planner::solver::plan(&config, &plan_inf, &plan_usage, |_| true);
     // convert dispatch
 
     println!("plan() returned {:#?}.", routeplan);
@@ -167,7 +159,9 @@ pub fn get_dispatches(vehicles :&[Vehicle], inf :&StaticInfrastructure, routes :
     }
 }
 
-pub fn convert_dispatch_commands(routeplan :&RoutePlan, routes :&Routes<usize>, usage :&Usage) -> Vec<(f32,Command)> {
+pub fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan, 
+                                 routes :&rolling_inf::Routes<usize>, 
+                                 usage :&Usage) -> Vec<(f32,Command)> {
     use std::collections::BTreeSet;
     use crate::scenario::*;
     let mut commands = Vec::new();
@@ -185,12 +179,13 @@ pub fn convert_dispatch_commands(routeplan :&RoutePlan, routes :&Routes<usize>, 
         for (new_route,train_id) in active_routes.difference(&last_active_routes) {
             // check if the route is the birth of a train (comes from boundary)
             match routes[new_route].entry {
-                RouteEntryExit::Boundary(_) => {
+                rolling_inf::RouteEntryExit::Boundary(_) => {
                     commands.push((0.0, Command::Train(
                                 usage.movements[*train_id].vehicle_ref,
                                 *new_route)));
                 },
-                RouteEntryExit::Signal(_) | RouteEntryExit::SignalTrigger { .. } => {
+                rolling_inf::RouteEntryExit::Signal(_) 
+                    | rolling_inf::RouteEntryExit::SignalTrigger { .. } => {
                     commands.push((0.0, Command::Route(*new_route)));
                 }
             }
