@@ -9,12 +9,13 @@ use crate::dgraph;
 use route_finder;
 
 
+
 // MAIN TODOS
 // 1. SignalOptimizer
-//   a. get_signal_sets
-//   b. signals
-//   c. get all dispatches
-//   d. convert to abstract_dispathces
+//   X a. get_signal_sets
+//   X b. signals
+//   X c. get all dispatches
+//     d. convert to abstract_dispathces
 // 2. optimize_locations
 //   a. powell
 //   b. brent
@@ -30,7 +31,7 @@ struct AbstractDispatch {
 }
 
 pub fn synthesis<F>(
-    base_inf :Vec<Option<Entity>, 
+    base_inf :Vec<Option<Entity>>, 
     usages :&[Usage], 
     vehicles :&[Vehicle], 
     test: F) 
@@ -48,9 +49,9 @@ pub fn synthesis<F>(
     let plan_usages = usages.iter().map(|u| analysis::plan::convert_usage(vehicles, u)).collect::<Vec<_>>();
 
 
-    let mut opt = SignalOptimizer:new(&plan_inf_maximal, &plan_usages);
+    let mut opt = SignalOptimizer::new(&plan_inf_maximal, &plan_usages);
     let mut min_n_signals = None;
-    'outer: for signal_set in opt.get_signal_sets() {
+    'outer: while let Some(signal_set) = opt.next_signal_set() {
         // have now decided on a set of signals 
         min_n_signals = min_s_signals.unwrap_or_else(|| signal_set.signals().len());
         if signal_set.signals().len() > min_n_signals.unwrap() {
@@ -91,11 +92,12 @@ pub fn synthesis<F>(
     }
 }
 
+
 fn optimize_locations(base_inf :Vec<Option<Entity>>, signals :&mut Vec<Entity>, dispatches :Vec<(&Usage, Vec<AbstractDispatch>)>) -> f64 {
 }
 
 fn maximal_design(base_inf :Vec<Option<Entity>>) -> Vec<Option<Entity>> {
-    unimplemented!()
+
 }
 
 fn measure_cost(entities :&Vec<Option<Entity>>, dispatches :&Vec<Vec<AbstractDispatch>>, usages :&[Usage]) -> f64 {

@@ -1,6 +1,6 @@
 mod detectors;
 mod routes;
 
-pub use detectors::*;
-pub use routes::*;
+pub use self::detectors::*;
+pub use self::routes::*;
 
