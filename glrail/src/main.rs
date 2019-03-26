@@ -35,21 +35,6 @@ use self::selection::*;
 use self::scenario::*;
 use crate::dgraph::*;
 
-pub fn entity_to_string(id :EntityId, inf :&Infrastructure) -> String {
-  match inf.get(id) {
-      Some(Entity::Track(ref t)) => {
-          format!("{:#?}", t)
-      },
-      Some(Entity::Node(p,ref n)) => {
-          format!("Node at {}: {:#?}", p,n)
-      },
-      Some(Entity::Object(_t, p, ref o)) => {
-          format!("Object at {}: {:#?}", p, o)
-      },
-      _ => { format!("Error id={} not found.", id) }
-  }
-}
-
 
 fn gui_init() {
     use imgui_sys_bindgen::sys::*;

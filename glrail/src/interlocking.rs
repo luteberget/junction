@@ -24,11 +24,10 @@ impl Interlocking {
 
     pub fn routes_from_signal<'a>(&'a self, dgraph :&'a DGraph, 
                                 entity: EntityId) -> Box<Iterator<Item = &'a Route> + 'a> {
-        if let Some(id) = dgraph.entity_names.get(&entity) {
+        if let Some(RollingId::StaticObject(id)) = dgraph.entity_names.get_by_right(&entity) {
             if let Some(routes) = self.routes.get() {
                 use rolling::input::staticinfrastructure::{Route, RouteEntryExit};
-                return Box::new(routes.iter().filter(move |r| r.entry == RouteEntryExit::Signal(*id)
-                                                     ))
+                return Box::new(routes.iter().filter(move |r| r.entry == RouteEntryExit::Signal(*id)))
             }
         }
         Box::new(std::iter::empty())
@@ -36,7 +35,7 @@ impl Interlocking {
 
     pub fn routes_from_boundary<'a>(&'a self, dgraph :&'a DGraph, 
                                 entity: EntityId) -> Box<Iterator<Item = &'a Route> + 'a> {
-        if let Some(id) = dgraph.entity_names.get(&entity) {
+        if let Some(RollingId::Node(id)) = dgraph.entity_names.get_by_right(&entity) {
             if let Some(routes) = self.routes.get() {
                 use rolling::input::staticinfrastructure::{Route, RouteEntryExit};
                 return Box::new(routes.iter().filter(move |r| r.entry == RouteEntryExit::Boundary(Some(*id))))

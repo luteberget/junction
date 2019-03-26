@@ -24,3 +24,5 @@ tinyfiledialogs = "*"
 threadpool="*"
 rolling = { path = "../../trainspotting/rolling" }
 planner = { path = "../../trainspotting/planner" }
+generational-arena = { version = "0.2", features = ["serde"] }
+bimap = "*"

@@ -1,65 +1,90 @@
 use serde::{Serialize, Deserialize};
+use generational_arena::*;
 
+use std::hash::Hash;
+#[derive(Serialize, Deserialize)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+pub struct TrackId(Index);
+#[derive(Serialize, Deserialize)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+pub struct NodeId(Index);
+#[derive(Serialize, Deserialize)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+pub struct ObjectId(Index);
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Infrastructure {
-    pub entities :Vec<Option<Entity>>,
+    pub tracks :Arena<Track>,
+    pub nodes :Arena<Node>,
+    pub objects :Arena<Object>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+pub enum EntityId {
+    Track(TrackId),
+    Node(NodeId),
+    Object(ObjectId),
 }
 
 impl Infrastructure {
-
     pub fn new_empty() -> Self {
         Infrastructure {
-            entities: Vec::new(),
+            tracks :Arena::new(),
+            nodes :Arena::new(),
+            objects :Arena::new(),
         }
     }
 
-
-    pub fn new_entity(&mut self, ent :Entity) -> EntityId {
-        let id = self.entities.len();
-        self.entities.push(Some(ent));
-        id
+    pub fn num_entities(&self) -> usize {
+        self.tracks.len() + self.nodes.len() + self.objects.len()
     }
 
-    pub fn any_object(&self) -> Option<EntityId> {
-        for (i,x) in self.entities.iter().enumerate() {
-            if x.is_some() {
-                return Some(i);
-            }
+    pub fn new_track(&mut self, t :Track) -> TrackId {
+        TrackId(self.tracks.insert(t))
+    }
+    pub fn new_node(&mut self, t :Node) -> NodeId {
+        NodeId(self.nodes.insert(t))
+    }
+    pub fn new_object(&mut self, t :Object) -> ObjectId {
+        ObjectId(self.objects.insert(t))
+    }
+
+    pub fn delete(&mut self, e :EntityId) {
+        match e {
+            EntityId::Track(TrackId(n)) => { self.tracks.remove(n); },
+            EntityId::Node(NodeId(n)) => { self.nodes.remove(n); },
+            EntityId::Object(ObjectId(n)) => { self.objects.remove(n); },
         }
-        None
+    }
+    pub fn iter_tracks(&self) -> impl Iterator<Item = (TrackId, &Track)> {
+        self.tracks.iter().map(|(k,v)| (TrackId(k), v))
+    }
+    pub fn iter_nodes(&self) -> impl Iterator<Item = (NodeId, &Node)> {
+        self.nodes.iter().map(|(k,v)| (NodeId(k), v))
+    }
+    pub fn iter_objects(&self) -> impl Iterator<Item = (ObjectId, &Object)> {
+        self.objects.iter().map(|(k,v)| (ObjectId(k), v))
     }
 
-    pub fn delete(&mut self, id :EntityId) {
-        match self.entities.get_mut(id) {
-            Some(mut x) => *x = None,
-            _ => {},
-        }
+    pub fn get_track(&self, &TrackId(x) :&TrackId) -> Option<&Track> {
+        self.tracks.get(x)
     }
-
-    pub fn get(&self, id :EntityId) -> Option<&Entity> {
-        self.entities.get(id)?.as_ref()
+    pub fn get_node(&self, &NodeId(x) :&NodeId) -> Option<&Node> {
+        self.nodes.get(x)
     }
-    pub fn get_track(&self, id :EntityId) -> Option<&Track> {
-        if let Some(Some(Entity::Track(ref t))) = self.entities.get(id) {
-            Some(t)
-        } else { None }
+    pub fn get_object(&self, &ObjectId(x) :&ObjectId) -> Option<&Object> {
+        self.objects.get(x)
     }
-    pub fn get_track_mut(&mut self, id :EntityId) -> Option<&mut Track> {
-        if let Some(Some(Entity::Track(ref mut t))) = self.entities.get_mut(id) {
-            Some(t)
-        } else { None }
+    pub fn get_track_mut(&mut self, &TrackId(x) :&TrackId) -> Option<&mut Track> {
+        self.tracks.get_mut(x)
     }
-    pub fn get_node(&self, id :EntityId) -> Option<(&f32,&Node)> {
-        if let Some(Some(Entity::Node(ref p,ref t))) = self.entities.get(id) {
-            Some((p,t))
-        } else { None }
+    pub fn get_node_mut(&mut self, &NodeId(x) :&NodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(x)
     }
-
-    pub fn get_node_mut(&mut self, id :EntityId) -> Option<(&mut f32,&mut Node)> {
-        if let Some(Some(Entity::Node(ref mut p,ref mut t))) = self.entities.get_mut(id) {
-            Some((p,t))
-        } else { None }
+    pub fn get_object_mut(&mut self, &ObjectId(x) :&ObjectId) -> Option<&mut Object> {
+        self.objects.get_mut(x)
     }
 }
 
@@ -71,32 +96,25 @@ pub enum InfrastructureEdit {
     /// Add a new track stretching from Pos to Pos. The track makes a new component.
     NewTrack(Pos,Pos),
     /// Split a track at Pos, inserting a new node with tracks connected to open ends.
-    InsertNode(EntityId, Pos, Node, f32),
+    InsertNode(TrackId, Pos, NodeType, f32),
     /// Join two two-port nodes.
-    JoinNodes(EntityId, EntityId),
+    JoinNodes(NodeId, NodeId),
     /// Extend a track by moving its end node forward. There must be enough 
     /// linear space before/after the node.
-    ExtendTrack(EntityId, f32),
+    ExtendTrack(TrackId, f32),
     /// Insert an object onto a track at a given position.
-    InsertObject(EntityId, Pos, Object),
+    InsertObject(TrackId, Pos, ObjectType),
     /// Update entity
-    UpdateEntity(EntityId, Entity),
-}
-
-pub type EntityId = usize;
-
-
-#[derive(Debug,Clone)]
-#[derive(Serialize, Deserialize)]
-pub enum Entity {
-    Track(Track),
-    Node(Pos, Node),
-    Object(EntityId, Pos, Object),
+    ToggleBufferMacro(NodeId),
 }
 
 #[derive(Debug,Clone)]
 #[derive(Serialize, Deserialize)]
-pub enum Object {
+pub struct Object(pub TrackId, pub Pos, pub ObjectType);
+
+#[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
+pub enum ObjectType {
     Signal(Dir),
     Balise(bool),
     Detector,
@@ -105,8 +123,8 @@ pub enum Object {
 #[derive(Debug,Clone)]
 #[derive(Serialize, Deserialize)]
 pub struct Track {
-    pub start_node: (EntityId,Port),
-    pub end_node: (EntityId,Port),
+    pub start_node: (NodeId,Port),
+    pub end_node: (NodeId,Port),
 }
 
 #[derive(Debug,Clone,Copy)]
@@ -135,19 +153,23 @@ impl Side {
 
 #[derive(Debug,Clone)]
 #[derive(Serialize, Deserialize)]
-pub enum Node {
+pub struct Node(pub Pos, pub NodeType);
+
+#[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
+pub enum NodeType {
     Switch(Dir,Side),
     Crossing,
     BufferStop,
     Macro(Option<String>),
 }
 
-impl Node {
+impl NodeType {
     pub fn num_ports(&self) -> usize {
         match self {
-            Node::Switch (_,_) => 3,
-            Node::Crossing => 4,
-            Node::BufferStop | Node::Macro(_) => 1,
+            NodeType::Switch (_,_) => 3,
+            NodeType::Crossing => 4,
+            NodeType::BufferStop | NodeType::Macro(_) => 1,
         }
     }
 }

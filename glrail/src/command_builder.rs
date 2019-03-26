@@ -50,6 +50,7 @@ pub struct Menu {
 pub enum Arg {
     Id(Option<EntityId>),
     Float(f32),
+    Usize(Option<usize>),
 }
 
 pub enum ArgStatus {
@@ -77,6 +78,18 @@ impl ArgumentListBuilder {
                     _ => None,
                 }
             } 
+        }
+        None
+    }
+
+    pub fn get_usize(&self, name :&str) -> Option<&usize> {
+        for (n,s,a) in &self.arguments {
+            if n == name {
+                return match a {
+                    Arg::Usize(Some(x)) => Some(x),
+                    _ => None,
+                }
+            }
         }
         None
     }
@@ -110,6 +123,14 @@ impl ArgumentListBuilder {
 
     pub fn add_id(&mut self, name : impl Into<String>) {
         self.arguments.push((name.into(), ArgStatus::NotDone, Arg::Id(None)));
+    }
+
+    pub fn add_usize_value(&mut self, name : impl Into<String>, id :usize) {
+        self.arguments.push((name.into(), ArgStatus::Done, Arg::Usize(Some(id))));
+    }
+
+    pub fn add_usize(&mut self, name : impl Into<String>) {
+        self.arguments.push((name.into(), ArgStatus::NotDone, Arg::Usize(None)));
     }
 
     pub fn add_float_default(&mut self, name : impl Into<String>, val :f32) {

@@ -99,60 +99,64 @@ impl App {
 
     pub fn context_menu(&self) -> Option<CommandScreen> {
         match self.model.view.selection {
-            Selection::Entity(id) => {
-                match self.model.inf.get(id) {
-                    Some(Entity::Track(_)) => {
-                        Some(CommandScreen::Menu(Menu { choices: vec![
-                            ('p', format!("select mid pos"), |app| {
-                                if let Selection::Entity(id) = &app.model.view.selection { 
-                                    if let Some(Track { start_node, end_node, .. }) = app.model.inf.get_track(*id) {
-                                        let (n1_pos,_) = app.model.inf.get_node(start_node.0).unwrap();
-                                        let (n2_pos,_) = app.model.inf.get_node(end_node.0).unwrap();
-                                        app.model.select_pos(0.5*(n1_pos + n2_pos), *id);
-                                    }
+            Selection::Entity(EntityId::Track(track_id)) => self.model.inf.get_track(&track_id).map(|_t| {
+                    CommandScreen::Menu(Menu { choices: vec![
+                        ('p', format!("select mid pos"), |app| {
+                            if let Selection::Entity(EntityId::Track(id)) = &app.model.view.selection { 
+                                if let Some(Track { start_node, end_node, .. }) = app.model.inf.get_track(id) {
+                                    let Node(n1_pos,_) = app.model.inf.get_node(&start_node.0).unwrap();
+                                    let Node(n2_pos,_) = app.model.inf.get_node(&end_node.0).unwrap();
+                                    app.model.select_pos(0.5*(n1_pos + n2_pos), *id);
                                 }
-                                None
-                            }),
-                        ]}))
-                    },
-                    Some(Entity::Node(_,Node::BufferStop)) | Some(Entity::Node(_, Node::Macro(_))) => {
-                        Some(CommandScreen::Menu(Menu { choices: vec![
-                            ('e', format!("extend end"), |app| {
-                                let mut arguments = ArgumentListBuilder::new();
-                                if let Selection::Entity(id) = &app.model.view.selection {
-                                    arguments.add_id_value("node", *id);
-                                } else {
-                                    arguments.add_id("node");
-                                }
-                                arguments.add_float_default("length", 50.0);
-                                arguments.set_action(Box::new(|app :&mut App,args :&ArgumentListBuilder| {
-                                    let id = *args.get_id("node").unwrap();
-                                    let l  = *args.get_float("length").unwrap();
+                            }
+                            None
+                        }),
+                    ]})
+                }),
+            Selection::Entity(EntityId::Node(node_id)) => match self.model.inf.get_node(&node_id) {
+                Some(Node(_,NodeType::BufferStop)) | Some(Node(_, NodeType::Macro(_))) => {
+                    Some(CommandScreen::Menu(Menu { choices: vec![
+                        ('e', format!("extend end"), |app| {
+                            let mut arguments = ArgumentListBuilder::new();
+                            if let Selection::Entity(id) = &app.model.view.selection {
+                                arguments.add_id_value("node", *id);
+                            } else {
+                                arguments.add_id("node");
+                            }
+                            arguments.add_float_default("length", 50.0);
+                            arguments.set_action(Box::new(|app :&mut App,args :&ArgumentListBuilder| {
+                                let id = *args.get_id("node").unwrap();
+                                let l  = *args.get_float("length").unwrap();
+                                if let EntityId::Track(id) = id {
                                     app.integrate(AppAction::Model(ModelAction::Inf(
                                             InfrastructureEdit::ExtendTrack(id, l))));
-                                }));
-                                Some(CommandScreen::ArgumentList(arguments))
-                            }),
-                            ('j', format!("join with node"), |app| {
-                                let mut arguments = ArgumentListBuilder::new();
-                                if let Selection::Entity(id) = &app.model.view.selection {
-                                    arguments.add_id_value("node1",*id);
-                                } else {
-                                    arguments.add_id("node1");
                                 }
-                                arguments.add_id("node2");
-                                arguments.set_action(Box::new(|app :&mut App, args :&ArgumentListBuilder| {
-                                    let n1 = *args.get_id("node1").unwrap();
-                                    let n2 = *args.get_id("node2").unwrap();
-                                    app.integrate(AppAction::Model(ModelAction::Inf(
-                                            InfrastructureEdit::JoinNodes(n1, n2))));
-                                }));
-                                Some(CommandScreen::ArgumentList(arguments))
-                            }),
-                        ]}))
-                    },
-                    _ => None,
-                }
+                            }));
+                            Some(CommandScreen::ArgumentList(arguments))
+                        }),
+                        ('j', format!("join with node"), |app| {
+                            let mut arguments = ArgumentListBuilder::new();
+                            if let Selection::Entity(id) = &app.model.view.selection {
+                                arguments.add_id_value("node1",*id);
+                            } else {
+                                arguments.add_id("node1");
+                            }
+                            arguments.add_id("node2");
+                            arguments.set_action(Box::new(|app :&mut App, args :&ArgumentListBuilder| {
+                                let n1 = *args.get_id("node1").unwrap();
+                                let n2 = *args.get_id("node2").unwrap();
+                                if let EntityId::Node(n1) = n1 {
+                                    if let EntityId::Node(n2) = n2 {
+                                        app.integrate(AppAction::Model(ModelAction::Inf(
+                                                InfrastructureEdit::JoinNodes(n1, n2))));
+                                    }
+                                }
+                            }));
+                            Some(CommandScreen::ArgumentList(arguments))
+                        }),
+                    ]}))
+                }, 
+                _ => None,
             },
             Selection::Pos(pos,y,id) => {
                 Some(CommandScreen::Menu(Menu { choices: vec![
@@ -160,35 +164,35 @@ impl App {
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
                         app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Up, Side::Left), 50.0))));
+                            *track_id, *pos, NodeType::Switch(Dir::Up, Side::Left), 50.0))));
                         }
                         None }),
                     ('K', format!("in right sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
                         app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Down, Side::Right), 50.0))));
+                            *track_id, *pos, NodeType::Switch(Dir::Down, Side::Right), 50.0))));
                         }
                         None }),
                     ('j', format!("out right sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
                         app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Up, Side::Right), 50.0))));
+                            *track_id, *pos, NodeType::Switch(Dir::Up, Side::Right), 50.0))));
                         }
                         None }),
                     ('J', format!("in left sw"), |app| { 
                         if let Selection::Pos(pos,_,track_id) = &app.model.view.selection {
                         app.integrate(AppAction::Model(ModelAction::Inf(
                             InfrastructureEdit::InsertNode(
-                            *track_id, *pos, Node::Switch(Dir::Down, Side::Left), 50.0))));
+                            *track_id, *pos, NodeType::Switch(Dir::Down, Side::Left), 50.0))));
                         }
                         None }),
                     ('s', format!("signal up"), |app| {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
                             app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Signal(Dir::Up)))));
+                                        *track_id, *pos, ObjectType::Signal(Dir::Up)))));
                         }
                         None
                     }),
@@ -196,7 +200,7 @@ impl App {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
                             app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Signal(Dir::Down)))));
+                                        *track_id, *pos, ObjectType::Signal(Dir::Down)))));
                         }
                         None
                     }),
@@ -204,7 +208,7 @@ impl App {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
                             app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Balise(false)))));
+                                        *track_id, *pos, ObjectType::Balise(false)))));
                         }
                         None
                     }),
@@ -212,7 +216,7 @@ impl App {
                         if let Selection::Pos(pos, _ , track_id) = &app.model.view.selection {
                             app.integrate(AppAction::Model(ModelAction::Inf(
                                     InfrastructureEdit::InsertObject(
-                                        *track_id, *pos, Object::Detector))));
+                                        *track_id, *pos, ObjectType::Detector))));
                         }
                         None
                     }),
@@ -227,6 +231,7 @@ impl App {
 
        let main_menu = Menu {
            choices: vec![
+               // TODO all of this stuff
                ('c', format!("context"), |app| { app.context_menu() }),
                ('l', format!("load"),    |app| { app.load_dialog().ok(); None }),
                ('s', format!("save"),    |app| { app.save_dialog().ok(); None }),
@@ -235,9 +240,9 @@ impl App {
                    Some(CommandScreen::Menu(Menu { choices: vec![
                        ('z', format!("none"),      |app| { app.model.view.selection = Selection::None; None }),
                        ('o', format!("object"),    |app| { 
-                           if let Some(id) = app.model.inf.any_object() {
-                               app.model.view.selection = Selection::Entity(id);
-                           }
+                           //if let Some(id) = app.model.inf.any_object() {
+                           //    app.model.view.selection = Selection::Entity(id);
+                           //}
                            None 
                        }),
                        ('p', format!("pos"),       |app| { 
@@ -267,7 +272,7 @@ impl App {
            ]
        };
         self.command_builder = Some(CommandBuilder::new_menu(main_menu));
-        if self.model.inf.entities.len() == 0 {
+        if self.model.inf.num_entities() == 0 {
             if let CommandScreen::Menu(Menu { choices }) = self.command_builder.as_mut().unwrap().current_screen() {
                 choices.push(('a', format!("add track"), |app| {
                     app.integrate(AppAction::Model(ModelAction::Inf(InfrastructureEdit::NewTrack(0.0,100.0))));
@@ -295,11 +300,11 @@ impl App {
                 // todo check if we are in pos selection mode.
 
                 // TODO move into model? view?
-                if let Some(Some(Entity::Track(_))) = self.model.inf.entities.get(id) {
-                    if let Derive::Ok(ref s) = &self.model.schematic {
+                if let EntityId::Track(track_id) = id {
+                    if let Derive::Ok(ref s) = self.model.schematic {
                         if let Some(pos) = s.x_to_pos(location.0) {
-                            if let Some((pt,t)) = s.track_line_at(&id,pos) {
-                                self.model.view.selection = Selection::Pos(pos, pt.1, id);
+                            if let Some((pt,t)) = s.track_line_at(&track_id,pos) {
+                                self.model.view.selection = Selection::Pos(pos, pt.1, track_id);
                             }
                         }
                     }

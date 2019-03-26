@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum Selection {
     None,
     Entity(EntityId),
-    Pos(Pos,f32,EntityId),
+    Pos(Pos,f32,TrackId),
     PosRange(Pos,Pos),
     Path(()), // TODO
     Area(()), // TODO

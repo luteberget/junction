@@ -129,7 +129,7 @@ impl BackgroundUpdates {
 
     pub fn invalidate_schematic(&mut self, model :&mut Model) {
         model.schematic = Derive::Wait;
-        let entities = model.inf.entities.clone();
+        let entities = model.inf.clone();
         let (draw_tx, draw_rx) = mpsc::channel();
         self.pool.execute(move || {
             let r = schematic::solve(&entities);
@@ -154,7 +154,7 @@ impl BackgroundUpdates {
 
         // update dgraph and interlocking
         let (il_tx,il_rx) = mpsc::channel();
-        let entities = model.inf.entities.clone();
+        let entities = model.inf.clone();
         self.pool.execute(move || {
             let res = dgraph::convert_entities(&entities);
             let res = res.and_then(|(dg,mut issues)| {

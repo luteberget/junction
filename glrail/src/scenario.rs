@@ -4,8 +4,9 @@
 
 use crate::model::*;
 use serde::{Serialize, Deserialize};
-use rolling::input::staticinfrastructure::NodeId;
+use rolling::input::staticinfrastructure as rolling_inf;
 pub use rolling::output::history::History;
+use crate::infrastructure::*;
 
 #[derive(Debug)]
 pub enum ScenarioEdit {
@@ -17,7 +18,7 @@ pub enum ScenarioEdit {
     AddUsageMovement(usize),
     AddUsageMovementVisit(usize, usize),
     SetUsageMovementVehicle(usize, usize, usize),
-    SetUsageMovementVisitNodes(usize, usize, usize, Vec<NodeId>),
+    SetUsageMovementVisitNodes(usize, usize, usize, Vec<EntityId>),
 }
 
 
@@ -100,7 +101,7 @@ impl Default for Movement {
 #[derive(Debug)]
 #[derive(Clone)]
 pub struct Visit {
-    pub nodes :Vec<NodeId>,
+    pub nodes :Vec<EntityId>,
     pub time :Option<f32>,
 }
 

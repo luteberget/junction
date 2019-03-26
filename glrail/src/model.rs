@@ -61,10 +61,10 @@ pub struct Model {
 
 impl Model {
 
-    pub fn selected_entity(&mut self) -> Option<(EntityId, &Entity)> {
-        let id = if let Selection::Entity(id) = self.view.selection { Some(id) } else { None } ?;
-        self.inf.entities.get(id)?.as_ref().map(|e| (id,e))
-    }
+    //pub fn selected_entity(&mut self) -> Option<(EntityId, &Entity)> {
+    //    let id = if let Selection::Entity(id) = self.view.selection { Some(id) } else { None } ?;
+    //    self.inf.entities.get(id)?.as_ref().map(|e| (id,e))
+    //}
 
     pub fn new_empty() -> Self {
         Model {
@@ -78,7 +78,7 @@ impl Model {
         }
     }
 
-    pub fn select_pos(&mut self, pos :f32, obj :EntityId) {
+    pub fn select_pos(&mut self, pos :f32, obj :TrackId) {
         let y = 0.0;
         self.view.selection = Selection::Pos(pos, y, obj );
         //println!("select pos {:?}", self.view.selection);
@@ -119,44 +119,44 @@ impl Model {
     }
 
     pub fn move_selection(&mut self, inputdir: InputDir) {
-        println!("move selection");
-        match &self.view.selection {
-            Selection::None => { 
-                if let Some(id) = self.inf.any_object() {
-                    self.view.selection = Selection::Entity(id);
-                    self.include_in_view(self.entity_location(id));
-                }
-        println!("move selection: none");
-            },
-            Selection::Entity(i) => {
-                //if let Some(Some(Entity::Node(_, n))) = self.inf.entities.get(*i) {
-                //    for p in app.inf.node_ports(i) {
-                //        match (n,p) {
-                //            (Node::BufferStop, Port::Out) => {
-                //                // ...
-                //            },
-                //        }
-                //    }
-                //}
-            },
-            Selection::Pos(pos, y, track_id) => {
-        println!("move selection: pos");
-                if let Some(Some(Entity::Track(Track { start_node, end_node, ..}))) = self.inf.entities.get(*track_id) {
-                    match inputdir {
-                        InputDir::Right => { 
-                            self.view.selection = Selection::Entity(end_node.0);
-                            self.include_in_view(self.entity_location(end_node.0));
-                        },
-                        InputDir::Left => { 
-                            self.view.selection = Selection::Entity(start_node.0);
-                            self.include_in_view(self.entity_location(start_node.0));
-                        },
-                        _ => {},
-                    }
-                }
-            },
-            _ => { unimplemented!() },
-        }
+        //   println!("move selection");
+        //   match &self.view.selection {
+        //       Selection::None => { 
+        //           if let Some(id) = self.inf.any_object() {
+        //               self.view.selection = Selection::Entity(id);
+        //               self.include_in_view(self.entity_location(id));
+        //           }
+        //   println!("move selection: none");
+        //       },
+        //       Selection::Entity(i) => {
+        //           //if let Some(Some(Entity::Node(_, n))) = self.inf.entities.get(*i) {
+        //           //    for p in app.inf.node_ports(i) {
+        //           //        match (n,p) {
+        //           //            (Node::BufferStop, Port::Out) => {
+        //           //                // ...
+        //           //            },
+        //           //        }
+        //           //    }
+        //           //}
+        //       },
+        //       Selection::Pos(pos, y, track_id) => {
+        //   println!("move selection: pos");
+        //           if let Some(Some(Entity::Track(Track { start_node, end_node, ..}))) = self.inf.entities.get(*track_id) {
+        //               match inputdir {
+        //                   InputDir::Right => { 
+        //                       self.view.selection = Selection::Entity(Entity::NodeId(end_node.0));
+        //                       self.include_in_view(self.entity_location(Entity::NodeId(end_node.0)));
+        //                   },
+        //                   InputDir::Left => { 
+        //                       self.view.selection = Selection::Entity(Entity::NodeId(start_node.0));
+        //                       self.include_in_view(self.entity_location(Entity::NodeId(start_node.0)));
+        //                   },
+        //                   _ => {},
+        //               }
+        //           }
+        //       },
+        //       _ => { unimplemented!() },
+        //   }
     }
 
     pub fn handle_event(&mut self, action :ModelAction) -> Result<ModelUpdateResult, String> {
@@ -165,71 +165,77 @@ impl Model {
                 match ie {
                     InfrastructureEdit::NewTrack(p1,p2) => {
                         let inf = &mut self.inf;
-                        let i1 = self.inf.new_entity(Entity::Node(p1, Node::Macro(None)));
-                        let i2 = self.inf.new_entity(Entity::Node(p2, Node::Macro(None)));
-                        let t =  self.inf.new_entity(Entity::Track(Track {
+                        let i1 = self.inf.new_node(Node(p1, NodeType::Macro(None)));
+                        let i2 = self.inf.new_node(Node(p2, NodeType::Macro(None)));
+                        let t =  self.inf.new_track(Track {
                             start_node: (i1, Port { dir: Dir::Up, course: None }),
                             end_node:   (i2, Port { dir: Dir::Down, course: None }),
-                        }));
+                        });
                     },
                     InfrastructureEdit::InsertObject(t,p,obj) => {
-                        let _id = self.inf.new_entity(Entity::Object(t,p,obj));
+                        let _id = self.inf.new_object(Object(t,p,obj));
                     },
-                    InfrastructureEdit::UpdateEntity(id,e) => {
-                        self.inf.entities[id] = Some(e);
+                    InfrastructureEdit::ToggleBufferMacro(node_id) => {
+                        if let Some(ref mut node) = self.inf.get_node_mut(&node_id) {
+                            if let NodeType::BufferStop = node.1 {
+                                node.1 = NodeType::Macro(None);
+                            } else if let NodeType::Macro(_) = node.1 {
+                                node.1 = NodeType::BufferStop;
+                            }
+                        }
                     }
-                    InfrastructureEdit::InsertNode(t,p,node,l) => {
+                    InfrastructureEdit::InsertNode(track_id,p,node,l) => { // TrackId, Pos, NodeType, f32
                         let (straight_side, branch_side) = match node {
-                            Node::Switch(_,side) => (side.other(), side),
+                            NodeType::Switch(_,side) => (side.other(), side),
                             _ => unimplemented!(),
                         };
-                        let new = self.inf.new_entity(Entity::Node(p, node.clone()));
+                        let new = self.inf.new_node(Node(p, node.clone()));
                         let inf = &mut self.inf;
 
-                        let t = inf.get_track_mut(t).ok_or("Track ref err".to_string())?;
+                        let t = inf.get_track_mut(&track_id).ok_or("Track ref err".to_string())?;
 
                         match &node {
-                            Node::Switch(Dir::Up, _) => {
+                            NodeType::Switch(Dir::Up, _) => {
                                 let old_end = t.end_node;
 
                                 t.end_node = (new, Port { dir: Dir::Down, course: None });
 
-                                let _straight = self.inf.new_entity(Entity::Track(Track {
+                                let _straight = self.inf.new_track(Track {
                                     start_node: (new, Port { dir: Dir::Up, course: Some(straight_side) }),
                                     end_node: old_end,
-                                }));
+                                });
 
-                                let branch_end = self.inf.new_entity(Entity::Node(p+l, Node::BufferStop));
-                                let branch = self.inf.new_entity(Entity::Track(Track {
+                                let branch_end = self.inf.new_node(Node(p+l, NodeType::BufferStop));
+                                let branch = self.inf.new_track(Track {
                                     start_node: (new, Port { dir: Dir::Up, course: Some(branch_side) }),
                                     end_node: (branch_end, Port { dir: Dir::Down, course: None }),
-                                }));
+                                });
                             },
-                            Node::Switch(Dir::Down, _) => {
+                            NodeType::Switch(Dir::Down, _) => {
                                 let old_start = t.start_node;
                                 t.start_node = (new, Port { dir: Dir::Up, course: None });
 
-                                let _straight = self.inf.new_entity(Entity::Track(Track {
+                                let _straight = self.inf.new_track(Track {
                                     start_node: old_start,
                                     end_node:   (new, Port { dir: Dir::Down, course: Some(straight_side) })
-                                }));
+                                });
 
-                                let branch_start = self.inf.new_entity(Entity::Node(p-l, Node::BufferStop));
-                                let branch = self.inf.new_entity(Entity::Track(Track {
+                                let branch_start = self.inf.new_node(Node(p-l, NodeType::BufferStop));
+                                let branch = self.inf.new_track(Track {
                                     start_node: (branch_start, Port { dir: Dir::Up, course: None }),
                                     end_node:   (new, Port { dir: Dir::Down, course: Some(branch_side) }),
-                                }));
+                                });
                             },
                             _ => unimplemented!()
                         };
 
-                        self.view.selection = Selection::Entity(new);
+                        self.view.selection = Selection::Entity(EntityId::Node(new));
 
                     },
                     InfrastructureEdit::JoinNodes(n1,n2) => {
                         let inf = &mut self.inf;
-                        let (_,n1_obj) = inf.get_node(n1).ok_or("Node ref err".to_string())?;
-                        let (_,n2_obj) = inf.get_node(n2).ok_or("Node ref err".to_string())?;
+                        let Node(_,n1_obj) = inf.get_node(&n1).ok_or("Node ref err".to_string())?;
+                        let Node(_,n2_obj) = inf.get_node(&n2).ok_or("Node ref err".to_string())?;
 
                         if n1_obj.num_ports() != 1 || n2_obj.num_ports() != 1 {
                             return Err("Nodes must have 1 port.".to_string());
@@ -238,35 +244,34 @@ impl Model {
                         let mut lo_track = None;
                         let mut hi_track = None;
 
-                        for (i,e) in inf.entities.iter().enumerate() {
-                            match e {
-                                Some(Entity::Track(Track { start_node, end_node, ..  })) => {
-                                    if start_node.0 == n1 { hi_track = Some((i,n1)); }
-                                    if start_node.0 == n2 { hi_track = Some((i,n2)); }
-                                    if end_node.0 == n1   { lo_track = Some((i,n1)); }
-                                    if end_node.0 == n2   { lo_track = Some((i,n2)); }
-                                },
-                                _ => {},
-                            };
+                        for (track_id, track) in inf.iter_tracks() {
+                            if track.start_node.0 == n1 { hi_track = Some((track_id,n1)); }
+                            if track.start_node.0 == n2 { hi_track = Some((track_id,n2)); }
+                            if track.end_node.0 == n1   { lo_track = Some((track_id,n1)); }
+                            if track.end_node.0 == n2   { lo_track = Some((track_id,n2)); }
                         }
 
                         match (lo_track,hi_track) {
                             (Some((t1,n1)),Some((t2,n2))) => {
-                                let end_node = inf.get_track_mut(t2).unwrap().end_node;
-                                let track1 = inf.get_track_mut(t1).unwrap();
+                                let end_node = inf.get_track_mut(&t2).unwrap().end_node;
+                                let track1 = inf.get_track_mut(&t1).unwrap();
                                 track1.end_node = end_node;
-                                inf.delete(t2);
-                                inf.delete(n1);
-                                inf.delete(n2);
+                                inf.delete(EntityId::Track(t2));
+                                inf.delete(EntityId::Node(n1));
+                                inf.delete(EntityId::Node(n2));
                             },
                             _ => return Err("Mismatching nodes for joining".to_string())
                         }
 
                     },
-                    InfrastructureEdit::ExtendTrack(node_id, length) => {
+                    InfrastructureEdit::ExtendTrack(track_id, length) => {
                         let inf = &mut self.inf;
-                        let (node_pos,node_type) = inf.get_node_mut(node_id).ok_or("Node ref err".to_string())?;
-                        *node_pos += length;
+                        if let Some(Track { end_node, .. }) = inf.get_track(&track_id) {
+                            let node_id = end_node.0;
+                            if let Some(Node(ref mut node_pos,_)) = inf.get_node_mut(&node_id) {
+                                *node_pos += length;
+                            }
+                        }
                     },
                 };
                 Ok(ModelUpdateResult::InfrastructureChanged)

@@ -12,7 +12,6 @@ use crate::view::*;
 use std::ptr;
 use std::ffi::CString;
 use const_cstr::const_cstr;
-use crate::entity_to_string;
 
 use imgui_sys_bindgen::sys::ImVec2;
 pub fn world2screen(topleft: ImVec2, bottomright: ImVec2, center :(f64,f64), zoom: f64, pt :(f32,f32)) -> ImVec2 {
@@ -151,13 +150,13 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
           for (k,v) in &s.lines {
               //println!("{:?}, {:?}", k,v);
               let mut hovered = false;
-              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == k } else { false };
+              let selected = if let Selection::Entity(EntityId::Track(id)) = &app.model.view.selection { id == k } else { false };
               for i in 0..(v.len()-1) {
                   let p1 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i]);
                   let p2 = world2screen(canvas_pos, canvas_lower, center, zoom, v[i+1]);
                   let hovered = dist2(&mouse_pos, &line_closest_pt(&p1, &p2, &mouse_pos)) < 100.0;
                   if hovered {
-                      hovered_item = Some(*k);
+                      hovered_item = Some(EntityId::Track(*k));
                   }
                   ImDrawList_AddLine(draw_list, p1, p2, 
                                      if selected { selected_col }
@@ -172,10 +171,10 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
           if let Derive::Ok(DGraph { tvd_sections, edge_intervals, .. }) = &app.model.dgraph {
               if let Some((sec_id, edges)) = tvd_sections.iter().nth(0) {
                   for e in edges.iter() {
-                      if let Some(Interval { track_idx, p1, p2 }) = edge_intervals.get(e) {
+                      if let Some(Interval { track, p1, p2 }) = edge_intervals.get(e) {
 
-                          if let Some((loc1,_)) = s.track_line_at(track_idx, *p1) {
-                          if let Some((loc2,_)) = s.track_line_at(track_idx, *p2) {
+                          if let Some((loc1,_)) = s.track_line_at(track, *p1) {
+                          if let Some((loc2,_)) = s.track_line_at(track, *p2) {
 
                               let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, loc1);
                               let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, loc2);
@@ -195,88 +194,86 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                                  y: p.y - caret_right_halfsize.y };
               let br = ImVec2 { x: p.x + caret_right_halfsize.x, 
                                  y: p.y + caret_right_halfsize.y };
-              let symbol = match app.model.inf.get(*k) {
-                  Some(Entity::Node(_,Node::BufferStop)) => caret_right.as_ptr(),
-                  Some(Entity::Node(_,Node::Macro(_))) => const_cstr!("O").as_ptr(),
+              let symbol = match app.model.inf.get_node(k) {
+                  Some(Node(_,NodeType::BufferStop)) => caret_right.as_ptr(),
+                  Some(Node(_,NodeType::Macro(_))) => const_cstr!("O").as_ptr(),
                   _ => const_cstr!("?").as_ptr(),
               };
 
               lowest = lowest.min(v.1);
-              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == k } else { false };
+              let selected = if let Selection::Entity(EntityId::Node(id)) = &app.model.view.selection { id == k } else { false };
               let hover = igIsMouseHoveringRect(tl,br,false);
               ImDrawList_AddText(draw_list, tl, 
                                  if selected { selected_col } 
                                  else if canvas_hovered && hover { line_hover_col } else { line_col }, 
                                  symbol, ptr::null());
               if hover {
-                  hovered_item = Some(*k);
+                  hovered_item = Some(EntityId::Node(*k));
               }
           }
 
           // TODO symbol locations are supposed to be stored in the schematic
           // object, not recalculated from Pos
-          for (i,o) in app.model.inf.entities.iter().enumerate() {
-              if let Some(Entity::Object(track_id, pos, obj)) = o {
-                  if let Some((loc,tangent)) = s.track_line_at(track_id, *pos) {
-                      let rightside = (tangent.1, -tangent.0);
-                      match obj {
-                          Object::Signal(Dir::Up) => {
-                              let pw = (loc.0 + rightside.0*0.2, loc.1 + rightside.1*0.2);
-                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
-                              let hovered = dist2(&mouse_pos, &ps) < 100.0;
-                              if hovered {
-                                  hovered_item = Some(i);
-                              }
-                              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == &i } else { false };
-                              let color = if selected { selected_col } 
-                                 else if canvas_hovered && hovered { line_hover_col } else { line_col };
-                              ImDrawList_AddText(draw_list, ps, 
-                                                 color,
-                                                 const_cstr!("\u{f637}").as_ptr(), ptr::null());
-                          },
-                          Object::Signal(Dir::Down) => {
-                              let pw = (loc.0 - rightside.0*0.2, loc.1 - rightside.1*0.2);
-                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
-                              let hovered = dist2(&mouse_pos, &ps) < 100.0;
-                              if hovered {
-                                  hovered_item = Some(i);
-                              }
-                              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == &i } else { false };
-                              let color = if selected { selected_col } 
-                                 else if canvas_hovered && hovered { line_hover_col } else { line_col };
-                              ImDrawList_AddText(draw_list, ps, 
-                                                 color,
-                                                 const_cstr!("\u{f637}").as_ptr(), ptr::null());
-                          },
-                          Object::Balise(filled) => {
-                              let pw = (loc.0, loc.1);
-                              let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
-                              let hovered = dist2(&mouse_pos, &ps) < 100.0;
-                              if hovered {
-                                  hovered_item = Some(i);
-                              }
-                              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == &i } else { false };
-                              let color = if selected { selected_col } 
-                                 else if canvas_hovered && hovered { line_hover_col } else { line_col };
-                              ImDrawList_AddText(draw_list, ps, 
-                                                 color,
-                                                 const_cstr!("\u{f071}").as_ptr(), ptr::null());
-                          },
-                          Object::Detector => {
-                              let pw1 = (loc.0 - rightside.0*0.1, loc.1 - rightside.1*0.1);
-                              let pw2 = (loc.0 + rightside.0*0.1, loc.1 + rightside.1*0.1);
-                              let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, pw1);
-                              let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, pw2);
-                              let hovered = dist2(&mouse_pos, &line_closest_pt(&ps1, &ps2, &mouse_pos)) < 100.0;
-                              if hovered {
-                                  hovered_item = Some(i);
-                              }
-                              let selected = if let Selection::Entity(id) = &app.model.view.selection { id == &i } else { false };
-                              let color = if selected { selected_col } 
-                                 else if canvas_hovered && hovered { line_hover_col } else { line_col };
-                              ImDrawList_AddLine(draw_list, ps1,ps2, color, 2.0);
-                          },
-                      }
+          for (i,Object(track_id, pos, obj)) in app.model.inf.iter_objects() {
+              if let Some((loc,tangent)) = s.track_line_at(track_id, *pos) {
+                  let rightside = (tangent.1, -tangent.0);
+                  match obj {
+                      ObjectType::Signal(Dir::Up) => {
+                          let pw = (loc.0 + rightside.0*0.2, loc.1 + rightside.1*0.2);
+                          let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
+                          let hovered = dist2(&mouse_pos, &ps) < 100.0;
+                          if hovered {
+                              hovered_item = Some(EntityId::Object(i));
+                          }
+                          let selected = if let Selection::Entity(EntityId::Object(id)) = &app.model.view.selection { id == &i } else { false };
+                          let color = if selected { selected_col } 
+                             else if canvas_hovered && hovered { line_hover_col } else { line_col };
+                          ImDrawList_AddText(draw_list, ps, 
+                                             color,
+                                             const_cstr!("\u{f637}").as_ptr(), ptr::null());
+                      },
+                      ObjectType::Signal(Dir::Down) => {
+                          let pw = (loc.0 - rightside.0*0.2, loc.1 - rightside.1*0.2);
+                          let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
+                          let hovered = dist2(&mouse_pos, &ps) < 100.0;
+                          if hovered {
+                              hovered_item = Some(EntityId::Object(i));
+                          }
+                          let selected = if let Selection::Entity(EntityId::Object(id)) = &app.model.view.selection { id == &i } else { false };
+                          let color = if selected { selected_col } 
+                             else if canvas_hovered && hovered { line_hover_col } else { line_col };
+                          ImDrawList_AddText(draw_list, ps, 
+                                             color,
+                                             const_cstr!("\u{f637}").as_ptr(), ptr::null());
+                      },
+                      ObjectType::Balise(filled) => {
+                          let pw = (loc.0, loc.1);
+                          let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);
+                          let hovered = dist2(&mouse_pos, &ps) < 100.0;
+                          if hovered {
+                              hovered_item = Some(EntityId::Object(i));
+                          }
+                          let selected = if let Selection::Entity(EntityId::Object(id)) = &app.model.view.selection { id == &i } else { false };
+                          let color = if selected { selected_col } 
+                             else if canvas_hovered && hovered { line_hover_col } else { line_col };
+                          ImDrawList_AddText(draw_list, ps, 
+                                             color,
+                                             const_cstr!("\u{f071}").as_ptr(), ptr::null());
+                      },
+                      ObjectType::Detector => {
+                          let pw1 = (loc.0 - rightside.0*0.1, loc.1 - rightside.1*0.1);
+                          let pw2 = (loc.0 + rightside.0*0.1, loc.1 + rightside.1*0.1);
+                          let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, pw1);
+                          let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, pw2);
+                          let hovered = dist2(&mouse_pos, &line_closest_pt(&ps1, &ps2, &mouse_pos)) < 100.0;
+                          if hovered {
+                              hovered_item = Some(EntityId::Object(i));
+                          }
+                          let selected = if let Selection::Entity(EntityId::Object(id)) = &app.model.view.selection { id == &i } else { false };
+                          let color = if selected { selected_col } 
+                             else if canvas_hovered && hovered { line_hover_col } else { line_col };
+                          ImDrawList_AddLine(draw_list, ps1,ps2, color, 2.0);
+                      },
                   }
               }
           }
@@ -348,48 +345,41 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
 
           let mut cmd = None;
           if igBeginPopup(const_cstr!("canvasctx").as_ptr(),0) {
-              match app.model.view.canvas_context_menu_item.and_then(|id| app.model.inf.get(id).map(|v| (id,v))) {
-                  Some((id, Entity::Node(_, Node::Macro(name)))) => {
-                      show_text("Boundary node");
-                      igSeparator();
-                      if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
-                          if let Some(d) = app.model.dgraph.get() {
-                              for (ri,r) in app.model.interlocking.routes_from_boundary(d,id).enumerate() {
-                                  igPushIDInt(ri as _);
+              match app.model.view.canvas_context_menu_item {
+                  Some(EntityId::Node(node_id)) => {
+                      if let Some(Node(_, NodeType::Macro(_))) = app.model.inf.get_node(&node_id) {
+                          show_text("Boundary node");
+                          igSeparator();
+                          if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
+                              if let Some(d) = app.model.dgraph.get() {
+                                  for (ri,r) in app.model.interlocking.routes_from_boundary(d,EntityId::Node(node_id)).enumerate() {
+                                      igPushIDInt(ri as _);
 
-                                  let train_to = CString::new(format!("Train to {:?}", r.exit)).unwrap();
-                                  if igBeginMenu(train_to.as_ptr(), true) {
-                                      for (vi,vehicle) in app.model.vehicles.iter().enumerate() {
-                                          igPushIDInt(vi as _);
-                                          let vname = CString::new(vehicle.name.clone()).unwrap();
-                                          if igMenuItemBool(vname.as_ptr(), ptr::null(), false, true) {
-                                            cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 
-                                                        app.model.view.time, 
-                                                        Command::Train(vi,ri))); // TODO i is wrong  (??)
+                                      let train_to = CString::new(format!("Train to {:?}", r.exit)).unwrap();
+                                      if igBeginMenu(train_to.as_ptr(), true) {
+                                          for (vi,vehicle) in app.model.vehicles.iter().enumerate() {
+                                              igPushIDInt(vi as _);
+                                              let vname = CString::new(vehicle.name.clone()).unwrap();
+                                              if igMenuItemBool(vname.as_ptr(), ptr::null(), false, true) {
+                                                cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 
+                                                            app.model.view.time, 
+                                                            Command::Train(vi,ri))); // TODO i is wrong  (??)
+                                              }
+                                              igPopID();
                                           }
-                                          igPopID();
+                                          igEndMenu();
                                       }
-                                      igEndMenu();
-                                  }
 
-                                  igPopID();
+                                      igPopID();
+                                  }
                               }
                           }
                       }
                   },
-                  Some((id, Entity::Object(_,_,Object::Signal(_)))) => {
-                      if let Some(d) = app.model.dgraph.get() {
-                          for r in app.model.interlocking.routes_from_signal(d,id) {
-                              show_text(&format!("{:?}", r));
-                          }
-                      }
-                  }
-                  Some(_) => {},
-                  None => {
-                      show_text("Entity not found!");
-                  }
+                  Some(_) | None => {
+                      show_text("Nothing to see here.");
+                  },
               }
-
               igEndPopup();
           }
 
@@ -401,7 +391,9 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
           if let Some(id) = hovered_item {
               if canvas_hovered {
                   igBeginTooltip();
-                  show_text(&entity_to_string(id, &app.model.inf));
+                  // TODO entity_to_string
+                  //show_text(&entity_to_string(id, &app.model.inf));
+                  show_text("entity_to_string here");
                   igEndTooltip();
               }
           }

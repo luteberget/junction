@@ -11,7 +11,6 @@ use crate::command_builder::*;
 use std::ptr;
 use std::ffi::CString;
 use const_cstr::const_cstr;
-use crate::entity_to_string;
 
 use imgui_sys_bindgen::sys::ImVec2;
 

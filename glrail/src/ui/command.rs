@@ -85,7 +85,7 @@ pub fn command(loc :ImVec2, app :&mut App) -> bool {
                           igSameLine(0.0,-1.0);
                           match arg {
                               Arg::Id(Some(x)) => {
-                                  show_text(&format!("obj:{}", x));
+                                  show_text(&format!("obj:{:?}", x));
                               },
                               Arg::Float(val) => {
                                   show_text(&format!("{}", val));
@@ -100,6 +100,9 @@ pub fn command(loc :ImVec2, app :&mut App) -> bool {
                           match arg {
                               Arg::Id(x) => {
                                   show_text(&format!("obj:{:?}", x));
+                              },
+                              Arg::Usize(x) => {
+                                  show_text(&format!("idx:{:?}", x));
                               },
                               Arg::Float(ref mut val) => {
                                 igInputFloat(const_cstr!("##num").as_ptr(), 

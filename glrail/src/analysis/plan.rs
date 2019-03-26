@@ -113,8 +113,10 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
         let vehicle = &vehicles[movement.vehicle_ref];
         let train = planner::input::Train {
             length: vehicle.length,
-            visits: movement.visits.iter().map(|v| {
-                v.nodes.iter().cloned().collect() }).collect(),
+            visits: std::iter::empty().collect(),
+            // TODO convert visits to EntityId to some other idreferencesystem?
+            //movement.visits.iter().map(|v| {
+            //    v.nodes.iter().cloned().collect() }).collect(),
         };
 
         trains.insert(m_i, train);
@@ -130,7 +132,7 @@ pub fn get_dispatches(vehicles :&[Vehicle],
                       usage :&Usage) -> Result<Vec<Dispatch>, String> {
 
     let plan_inf = convert_inf(routes);
-    let plan_usage = convert_usage(usage);
+    let plan_usage = convert_usage(vehicles, usage);
     //let (plan_inf, plan_usage) = convert(vehicles, routes, usage);
     println!("PROBLEM {:#?} \n {:#?}", plan_inf, plan_usage);
     let config = planner::input::Config { n_before: 3, n_after: 3, exact_n: None, optimize_signals: false };

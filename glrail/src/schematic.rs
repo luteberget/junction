@@ -13,9 +13,9 @@ pub type Map<K,V> = HashMap<K,V>;
 
 #[derive(Serialize, Deserialize)]
 pub struct Schematic {
-    pub lines :Map<EntityId, PLine>,
-    pub points: Map<EntityId, Pt>,
-    pub pos_map: Vec<(f32, EntityId, f32)>,
+    pub lines :Map<TrackId, PLine>,
+    pub points: Map<NodeId, Pt>,
+    pub pos_map: Vec<(f32, NodeId, f32)>,
 }
 
 
@@ -31,7 +31,7 @@ impl Schematic {
             pos_map: Vec::new(),
         }
     }
-    pub fn track_line_at(&self, track :&EntityId, pos :f32) -> Option<((f32,f32),(f32,f32))> {
+    pub fn track_line_at(&self, track :&TrackId, pos :f32) -> Option<((f32,f32),(f32,f32))> {
         let x = self.find_pos(pos)?;
         let line = self.lines.get(track)?;
         for ((x0,y0),(x1,y1)) in line.iter().zip(line.iter().skip(1)) {
@@ -113,15 +113,15 @@ fn conv_dir(dir :Dir) -> railplotlib::model::Dir {
 //     }
 // }
 
-fn conv_port(port :Port, node :&Node) -> railplotlib::model::Port {
+fn conv_port(port :Port, node :&NodeType) -> railplotlib::model::Port {
     match node {
-        Node::BufferStop | Node::Macro(_) => {
+        NodeType::BufferStop | NodeType::Macro(_) => {
             match port.dir {
                 Dir::Up => railplotlib::model::Port::Out,
                 Dir::Down => railplotlib::model::Port::In,
             }
         },
-        Node::Switch(dir, _) => {
+        NodeType::Switch(dir, _) => {
             match (port.dir, dir) {
                 (Dir::Down, Dir::Up)     => railplotlib::model::Port::Trunk,
                 (Dir::Up, Dir::Down) => railplotlib::model::Port::Trunk,
@@ -132,13 +132,13 @@ fn conv_port(port :Port, node :&Node) -> railplotlib::model::Port {
                 },
             }
         },
-        Node::Crossing => {
+        NodeType::Crossing => {
             unimplemented!()
         },
     }
 }
 
-pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
+pub fn solve(inf :&Infrastructure) -> Result<Schematic, String> {
 
     // convert from
     //     1: track from 3.trunk to 5.left
@@ -153,68 +153,58 @@ pub fn solve(model :&Vec<Option<Entity>>) -> Result<Schematic, String> {
     let mut edges :Vec<railplotlib::model::Edge<()>> = Vec::new();
 
     let mut buffer_side = HashMap::new();
-    for (i,e) in model.iter().enumerate() {
-        if let Some(e) = e {
-            match e {
-                Entity::Track(Track { start_node, end_node }) =>  {
-                    if let Some(Entity::Node(_, Node::BufferStop)) = model[start_node.0] {
-                        buffer_side.insert(start_node.0, railplotlib::model::Shape::Begin);
-                    }
-                    if let Some(Entity::Node(_, Node::BufferStop)) = model[end_node.0] {
-                        buffer_side.insert(end_node.0, railplotlib::model::Shape::End);
-                    }
-                    if let Some(Entity::Node(_, Node::Macro(_))) = model[start_node.0] {
-                        buffer_side.insert(start_node.0, railplotlib::model::Shape::Begin);
-                    }
-                    if let Some(Entity::Node(_, Node::Macro(_))) = model[end_node.0] {
-                        buffer_side.insert(end_node.0, railplotlib::model::Shape::End);
-                    }
-                },
-                _ => {},
-            }
+    for (_id,Track { start_node, end_node, .. }) in inf.iter_tracks() {
+        if let Some(Node(_, NodeType::BufferStop)) = inf.get_node(&start_node.0) {
+            buffer_side.insert(start_node.0, railplotlib::model::Shape::Begin);
+        }
+        if let Some(Node(_, NodeType::BufferStop)) = inf.get_node(&&end_node.0) {
+            buffer_side.insert(end_node.0, railplotlib::model::Shape::End);
+        }
+        if let Some(Node(_, NodeType::Macro(_))) = inf.get_node(&start_node.0) {
+            buffer_side.insert(start_node.0, railplotlib::model::Shape::Begin);
+        }
+        if let Some(Node(_, NodeType::Macro(_))) = inf.get_node(&end_node.0) {
+            buffer_side.insert(end_node.0, railplotlib::model::Shape::End);
         }
     }
 
     let mut track_idxs = Vec::new();
     let mut node_idxs = Vec::new();
-    for (i,e) in model.iter().enumerate() {
-        if let Some(e) = e {
-            match e {
-                Entity::Track(Track { start_node, end_node }) => {
-                    let n1 = if let Some(Entity::Node(_, ref n)) = &model[start_node.0] { n } else { panic!() };
-                    let n2 = if let Some(Entity::Node(_, ref n)) = &model[end_node.0]   { n } else { panic!() };
-                    edges.push(railplotlib::model::Edge {
-                        objects: Vec::new(),
-                        a: (format!("n{}", start_node.0), conv_port(start_node.1, n1)),
-                        b: (format!("n{}", end_node.0),   conv_port(end_node.1,   n2)),
-                    });
-                    track_idxs.push(i);
-                },
-                Entity::Node(pos, Node::Switch(dir, side)) => {
-                    nodes.push(railplotlib::model::Node {
-                        name: format!("n{}", i),
-                        pos: *pos as _,
-                        shape: railplotlib::model::Shape::Switch(conv_side(*side),conv_dir(*dir)),
-                    });
-                    node_idxs.push(i);
-                },
-                Entity::Node(pos, Node::Crossing) => {
-                    unimplemented!();
-                },
-                Entity::Node(pos, Node::BufferStop) | Entity::Node(pos, Node::Macro(_)) => {
-                    nodes.push(railplotlib::model::Node {
-                        name: format!("n{}", i),
-                        pos: *pos as _,
-                        shape: buffer_side[&i],
-                    });
-                    node_idxs.push(i);
-                },
-                Entity::Object(_,_,_) => {
-                    // ignore for now...
-                },
-            };
+
+    for (track_id, Track { start_node, end_node, .. }) in inf.iter_tracks() {
+        let Node(_,ref n1) = inf.get_node(&start_node.0).unwrap();
+        let Node(_,ref n2) = inf.get_node(&end_node.0).unwrap();
+        edges.push(railplotlib::model::Edge {
+            objects: Vec::new(),
+            a: (format!("n{:?}", start_node.0), conv_port(start_node.1, n1)),
+            b: (format!("n{:?}", end_node.0),   conv_port(end_node.1,   n2)),
+        });
+        track_idxs.push(track_id);
+    }
+
+    for (node_id, Node(pos, node)) in inf.iter_nodes() {
+        match node {
+            NodeType::Switch(dir,side) => {
+                nodes.push(railplotlib::model::Node {
+                    name: format!("n{:?}", node_id),
+                    pos: *pos as _,
+                    shape: railplotlib::model::Shape::Switch(conv_side(*side),conv_dir(*dir)),
+                });
+                node_idxs.push(node_id);
+            },
+            NodeType::Crossing => unimplemented!(),
+            NodeType::BufferStop | NodeType::Macro(_) => {
+                nodes.push(railplotlib::model::Node {
+                    name: format!("n{:?}", node_id),
+                    pos: *pos as _,
+                    shape: buffer_side[&node_id],
+                });
+                node_idxs.push(node_id);
+            }
         }
     }
+
+    // TODO objects -> symbols
 
     let model = railplotlib::model::SchematicGraph { nodes, edges };
     //println!("Model: {:#?}", model);

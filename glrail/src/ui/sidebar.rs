@@ -46,73 +46,75 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
       }
   }
 
-  if igCollapsingHeader(const_cstr!("All objects").as_ptr(),
-                        0) {
-                        //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-      for (i,e) in app.model.inf.entities.iter().enumerate() {
-          match e {
-              Some(Entity::Track(_))  => { 
-                  let s = CString::new(format!("Track##{}", i)).unwrap();
-                  if igSelectable(s.as_ptr(),
-                                  app.model.view.selection == Selection::Entity(i), 0, v2_0) {
-                      //println!("SET {}", i);
-                      app.model.view.selection = Selection::Entity(i);
-                  }
-              },
-              Some(Entity::Node(p,_))   => { 
-                  let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
-                  if igSelectable(s.as_ptr(), 
-    
-              app.model.view.selection == Selection::Entity(i), 0, v2_0) {
-                      //println!("SET NODE {}", i);
-                      app.model.view.selection = Selection::Entity(i);
-                  }
-              },
-              Some(Entity::Object(_,_,_)) => { 
-                  igText(const_cstr!("Object#0").as_ptr()); 
-              },
-              _ => {},
-          }
-      }
-  }
+  // TODO All objects list 
+  //if igCollapsingHeader(const_cstr!("All objects").as_ptr(),)
+  //                      0) {
+  //                      //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
+  //    for (i,e) in app.model.inf.entities.iter().enumerate() {
+  //        match e {
+  //            Some(Entity::Track(_))  => { 
+  //                let s = CString::new(format!("Track##{:?}", i)).unwrap();
+  //                if igSelectable(s.as_ptr(),
+  //                                app.model.view.selection == Selection::Entity(i), 0, v2_0) {
+  //                    //println!("SET {}", i);
+  //                    app.model.view.selection = Selection::Entity(i);
+  //                }
+  //            },
+  //            Some(Entity::Node(p,_))   => { 
+  //                let s = CString::new(format!("Node @ {}##{}", p,i)).unwrap();
+  //                if igSelectable(s.as_ptr(), 
+  //  
+  //            app.model.view.selection == Selection::Entity(i), 0, v2_0) {
+  //                    //println!("SET NODE {}", i);
+  //                    app.model.view.selection = Selection::Entity(i);
+  //                }
+  //            },
+  //            Some(Entity::Object(_,_,_)) => { 
+  //                igText(const_cstr!("Object#0").as_ptr()); 
+  //            },
+  //            _ => {},
+  //        }
+  //    }
+  //}
 
   if igCollapsingHeader(const_cstr!("Object properties").as_ptr(),
                         0) {
+      // TODO FIX
                         //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
-      let mut editaction = None;
-      let entity = app.model.selected_entity();
-      match entity {
-          Some((id, Entity::Node(p, Node::BufferStop))) 
-              | Some((id,Entity::Node(p, Node::Macro(_)))) => {
-              let l_buffer = const_cstr!("Buffer stop");
-              let l_macro = const_cstr!("Boundary");
-              let is_buffer = if let Some((_, Entity::Node(_,Node::BufferStop))) = entity  { true } else {false };
+      // let mut editaction = None;
+      // let entity = app.model.selected_entity();
+      // match entity {
+      //     Some((id, Entity::Node(p, Node::BufferStop))) 
+      //         | Some((id,Entity::Node(p, Node::Macro(_)))) => {
+      //         let l_buffer = const_cstr!("Buffer stop");
+      //         let l_macro = const_cstr!("Boundary");
+      //         let is_buffer = if let Some(Node(_, ::Node(_,Node::BufferStop))) = entity  { true } else {false };
 
-              if igBeginCombo(const_cstr!("##endtype").as_ptr(), 
-                              if is_buffer { l_buffer.as_ptr() } else { l_macro.as_ptr() },
-                              0) {
-                  if igSelectable(l_buffer.as_ptr(), is_buffer, 0, v2_0) && !is_buffer {
-                      editaction = Some(InfrastructureEdit::UpdateEntity(id,
-                                            Entity::Node(*p, Node::BufferStop)));
-                  }
-                  if igSelectable(l_macro.as_ptr(), !is_buffer, 0, v2_0) && is_buffer {
-                      editaction = Some(InfrastructureEdit::UpdateEntity(id,
-                                            Entity::Node(*p, Node::Macro(None))));
-                  }
-                  igEndCombo();
-              }
-          },
-          Some(_) => {
-              show_text("Other entity");
-          },
-          _ =>  {
-              show_text("No entity selected.");
-          }
-      }
+      //         if igBeginCombo(const_cstr!("##endtype").as_ptr(), 
+      //                         if is_buffer { l_buffer.as_ptr() } else { l_macro.as_ptr() },
+      //                         0) {
+      //             if igSelectable(l_buffer.as_ptr(), is_buffer, 0, v2_0) && !is_buffer {
+      //                 editaction = Some(InfrastructureEdit::ToggleBufferMacro(id));
+      //                                       //Entity::Node(*p, Node::BufferStop)));
+      //             }
+      //             if igSelectable(l_macro.as_ptr(), !is_buffer, 0, v2_0) && is_buffer {
+      //                 editaction = Some(InfrastructureEdit::ToggleBufferMacro(id));
+      //                                       //Entity::Node(*p, Node::Macro(None))));
+      //             }
+      //             igEndCombo();
+      //         }
+      //     },
+      //     Some(_) => {
+      //         show_text("Other entity");
+      //     },
+      //     _ =>  {
+      //         show_text("No entity selected.");
+      //     }
+      // }
 
-      if let Some(action) = editaction {
-          app.integrate(AppAction::Model(ModelAction::Inf(action)));
-      }
+      // if let Some(action) = editaction {
+      //     app.integrate(AppAction::Model(ModelAction::Inf(action)));
+      // }
 
   }
 
@@ -243,14 +245,14 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
 
                               if igButton(const_cstr!("\u{f05b}").as_ptr(), v2_0) {
                                   let mut alb = ArgumentListBuilder::new();
-                                  alb.add_id_value("scenario",si);
-                                  alb.add_id_value("movement",mi);
-                                  alb.add_id_value("visit",vi);
+                                  alb.add_usize_value("scenario",si);
+                                  alb.add_usize_value("movement",mi);
+                                  alb.add_usize_value("visit",vi);
                                   alb.add_id("location");
                                   alb.set_action(Box::new(|app,args| {
-                                      let si = *args.get_id("scenario").unwrap();
-                                      let mi = *args.get_id("movement").unwrap();
-                                      let vi = *args.get_id("visit").unwrap();
+                                      let si = *args.get_usize("scenario").unwrap();
+                                      let mi = *args.get_usize("movement").unwrap();
+                                      let vi = *args.get_usize("visit").unwrap();
                                       let ni = *args.get_id("location").unwrap();
                                       app.integrate(AppAction::Model(ModelAction::Scenario(
                                                   ScenarioEdit::SetUsageMovementVisitNodes(si,mi,vi,vec![ni]))));
