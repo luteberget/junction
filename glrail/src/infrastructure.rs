@@ -3,17 +3,17 @@ use generational_arena::*;
 
 use std::hash::Hash;
 #[derive(Serialize, Deserialize)]
-#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug,PartialOrd,Ord)]
 pub struct TrackId(Index);
 #[derive(Serialize, Deserialize)]
-#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug,PartialOrd,Ord)]
 pub struct NodeId(Index);
 #[derive(Serialize, Deserialize)]
-#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug,PartialOrd,Ord)]
 pub struct ObjectId(Index);
 
 #[derive(Serialize, Deserialize)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Infrastructure {
     pub tracks :Arena<Track>,
     pub nodes :Arena<Node>,
@@ -21,7 +21,7 @@ pub struct Infrastructure {
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug)]
+#[derive(Copy,Clone,PartialEq, Eq, Hash, Debug,PartialOrd,Ord)]
 pub enum EntityId {
     Track(TrackId),
     Node(NodeId),
@@ -101,11 +101,13 @@ pub enum InfrastructureEdit {
     JoinNodes(NodeId, NodeId),
     /// Extend a track by moving its end node forward. There must be enough 
     /// linear space before/after the node.
-    ExtendTrack(TrackId, f32),
+    ExtendTrack(NodeId, f32),
     /// Insert an object onto a track at a given position.
     InsertObject(TrackId, Pos, ObjectType),
     /// Update entity
     ToggleBufferMacro(NodeId),
+    /// Just mark the infrastructure dirty so depentents will update
+    Invalidate,
 }
 
 #[derive(Debug,Clone)]
@@ -127,18 +129,33 @@ pub struct Track {
     pub end_node: (NodeId,Port),
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq,Eq)]
 #[derive(Serialize, Deserialize)]
 pub struct Port {
     pub dir: Dir, // Up = pointing outwards from the node, Down = inwards
     pub course: Option<Side>, // None = trunk/begin/end, Some(Left) = Left switch/crossing
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug,Clone,Copy,PartialEq,Eq)]
 #[derive(Serialize, Deserialize)]
 pub enum Dir { Up, Down }
 
-#[derive(Debug,Clone,Copy)]
+impl Dir {
+    pub fn opposite(&self) -> Dir {
+        match self {
+            Dir::Up => Dir::Down,
+            Dir::Down => Dir::Up,
+        }
+    }
+    pub fn factor(&self) -> isize {
+        match self {
+            Dir::Up => 1,
+            Dir::Down => -1,
+        }
+    }
+}
+
+#[derive(Debug,Clone,Copy,PartialEq,Eq)]
 #[derive(Serialize, Deserialize)]
 pub enum Side { Left, Right }
 

@@ -280,6 +280,55 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                           //println!(" NEW movement.");
                           scenario_action = Some(ScenarioEdit::AddUsageMovement(si));
                       }
+
+                      show_text("Timing specs.");
+
+                      for (ti,timing) in movement.timings.iter().enumerate() {
+                          igPushIDInt(ti as _);
+
+                          let mut am = timing.visit_a.0 as std::os::raw::c_int;
+                          let mut av = timing.visit_a.1 as std::os::raw::c_int;
+                          let mut bm = timing.visit_b.0 as std::os::raw::c_int;
+                          let mut bv = timing.visit_b.1 as std::os::raw::c_int;
+                          let mut time = timing.time.unwrap_or(-1.0);
+
+                          if igInputInt(const_cstr!("A movement").as_ptr(), 
+                                        &mut am as *mut _, 1, 1, 
+                                        ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _) {
+                              scenario_action = Some(ScenarioEdit::SetUsageTimingSpec(
+                                      si, ti, am as _, av as _, bm as _, bv as _, 
+                                      if time < 0.0 { None } else { Some(time) } )); }
+                          if igInputInt(const_cstr!("A visit").as_ptr(), 
+                                        &mut av as *mut _, 1, 1, 
+                                        ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _) {
+                              scenario_action = Some(ScenarioEdit::SetUsageTimingSpec(
+                                      si, ti, am as _, av as _, bm as _, bv as _, 
+                                      if time < 0.0 { None } else { Some(time) } )); }
+                          if igInputInt(const_cstr!("B movement").as_ptr(), 
+                                        &mut bm as *mut _, 1, 1, 
+                                        ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _) {
+                              scenario_action = Some(ScenarioEdit::SetUsageTimingSpec(
+                                      si, ti, am as _, av as _, bm as _, bv as _, 
+                                      if time < 0.0 { None } else { Some(time) } )); }
+                          if igInputInt(const_cstr!("B visit").as_ptr(), 
+                                        &mut bm as *mut _, 1, 1, 
+                                        ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _) {
+                              scenario_action = Some(ScenarioEdit::SetUsageTimingSpec(
+                                      si, ti, am as _, av as _, bm as _, bv as _, 
+                                      if time < 0.0 { None } else { Some(time) } )); }
+                          if  igInputFloat(const_cstr!("Time").as_ptr(),
+                                &mut time as *mut _, -1.0, 300.0, const_cstr!("%g").as_ptr(), 
+                                ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _ ) {
+                              scenario_action = Some(ScenarioEdit::SetUsageTimingSpec(
+                                      si, ti, am as _, av as _, bm as _, bv as _, 
+                                      if time < 0.0 { None } else { Some(time) } )); }
+
+                          igPopID();
+                      }
+                      if igButton(const_cstr!("\u{f337} Add timing").as_ptr(), v2_0) {
+                          //println!(" NEW movement.");
+                          scenario_action = Some(ScenarioEdit::AddUsageTimingSpec(si));
+                      }
                       
 
                       match dispatches {

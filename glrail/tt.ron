@@ -1,0 +1,123 @@
+(
+    inf: (
+        tracks: [
+            Some((0, (
+                start_node: (((0, 0)), (
+                    dir: Up,
+                    course: None,
+                )),
+                end_node: (((2, 0)), (
+                    dir: Down,
+                    course: None,
+                )),
+            ))),
+            Some((0, (
+                start_node: (((4, 0)), (
+                    dir: Up,
+                    course: None,
+                )),
+                end_node: (((1, 0)), (
+                    dir: Down,
+                    course: None,
+                )),
+            ))),
+            Some((0, (
+                start_node: (((2, 0)), (
+                    dir: Up,
+                    course: Some(Left),
+                )),
+                end_node: (((4, 0)), (
+                    dir: Down,
+                    course: Some(Right),
+                )),
+            ))),
+            Some((0, (
+                start_node: (((2, 0)), (
+                    dir: Up,
+                    course: Some(Right),
+                )),
+                end_node: (((4, 0)), (
+                    dir: Down,
+                    course: Some(Left),
+                )),
+            ))),
+            None,
+            None,
+            None,
+            None,
+        ],
+        nodes: [
+            Some((0, (0, Macro(None)))),
+            Some((0, (1000, Macro(None)))),
+            Some((0, (185.24731, Switch(Up, Left)))),
+            None,
+            Some((0, (751.42126, Switch(Down, Right)))),
+            None,
+            None,
+            None,
+        ],
+        objects: [
+            None,
+            None,
+            None,
+            None,
+        ],
+    ),
+    schematic: Ok((
+        lines: {
+            ((2, 0)): [
+                (1, 0),
+                (2, 1),
+                (3, 1),
+                (4, 0),
+            ],
+            ((1, 0)): [
+                (4, 0),
+                (5, 0),
+            ],
+            ((0, 0)): [
+                (0, 0),
+                (1, 0),
+            ],
+            ((3, 0)): [
+                (1, 0),
+                (4, 0),
+            ],
+        },
+        points: {
+            ((1, 0)): (5, 0),
+            ((2, 0)): (1, 0),
+            ((0, 0)): (0, 0),
+            ((4, 0)): (4, 0),
+        },
+        pos_map: [
+            (0, ((0, 0)), 0),
+            (1, ((2, 0)), 185.24731),
+            (4, ((4, 0)), 751.42126),
+            (5, ((1, 0)), 1000),
+        ],
+    )),
+    view: (
+        viewport: ((3.0517449118196964, 0.010313435457646847), 4.718592726562545),
+        selection: Entity(Node(((5, 0)))),
+        hot_route: None,
+        selected_scenario: None,
+        canvas_context_menu_item: None,
+        time: 0,
+    ),
+    interlocking: (
+        derive: Some((
+        )),
+    ),
+    scenarios: [
+    ],
+    vehicles: [
+        (
+            name: "New vehicle",
+            length: 110,
+            max_accel: 1.05,
+            max_brake: 0.95,
+            max_velocity: 20,
+        ),
+    ],
+)

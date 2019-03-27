@@ -177,6 +177,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
             match obj {
                 ObjectType::Detector => {
                     detector_nodes.insert((na,nb));
+                    entity_names.insert(RollingId::Node(na), EntityId::Object(object_id));
                 },
                 ObjectType::Signal(dir) => {
                     let node_idx = match dir {
@@ -238,7 +239,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
     //
     //
 
-    for (i,s) in dswitches {
+    for (node_id,s) in dswitches {
         println!("SWITCH {:?}", s);
         let trunk = s.trunk.ok_or(format!("Inconsistent switch data."))?;
         let left = s.left.ok_or(format!("Inconsistent switch data."))?;
@@ -263,6 +264,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         model.nodes[nb].edges = rolling_inf::Edges::Switchable(objid);
         model.nodes[left].edges = rolling_inf::Edges::Single(nb, 0.0);
         model.nodes[right].edges = rolling_inf::Edges::Single(nb, 0.0);
+        entity_names.insert(RollingId::StaticObject(objid), EntityId::Node(node_id));
     }
 
     let tvd_sections = route_finder::detectors_to_sections(&mut model, &detector_nodes)?;

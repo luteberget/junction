@@ -10,6 +10,7 @@ pub enum ConvertRouteIssue {
     RouteTooShort(RouteEntryExit, RouteEntryExit),
 }
 
+#[derive(Debug)]
 pub enum ConvertRouteError {
     String(String),
 }

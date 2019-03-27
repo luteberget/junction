@@ -19,6 +19,8 @@ pub enum ScenarioEdit {
     AddUsageMovementVisit(usize, usize),
     SetUsageMovementVehicle(usize, usize, usize),
     SetUsageMovementVisitNodes(usize, usize, usize, Vec<EntityId>),
+    AddUsageTimingSpec(usize),
+    SetUsageTimingSpec(usize,usize,usize,usize,usize,usize,Option<f32>),
 }
 
 
@@ -59,7 +61,7 @@ impl Default for Dispatch {
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Usage {
     pub movements :Vec<Movement>,
     pub timings :Vec<TimingSpec>,
@@ -75,7 +77,7 @@ impl Default for Usage {
 pub type VisitRef = (usize,usize); // .0 indexes Usage.movements, .1 indexes Movement.visits
 
 #[derive(Serialize, Deserialize)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TimingSpec {
     pub visit_a :VisitRef,
     pub visit_b :VisitRef,
@@ -83,7 +85,7 @@ pub struct TimingSpec {
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Movement {
     pub vehicle_ref: usize,
     pub visits: Vec<Visit>,

@@ -121,6 +121,14 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
 
         trains.insert(m_i, train);
     }
+
+    for timing in usage.timings {
+        if timing.visit_a.0 >= usage.movements.len() { println!("ORD: a movement invalid"); continue; }
+        if timing.visit_b.0 >= usage.movements.len() { println!("ORD: b movement invalid"); continue; }
+        if timing.visit_a.0 >= usage.movements[timing.visit.len() { println!("ORD: a visit invalid"); continue; }
+        if timing.visit_a.0 >= usage.movements[.len() { println!("ORD: a visit invalid"); continue; }
+    }
+
     // TODO timing spec
      planner::input::Usage { trains, train_ord }
 }

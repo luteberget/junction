@@ -4,6 +4,7 @@ use crate::model::*;
 use crate::infrastructure::*;
 use crate::schematic::*;
 use crate::background::*;
+use crate::analysis;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 
@@ -65,16 +66,19 @@ impl App {
        use std::path::Path;
 
        let json_path = Path::new(&filename);
-       let json_file = File::create(json_path).map_err(|e|{
+       let mut json_file = File::create(json_path).map_err(|e|{
            println!("CREATE FILE ERROR {:?}", e);
            ()
        })?;
 
-       serde_json::to_writer_pretty(json_file, &self.model)
+       let s = ron::ser::to_string_pretty(&self.model, Default::default())
            .map_err(|e| {
                println!("Serialize or write error: {:?}", e);
                ()
            })?;
+       //write!(json_file, s);
+       use std::io::Write;
+       json_file.write_all(s.as_bytes()).unwrap();
 
        Ok(())
     }
@@ -88,7 +92,7 @@ impl App {
 
        let json_path = Path::new(&filename);
        let json_file = File::open(json_path).map_err(|_| ())?;
-       let loaded_model : Model = serde_json::from_reader(json_file)
+       let loaded_model : Model = ron::de::from_reader(json_file)
            .map_err(|e| {
                println!("Deserialize error: {:?}", e);
                ()
@@ -127,7 +131,7 @@ impl App {
                             arguments.set_action(Box::new(|app :&mut App,args :&ArgumentListBuilder| {
                                 let id = *args.get_id("node").unwrap();
                                 let l  = *args.get_float("length").unwrap();
-                                if let EntityId::Track(id) = id {
+                                if let EntityId::Node(id) = id {
                                     app.integrate(AppAction::Model(ModelAction::Inf(
                                             InfrastructureEdit::ExtendTrack(id, l))));
                                 }
@@ -232,6 +236,11 @@ impl App {
        let main_menu = Menu {
            choices: vec![
                // TODO all of this stuff
+               ('i', format!("maximaldesign"), |app| {
+                   analysis::synthesis::add_maximal(&mut app.model.inf);
+                   app.integrate(AppAction::Model(ModelAction::Inf(InfrastructureEdit::Invalidate)));
+                   None
+               }),
                ('c', format!("context"), |app| { app.context_menu() }),
                ('l', format!("load"),    |app| { app.load_dialog().ok(); None }),
                ('s', format!("save"),    |app| { app.save_dialog().ok(); None }),

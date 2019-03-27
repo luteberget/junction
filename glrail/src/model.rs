@@ -163,6 +163,7 @@ impl Model {
         match action {
             ModelAction::Inf(ie) => {
                 match ie {
+                    InfrastructureEdit::Invalidate => {},
                     InfrastructureEdit::NewTrack(p1,p2) => {
                         let inf = &mut self.inf;
                         let i1 = self.inf.new_node(Node(p1, NodeType::Macro(None)));
@@ -264,13 +265,10 @@ impl Model {
                         }
 
                     },
-                    InfrastructureEdit::ExtendTrack(track_id, length) => {
+                    InfrastructureEdit::ExtendTrack(node_id, length) => {
                         let inf = &mut self.inf;
-                        if let Some(Track { end_node, .. }) = inf.get_track(&track_id) {
-                            let node_id = end_node.0;
-                            if let Some(Node(ref mut node_pos,_)) = inf.get_node_mut(&node_id) {
-                                *node_pos += length;
-                            }
+                        if let Some(Node(ref mut node_pos,_)) = inf.get_node_mut(&node_id) {
+                            *node_pos += length;
                         }
                     },
                 };
@@ -329,6 +327,22 @@ impl Model {
                                 if let Some(visit) = movement.visits.get_mut(vi) {
                                     visit.nodes = nodes;
                                 }
+                            }
+                        }
+                        Ok(ModelUpdateResult::ScenarioChanged(si))
+                    },
+                    ScenarioEdit::AddUsageTimingSpec(si) => {
+                        if let Some(Scenario::Usage(ref mut usage, _)) = self.scenarios.get_mut(si) {
+                            usage.timings.push(TimingSpec { visit_a : (0,0), visit_b : (0,0), time : None });
+                        }
+                        Ok(ModelUpdateResult::ScenarioChanged(si))
+                    },
+                    ScenarioEdit::SetUsageTimingSpec(si,ti,am,av,bm,bv,time) => {
+                        if let Some(Scenario::Usage(ref mut usage, _)) = self.scenarios.get_mut(si) {
+                            if let Some(spec) = usage.timings.get_mut(ti) {
+                                spec.visit_a = (am,av);
+                                spec.visit_b = (bm,bv);
+                                spec.time = time;
                             }
                         }
                         Ok(ModelUpdateResult::ScenarioChanged(si))
