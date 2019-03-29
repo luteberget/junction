@@ -362,7 +362,7 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                                               let vname = CString::new(vehicle.name.clone()).unwrap();
                                               if igMenuItemBool(vname.as_ptr(), ptr::null(), false, true) {
                                                 cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 
-                                                            app.model.view.time, 
+                                                            app.model.view.instant.as_ref().map(|i| i.time as f32).unwrap_or(0.0 as f32), 
                                                             Command::Train(vi,ri))); // TODO i is wrong  (??)
                                               }
                                               igPopID();

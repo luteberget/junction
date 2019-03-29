@@ -1,6 +1,7 @@
 use crate::selection::*;
 use crate::infrastructure::*;
 use serde::{Deserialize, Serialize};
+use crate::instant::*;
 
 
 #[derive(Serialize, Deserialize)]
@@ -15,7 +16,9 @@ pub struct View {
     pub hot_route :Option<usize>,
     pub selected_scenario :SelectedScenario,
     pub canvas_context_menu_item :Option<EntityId>,
-    pub time :f32,
+    #[serde(skip)]
+    pub instant :Option<Instant>,
+    pub time_range: Option<f64>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -44,7 +47,8 @@ impl View {
             hot_route: None,
             selected_scenario: SelectedScenario::None,
             canvas_context_menu_item: None,
-            time :0.0,
+            instant: None,
+            time_range: None,
         }
     }
 }

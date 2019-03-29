@@ -27,6 +27,8 @@ mod interlocking;
 mod scenario;
 mod issue;
 mod analysis;
+mod instant;
+
 
 use self::app::*;
 use self::model::*;

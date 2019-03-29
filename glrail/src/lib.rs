@@ -20,4 +20,6 @@ pub mod interlocking;
 pub mod scenario;
 pub mod issue;
 pub mod analysis;
+pub mod instant;
+
 
