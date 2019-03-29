@@ -181,11 +181,13 @@ pub fn synthesis(
     let (maximal_dg, dg_convert_issues) = dgraph::convert_entities(&maximal_inf).unwrap();
     let (maximal_routes, maximal_route_issues) = route_finder::find_routes(Default::default(), 
                                                                            &maximal_dg.rolling_inf).unwrap();
-    let maximal_routes : HashMap<usize, rolling_inf::Route> = maximal_routes.into_iter()
-        .map(|(route,path)| route)
-        .enumerate().collect();
-    let plan_inf_maximal = analysis::plan::convert_inf(&maximal_routes);
-    let plan_usages = usages.iter().map(|u| analysis::plan::convert_usage(vehicles, u)).collect::<Vec<_>>();
+    let (routes,route_entity_map) = dgraph::convert_route_map(&maximal_dg.node_ids,
+                                                              maximal_routes);
+    let routes = routes.into_iter().enumerate().collect();
+    let plan_inf_maximal = analysis::plan::convert_inf(&routes);
+    let plan_usages = usages.iter().map(|u| {
+        analysis::plan::convert_usage(&route_entity_map, vehicles, u)
+    }).collect::<Vec<_>>();
 
 
     let mut opt = planner::solver::SignalOptimizer::new(&plan_inf_maximal, &plan_usages);
@@ -206,7 +208,7 @@ pub fn synthesis(
         for (i,dispatches) in signal_set.get_dispatches().iter().enumerate() {
             let usage = &usages[i];
             let abstracts = dispatches.iter().map(|d| {
-                mk_abstract_dispatch(&maximal_routes, 
+                mk_abstract_dispatch(&routes, 
                                      &maximal_dg.node_ids, 
                                      &maximal_dg.object_ids, 
                                      usage, d) });

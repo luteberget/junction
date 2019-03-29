@@ -167,22 +167,8 @@ impl BackgroundUpdates {
                 // convert Vec<(Route, Vec<(NodeId,NodeId)>)> 
                 //     to  (Vec<Route>, HashMap<EntityId, Vec<usize>>)
                 
-                let mut route_vec = Vec::new();
-                let mut route_entity_map = HashMap::new();
-                for (ri,(r,l)) in routes.into_iter().enumerate() {
-                    route_vec.push(r);
-                    for (n1,n2) in l {
-                        use std::iter;
-                        for n in iter::once(n1).chain(iter::once(n2)) {
-                            if let Some(entity) = dg.node_ids.get_by_right(&n) {
-                                route_entity_map.entry(*entity).or_insert(Vec::new())
-                                    .push(ri);
-                            }
-                        }
-                    }
-                }
-
-                Ok((dg, (route_vec, route_entity_map), route_issues))
+                let routes = dgraph::convert_route_map(&dg.node_ids, routes);
+                Ok((dg, routes, route_issues))
             });
 
             if il_tx.send(res).is_ok() { wake(); }
@@ -195,7 +181,8 @@ impl BackgroundUpdates {
         let dgraph = Arc::clone(&model.dgraph.get().unwrap().rolling_inf);
         // TODO unnecessary conversion into hashmap
         use std::ops::Deref;
-        let routes = (model.interlocking.routes.get().unwrap()).deref().clone().0
+        let routes = (model.interlocking.routes.get().unwrap()).clone();
+        let routes_map = routes.deref().clone().0
             .into_iter().enumerate().collect::<HashMap<usize,_>>();
         // TODO arc on vehicles?
         let vehicles = model.vehicles.clone();
@@ -208,7 +195,7 @@ impl BackgroundUpdates {
                 let (sim_tx,sim_rx) = mpsc::channel();
                 let cmds = commands.clone();
                 self.pool.execute(move || {
-                    let r = sim::get_history(&vehicles, &dgraph, &routes, &cmds);
+                    let r = sim::get_history(&vehicles, &dgraph, &routes_map, &cmds);
                     if sim_tx.send(r).is_ok() { wake(); }
                 });
 
@@ -220,7 +207,7 @@ impl BackgroundUpdates {
                 let (plan_tx,plan_rx) = mpsc::channel();
                 let spec = usage.clone();
                 self.pool.execute(move || {
-                    let r = plan::get_dispatches(&vehicles, &dgraph, &routes, &spec);
+                    let r = plan::get_dispatches(&vehicles,&routes.1, &dgraph, &routes_map, &spec);
                     if plan_tx.send(r).is_ok() { wake(); }
                 });
 

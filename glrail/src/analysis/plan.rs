@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use crate::scenario::{Usage, Dispatch, Command, History};
 use crate::vehicle::Vehicle;
 use crate::model::Derive;
+use crate::infrastructure::EntityId;
 
 use rolling::input::staticinfrastructure as rolling_inf;
 use planner;
@@ -59,7 +60,6 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
                 entry: *entry, exit: *exit, 
                 conflicts: vec![], // calculated below
                 wait_conflict: None, // TODO support overlaps and timeout in route finder
-                contains_nodes: std::iter::empty().collect(),
                 length: length as _ ,
             });
 
@@ -103,15 +103,9 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
 
 
 
-pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usage {
+pub fn convert_usage(entity_routes :&HashMap<EntityId, Vec<usize>>,
+                     vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usage {
 
-
-    // getting from the glrail Usage with visits referring to EntityIds
-    // to the planner::input::Usage is a bit of a tour, let's see:
-    //  1. glrail inf     --> rolling dgraph
-    //  2. rolling dgraph --> rolling routes
-    //  3. rolling route  --> planner routes
-    //  glrail usage now refer to node in the planner routes' contains_node.
 
     // movement -> train
     let mut trains  = HashMap::new();
@@ -119,12 +113,23 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
 
     for (m_i,movement) in usage.movements.iter().enumerate() {
         let vehicle = &vehicles[movement.vehicle_ref];
+
+        let mut visits :Vec<HashSet<usize>> = Vec::new();
+        for v in &movement.visits {
+            let mut set = HashSet::new();
+            for n in &v.nodes {
+                if let Some(es) = entity_routes.get(n) {
+                    for e in es.iter() {
+                        set.insert(*e);
+                    }
+                }
+            }
+            visits.push(set);
+        }
+
         let train = planner::input::Train {
             length: vehicle.length,
-            visits: std::iter::empty().collect(),
-            // TODO convert visits to EntityId to some other idreferencesystem?
-            //movement.visits.iter().map(|v| {
-            //    v.nodes.iter().cloned().collect() }).collect(),
+            visits: visits,
         };
 
         trains.insert(m_i, train);
@@ -138,8 +143,9 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
         if timing.visit_b.1 >= usage.movements[timing.visit_b.0].visits.len() 
         { println!("ORD: b visit invalid"); continue; }
 
-
-
+        // train ids and train visits are the same
+        // we simply need to drop the timing req
+        train_ord.push(planner::input::TrainOrd { a: timing.visit_a, b: timing.visit_b });
     }
 
     // TODO timing spec
@@ -148,12 +154,13 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
 
 
 pub fn get_dispatches(vehicles :&[Vehicle], 
+                      entity_routes :&HashMap<EntityId, Vec<usize>>,
                       inf :&rolling_inf::StaticInfrastructure, 
                       routes :&rolling_inf::Routes<usize>, 
                       usage :&Usage) -> Result<Vec<Dispatch>, String> {
 
     let plan_inf = convert_inf(routes);
-    let plan_usage = convert_usage(vehicles, usage);
+    let plan_usage = convert_usage(entity_routes, vehicles, usage);
     //let (plan_inf, plan_usage) = convert(vehicles, routes, usage);
     println!("PROBLEM {:#?} \n {:#?}", plan_inf, plan_usage);
     let config = planner::input::Config { n_before: 3, n_after: 3, exact_n: None, optimize_signals: false };

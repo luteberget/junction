@@ -276,3 +276,26 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
     Ok((dgraph,issues))
 }
 
+
+pub fn convert_route_map(node_ids :&BiMap<EntityId,rolling_inf::NodeId>, 
+                         dgroutes :Vec<(Route, Vec<(rolling_inf::NodeId,rolling_inf::NodeId)>)>) 
+    -> (Vec<Route>, HashMap<EntityId, Vec<usize>>) {
+
+    let mut route_vec = Vec::new();
+    let mut route_entity_map = HashMap::new();
+    for (ri,(r,l)) in dgroutes.into_iter().enumerate() {
+        route_vec.push(r);
+        for (n1,n2) in l {
+            use std::iter;
+            for n in iter::once(n1).chain(iter::once(n2)) {
+                if let Some(entity) = node_ids.get_by_right(&n) {
+                    route_entity_map.entry(*entity).or_insert(Vec::new())
+                        .push(ri);
+                }
+            }
+        }
+    }
+
+    (route_vec, route_entity_map)
+}
+

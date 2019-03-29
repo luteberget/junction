@@ -114,16 +114,6 @@ impl Default for Visit {
     }}
 }
 
-//#[derive(Serialize, Deserialize)]
-//pub struct History {
-//    pub moves : Vec<()>,
-//}
-//impl Default for History {
-//    fn default() -> History { History {
-//        moves: Vec::new(),
-//    }}
-//}
-
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[derive(Copy, Clone)]
