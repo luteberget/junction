@@ -35,7 +35,7 @@ pub struct BackgroundUpdates {
     // list ongoing processes
     // or maybe it's a vector of jobs Vec<Job>, enum Job { DrawJob(Receiver<Schematic)>, .. }
     draw_rx :Option<mpsc::Receiver<Result<Schematic, String>>>,
-    il_rx :Option<mpsc::Receiver<Result<(DGraph, Vec<Route>, Vec<ConvertRouteIssue>), String>>>,
+    il_rx :Option<mpsc::Receiver<Result<(DGraph, (Vec<Route>, HashMap<EntityId,Vec<usize>>), Vec<ConvertRouteIssue>), String>>>,
     sim_rx :HashMap<usize, mpsc::Receiver<Result<History, String>>>,
     plan_rx :HashMap<usize, mpsc::Receiver<Result<Vec<Dispatch>, String>>>,
 }
@@ -71,12 +71,12 @@ impl BackgroundUpdates {
         //println!("Checking for updates {:?}.",self.il_rx);
         if let Some(Ok(res)) = self.il_rx.as_mut().map(|f| f.try_recv()) {
             match res {
-                Ok((dgraph,routes,issues)) => {
+                Ok((dgraph,(routes, route_entity_map),issues)) => {
                     println!("RECEIVED dg {:#?}", dgraph);
                     println!("RECEIVED routes {:#?}", routes);
                     println!("RECEIVED issues {:#?}", issues);
                     model.dgraph = Derive::Ok(dgraph);
-                    model.interlocking.routes = Derive::Ok(Arc::new((routes, HashMap::new())));
+                    model.interlocking.routes = Derive::Ok(Arc::new((routes, route_entity_map)));
                     for i in 0..(model.scenarios.len()) {
                         self.invalidate_scenario(i, model);
                     }
@@ -163,7 +163,26 @@ impl BackgroundUpdates {
                     .map_err(|_| format!("find routes error"))?;
                     //dgraph::make_routes(&dg);
                 //issues.extend(route_issues);
-                Ok((dg, routes.into_iter().map(|(r,p)| r).collect(), route_issues))
+
+                // convert Vec<(Route, Vec<(NodeId,NodeId)>)> 
+                //     to  (Vec<Route>, HashMap<EntityId, Vec<usize>>)
+                
+                let mut route_vec = Vec::new();
+                let mut route_entity_map = HashMap::new();
+                for (ri,(r,l)) in routes.into_iter().enumerate() {
+                    route_vec.push(r);
+                    for (n1,n2) in l {
+                        use std::iter;
+                        for n in iter::once(n1).chain(iter::once(n2)) {
+                            if let Some(entity) = dg.node_ids.get_by_right(&n) {
+                                route_entity_map.entry(*entity).or_insert(Vec::new())
+                                    .push(ri);
+                            }
+                        }
+                    }
+                }
+
+                Ok((dg, (route_vec, route_entity_map), route_issues))
             });
 
             if il_tx.send(res).is_ok() { wake(); }
