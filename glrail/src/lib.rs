@@ -3,7 +3,7 @@
 pub mod app;
 pub mod command_builder;
 pub mod wake;
-pub use wake::wake;
+pub use crate::wake::wake;
 pub mod background;
 
 // TODO separate domain model, view model

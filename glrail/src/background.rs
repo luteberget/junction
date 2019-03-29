@@ -163,7 +163,7 @@ impl BackgroundUpdates {
                     .map_err(|_| format!("find routes error"))?;
                     //dgraph::make_routes(&dg);
                 //issues.extend(route_issues);
-                Ok((dg, routes, route_issues))
+                Ok((dg, routes.into_iter().map(|(r,p)| r).collect(), route_issues))
             });
 
             if il_tx.send(res).is_ok() { wake(); }

@@ -13,7 +13,7 @@ mod background;
 mod command_builder;
 mod ui;
 mod wake;
-pub use wake::wake;
+pub use crate::wake::wake;
 
 // Domain
 mod model;

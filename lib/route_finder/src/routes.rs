@@ -48,10 +48,12 @@ pub struct Path {
     entered_sections: SmallVec<[(ObjectId, f64); 2]>,
     exited_sections: SmallVec<[(ObjectId, f64, f64);4]>,
     switches: SmallVec<[(ObjectId, f64, SwitchPosition);4]>,
+    edges_taken :Vec<(NodeId, NodeId)>,
 }
 
+pub type RoutePath = Vec<(NodeId,NodeId)>;
 
-pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<Route>, Vec<ConvertRouteIssue>), ConvertRouteError> {
+pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<(Route,RoutePath)>, Vec<ConvertRouteIssue>), ConvertRouteError> {
 
     let mut routes = Vec::new();
     let mut issues = Vec::new();
@@ -83,6 +85,7 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                 exited_sections: SmallVec::new(),
                 switches: SmallVec::new(),
                 length: 0.0,
+                edges_taken: vec![],
             });
 
             while search_stack.len() > 0 {
@@ -97,7 +100,7 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                                 StaticObject::Signal => {
                                     let exit = RouteEntryExit::Signal(*obj_idx);
                                     match make_route(&config, &curr_state, entry.entry, exit) {
-                                        Ok(route) => routes.push(route),
+                                        Ok(route) => routes.push((route, curr_state.edges_taken.clone())),
                                         Err(err) => issues.push(err),
                                     }
 
@@ -136,7 +139,7 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                         Edges::ModelBoundary => {
                             let exit = RouteEntryExit::Boundary(Some(curr_state.node));
                             match make_route(&config, &curr_state, entry.entry, exit) {
-                                Ok(route) => routes.push(route),
+                                Ok(route) => routes.push((route, curr_state.edges_taken.clone())),
                                 Err(err) => issues.push(err),
                             }
                             break;
@@ -158,6 +161,7 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                                 },
                                 _ => {},
                             };
+                            curr_state.edges_taken.push((curr_state.node, other));
                             curr_state.node = model.nodes[other].other_node;
                             curr_state.length += d;
                         },
@@ -166,6 +170,8 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                                 let mut right_state = curr_state.clone();
                                 let mut left_state = curr_state;
 
+                                right_state.edges_taken.push((right_state.node, right_link.0));
+                                left_state.edges_taken.push((left_state.node, left_link.0));
                                 right_state.node = model.nodes[right_link.0].other_node;
                                 left_state.node = model.nodes[left_link.0].other_node;
                                 right_state.switches.push((sw, right_state.length, SwitchPosition::Right));
