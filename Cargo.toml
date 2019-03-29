@@ -1,5 +1,12 @@
 [workspace]
-members = ["glrail", "lib/imgui-sys-bindgen", "lib/imgui-sys-opengl", "lib/route_finder", "synthesis_tests"]
+members = [
+	"glrail", 
+	"lib/imgui-sys-bindgen", 
+	"lib/imgui-sys-opengl", 
+	"lib/route_finder", 
+	"synthesis_tests",
+	"lib/numerical_optimization",
+]
 
 [profile.release]
 lto = true
