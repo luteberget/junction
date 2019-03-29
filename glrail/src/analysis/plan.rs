@@ -105,6 +105,15 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
 
 pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usage {
 
+
+    // getting from the glrail Usage with visits referring to EntityIds
+    // to the planner::input::Usage is a bit of a tour, let's see:
+    //  1. glrail inf     --> rolling dgraph
+    //  2. rolling dgraph --> rolling routes
+    //  3. rolling route  --> planner routes
+    //  glrail usage now refer to node in the planner routes' contains_node.
+
+
     // movement -> train
     let mut trains  = HashMap::new();
     let mut train_ord = Vec::new();
@@ -125,8 +134,13 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
     for timing in usage.timings {
         if timing.visit_a.0 >= usage.movements.len() { println!("ORD: a movement invalid"); continue; }
         if timing.visit_b.0 >= usage.movements.len() { println!("ORD: b movement invalid"); continue; }
-        if timing.visit_a.0 >= usage.movements[timing.visit.len() { println!("ORD: a visit invalid"); continue; }
-        if timing.visit_a.0 >= usage.movements[.len() { println!("ORD: a visit invalid"); continue; }
+        if timing.visit_a.1 >= usage.movements[timing.visit_a.0].len() 
+        { println!("ORD: a visit invalid"); continue; }
+        if timing.visit_b.1 >= usage.movements[timing.visit.b.0].len() 
+        { println!("ORD: b visit invalid"); continue; }
+
+
+
     }
 
     // TODO timing spec
