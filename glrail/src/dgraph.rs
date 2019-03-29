@@ -6,38 +6,32 @@ use std::collections::{HashMap, HashSet};
 use ordered_float::OrderedFloat;
 use std::sync::Arc;
 use bimap::BiMap;
-
 pub use route_finder::ConvertRouteIssue;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum RollingId {
-    StaticObject(rolling_inf::ObjectId),
-    Node(rolling_inf::NodeId),
-}
 
 
 #[derive(Debug)]
 pub struct DGraph {
     /// static infrastructure with internal indexing (names do not correspond to glrail entities)
     pub rolling_inf : Arc<rolling_inf::StaticInfrastructure>,
+
     /// Reference from rolling dgraph indices to glrail entitiy vec
-    pub entity_names : BiMap<RollingId, EntityId>,
+    pub node_ids : BiMap<EntityId, rolling_inf::NodeId>,
+    pub object_ids : BiMap<EntityId, rolling_inf::ObjectId>,
+
     /// tvd sections mapped to set of edges
     pub tvd_sections :HashMap<rolling_inf::ObjectId, Vec<(rolling_inf::NodeId,rolling_inf::NodeId)>>,
     /// edges mapped to track interval (track in glrail model)
     pub edge_intervals : HashMap<(rolling_inf::NodeId,rolling_inf::NodeId),Interval>,
-    // /// string names of boundaries, to be referred to in dispatch plans
-    // pub boundary_names :HashMap<String, rolling_inf::NodeId>,
 }
 
 impl Default for DGraph {
     fn default() -> Self {
         DGraph {
             rolling_inf: Arc::new(rolling_inf::StaticInfrastructure { nodes: vec![], objects: vec![] }),
-            entity_names: BiMap::new(),
+            node_ids: BiMap::new(),
+            object_ids: BiMap::new(),
             tvd_sections: HashMap::new(),
             edge_intervals: HashMap::new(),
-            //boundary_names: HashMap::new(),
         }
     }
 }
@@ -59,10 +53,10 @@ pub enum DGraphConvertIssue {
 pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConvertIssue>), String>  {
     let mut issues = Vec::new();
     let mut tracks = HashMap::new();
-    let mut entity_names = BiMap::new();
+    let mut node_ids = BiMap::new();
+    let mut object_ids = BiMap::new();
     let mut edge_intervals = HashMap::new();
     let mut detector_nodes = HashSet::new();
-    //let mut boundary_names = HashMap::new();
 
     let mut model = rolling_inf::StaticInfrastructure {
         nodes: Vec::new(),
@@ -144,8 +138,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
             (NodeType::BufferStop, _) => {},
             (NodeType::Macro(name), (node_id,_)) => {
                 model.nodes[na].edges = rolling_inf::Edges::ModelBoundary;
-                entity_names.insert(RollingId::Node(na), EntityId::Node(node_id));
-                //else { issues.push(DGraphConvertIssue::UnnamedBoundary(node_id)); }
+                node_ids.insert(EntityId::Node(node_id), na);
             },
             (NodeType::Switch(Dir::Down, side), (sw_idx, Port { dir: Dir::Up, .. })) => {
                 dswitches.get_mut(&sw_idx).unwrap().trunk = Some(na);
@@ -177,7 +170,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
             match obj {
                 ObjectType::Detector => {
                     detector_nodes.insert((na,nb));
-                    entity_names.insert(RollingId::Node(na), EntityId::Object(object_id));
+                    node_ids.insert(EntityId::Object(object_id), na);
                 },
                 ObjectType::Signal(dir) => {
                     let node_idx = match dir {
@@ -186,7 +179,8 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
                     };
                     let objid = new_object_id(&mut model.objects, rolling_inf::StaticObject::Signal);
                     model.nodes[node_idx].objects.push(objid);
-                    entity_names.insert(RollingId::StaticObject(objid), EntityId::Object(object_id));
+                    node_ids.insert(EntityId::Object(object_id), node_idx);
+                    object_ids.insert(EntityId::Object(object_id), objid);
                 },
                 ObjectType::Balise(_) => {}, // not used in simulation, for now.
             }
@@ -214,8 +208,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
             (NodeType::BufferStop, _) => {},
             (NodeType::Macro(name), (node_id,_)) => {
                 model.nodes[nb].edges = rolling_inf::Edges::ModelBoundary;
-                entity_names.insert(RollingId::Node(nb), EntityId::Node(node_id));
-                //else { issues.push(DGraphConvertIssue::UnnamedBoundary(node_id)); }
+                node_ids.insert(EntityId::Node(node_id), nb);
             },
             (NodeType::Switch(Dir::Up, side), (sw_idx, Port { dir :Dir::Down, ..})) => {
                 dswitches.get_mut(&sw_idx).unwrap().trunk = Some(nb);
@@ -264,7 +257,8 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         model.nodes[nb].edges = rolling_inf::Edges::Switchable(objid);
         model.nodes[left].edges = rolling_inf::Edges::Single(nb, 0.0);
         model.nodes[right].edges = rolling_inf::Edges::Single(nb, 0.0);
-        entity_names.insert(RollingId::StaticObject(objid), EntityId::Node(node_id));
+        node_ids.insert(EntityId::Node(node_id), trunk);
+        object_ids.insert(EntityId::Node(node_id), objid);
     }
 
     let tvd_sections = route_finder::detectors_to_sections(&mut model, &detector_nodes)?;
@@ -273,10 +267,10 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
     let dgraph = DGraph {
         rolling_inf: Arc::new(model),
-        entity_names: entity_names,
         tvd_sections: tvd_sections,
         edge_intervals: edge_intervals,
-        //boundary_names: boundary_names,
+        node_ids: node_ids,
+        object_ids: object_ids,
     };
 
     Ok((dgraph,issues))

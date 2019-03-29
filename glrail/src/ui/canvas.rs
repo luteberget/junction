@@ -304,7 +304,7 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
           // highlight ruote
           if let Some(route_idx) = &app.model.view.hot_route {
               if let Derive::Ok(routes) = &app.model.interlocking.routes {
-                if let Some(route) = routes.get(*route_idx) {
+                if let Some(route) = routes.0.get(*route_idx) {
                     // Draw start signal / boundary green
                     // Draw end signal/boundary red
                     // Draw switch positions
@@ -352,7 +352,7 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                           igSeparator();
                           if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
                               if let Some(d) = app.model.dgraph.get() {
-                                  for (ri,r) in app.model.interlocking.routes_from_boundary(d,EntityId::Node(node_id)).enumerate() {
+                                  for (ri,r) in app.model.interlocking.routes_from_boundary(d,node_id).enumerate() {
                                       igPushIDInt(ri as _);
 
                                       let train_to = CString::new(format!("Train to {:?}", r.exit)).unwrap();

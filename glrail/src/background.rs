@@ -76,7 +76,7 @@ impl BackgroundUpdates {
                     println!("RECEIVED routes {:#?}", routes);
                     println!("RECEIVED issues {:#?}", issues);
                     model.dgraph = Derive::Ok(dgraph);
-                    model.interlocking.routes = Derive::Ok(Arc::new(routes));
+                    model.interlocking.routes = Derive::Ok(Arc::new((routes, HashMap::new())));
                     for i in 0..(model.scenarios.len()) {
                         self.invalidate_scenario(i, model);
                     }
@@ -176,7 +176,7 @@ impl BackgroundUpdates {
         let dgraph = Arc::clone(&model.dgraph.get().unwrap().rolling_inf);
         // TODO unnecessary conversion into hashmap
         use std::ops::Deref;
-        let routes = (model.interlocking.routes.get().unwrap()).deref().clone()
+        let routes = (model.interlocking.routes.get().unwrap()).deref().clone().0
             .into_iter().enumerate().collect::<HashMap<usize,_>>();
         // TODO arc on vehicles?
         let vehicles = model.vehicles.clone();

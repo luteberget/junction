@@ -124,8 +124,8 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                         //ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen as _ ) {
       let mut hovered = None;
       match app.model.interlocking.routes {
-          Derive::Ok(ref r) if r.len() > 0 => {
-              for (i,x) in r.iter().enumerate() {
+          Derive::Ok(ref r) if r.0.len() > 0 => {
+              for (i,x) in r.0.iter().enumerate() {
                   igPushIDInt(i as _);
 
                   if igSelectable(const_cstr!("##route").as_ptr(), false, 0, v2_0) {

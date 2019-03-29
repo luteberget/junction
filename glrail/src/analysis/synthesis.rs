@@ -67,17 +67,17 @@ fn add_track_signal(inf :&Infrastructure, track :TrackId, dir :Dir, signals :&mu
     }
 }
 
-fn get_entryexit(entity_map :&BiMap<dgraph::RollingId, EntityId>, ee :&rolling_inf::RouteEntryExit) -> EntityId {
+fn get_entryexit(node_ids :&BiMap<EntityId,rolling_inf::NodeId>, 
+                 object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
+                 ee :&rolling_inf::RouteEntryExit) -> EntityId {
     match ee {
         rolling_inf::RouteEntryExit::Boundary(Some(id)) => {
-            let id = dgraph::RollingId::Node(*id);
-            if let Some(e) = entity_map.get_by_left(&id) {
+            if let Some(e) = node_ids.get_by_right(id) {
                 *e
             } else { panic!() }
         },
         rolling_inf::RouteEntryExit::Signal(id) => {
-            let id = dgraph::RollingId::StaticObject(*id);
-            if let Some(e) = entity_map.get_by_left(&id) {
+            if let Some(e) = object_ids.get_by_right(id) {
                 *e
             } else { panic!() }
         },
@@ -85,22 +85,17 @@ fn get_entryexit(entity_map :&BiMap<dgraph::RollingId, EntityId>, ee :&rolling_i
     }
 }
 
-fn get_sw_node(entity_map :&BiMap<dgraph::RollingId, EntityId>, rolling_id :rolling_inf::ObjectId) -> NodeId {
-    let id = dgraph::RollingId::StaticObject(rolling_id);
-    if let Some(EntityId::Node(node_id)) = entity_map.get_by_left(&id) {
+fn get_sw_node(object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
+               rolling_object :rolling_inf::ObjectId) -> NodeId {
+    if let Some(EntityId::Node(node_id)) = object_ids.get_by_right(&rolling_object) {
         *node_id
     } else { panic!() }
 }
 
-//fn get_obj(entity_map :&BiMap<dgraph::RollingId, EntityId>, rolling_id :rolling_inf::ObjectId) -> ObjectId {
-//    let id = dgraph::RollingId::StaticObject(*rolling_id);
-//    if let Some(EntityId::Object(object_id)) = entity_map.get_by_left(&id) {
-//        *object_id
-//    } else { panic!() }
-//}
 
 fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
-                        entity_map :&BiMap<dgraph::RollingId, EntityId>,
+                        node_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
+                        object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
                         usage :&Usage,
                         routeplan :&planner::input::RoutePlan) -> Vec<AbstractDispatch> {
     let mut output = Vec::new();
@@ -126,15 +121,15 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
                 start.remove(&routes[&rid].exit);
                 end.remove(&routes[&rid].entry);
                 for x in routes[&rid].resources.switch_positions.iter()
-                                .map(|(sw,side)| (get_sw_node(entity_map, *sw), *side)) {
+                                .map(|(sw,side)| (get_sw_node(object_ids, *sw), *side)) {
                                     switches.insert(x);
                                 }
             }
             assert_eq!(start.len(), 1);
             assert_eq!(end.len(), 1);
 
-            let start = get_entryexit(entity_map, start.iter().nth(0).unwrap());
-            let end = get_entryexit(entity_map, end.iter().nth(0).unwrap());
+            let start = get_entryexit(node_ids, object_ids, start.iter().nth(0).unwrap());
+            let end = get_entryexit(node_ids, object_ids, end.iter().nth(0).unwrap());
             output.push(AbstractDispatch {
                 from: start,
                 to: end,
@@ -147,11 +142,14 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
     output
 }
 
-fn convert_signals(maximal_inf :&Infrastructure, entity_map :&BiMap<dgraph::RollingId,EntityId>, signals :&HashMap<planner::input::SignalId, bool>) -> Vec<Object> {
+fn convert_signals(maximal_inf :&Infrastructure, 
+                   node_ids :&BiMap<EntityId, rolling_inf::NodeId>, 
+                   object_ids :&BiMap<EntityId, rolling_inf::ObjectId>, 
+                   signals :&HashMap<planner::input::SignalId, bool>) -> Vec<Object> {
     maximal_inf.iter_objects().filter(|(object_id, Object(t,p,o))| {
         if let ObjectType::Signal(_) = o {
-            if let Some(dgraph::RollingId::StaticObject(dgobj)) 
-                    = entity_map.get_by_right(&EntityId::Object(*object_id)) {
+            if let Some(dgobj) 
+                    = object_ids.get_by_left(&EntityId::Object(*object_id)) {
                 *signals.get(&planner::input::SignalId::ExternalId(*dgobj)).unwrap_or(&false)
             } else { false }
         } else {
@@ -208,13 +206,19 @@ pub fn synthesis(
         for (i,dispatches) in signal_set.get_dispatches().iter().enumerate() {
             let usage = &usages[i];
             let abstracts = dispatches.iter().map(|d| {
-                mk_abstract_dispatch(&maximal_routes, &maximal_dg.entity_names, usage, d) });
+                mk_abstract_dispatch(&maximal_routes, 
+                                     &maximal_dg.node_ids, 
+                                     &maximal_dg.object_ids, 
+                                     usage, d) });
             abstract_dispatches.push((usage, abstracts.collect()));
         }
         debug!("Abstract dispatches {:#?}", abstract_dispatches);
 
 
-        let mut objects = convert_signals(&maximal_inf, &maximal_dg.entity_names, signal_set.get_signals());
+        let mut objects = convert_signals(&maximal_inf, 
+                                          &maximal_dg.node_ids, 
+                                          &maximal_dg.object_ids, 
+                                          signal_set.get_signals());
         debug!("Added objects {:?}", objects);
 
         let score = optimize_locations(&base_inf, &mut objects, &abstract_dispatches);

@@ -113,7 +113,6 @@ pub fn convert_usage(vehicles :&[Vehicle], usage :&Usage) -> planner::input::Usa
     //  3. rolling route  --> planner routes
     //  glrail usage now refer to node in the planner routes' contains_node.
 
-
     // movement -> train
     let mut trains  = HashMap::new();
     let mut train_ord = Vec::new();
