@@ -17,8 +17,7 @@ pub struct View {
     pub selected_scenario :SelectedScenario,
     pub canvas_context_menu_item :Option<EntityId>,
     #[serde(skip)]
-    pub instant :Option<Instant>,
-    pub time_range: Option<f64>,
+    pub dispatch_view :Option<Graph>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -31,6 +30,13 @@ pub enum SelectedScenario {
 
 impl SelectedScenario {
     pub fn has_dispatch(&self) -> bool  {
+        match self {
+            SelectedScenario::Dispatch(_) => true,
+            SelectedScenario::Usage(_, Some(_)) => true,
+            _ => false,
+        }
+    }
+    pub fn get_dispatch(&self, ) -> bool  {
         match self {
             SelectedScenario::Dispatch(_) => true,
             SelectedScenario::Usage(_, Some(_)) => true,
@@ -50,6 +56,18 @@ impl View {
             instant: None,
             time_range: None,
         }
+    }
+
+    pub fn get_dispatch_view(&mut self) -> Option<&Graph> {
+        if let Some(g) = &mut self.dispatch_view {
+            if self.selected_scenario == g.selected_scenario {
+                return g;
+            }
+        }
+
+        // update dispatch
+        self.dispatch_view = Some(graph::mk_graph(&
+
     }
 }
 

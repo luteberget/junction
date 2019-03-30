@@ -3,6 +3,7 @@ use imgui_sys_bindgen::json::*;
 use imgui_sys_bindgen::text::*;
 use crate::app::*;
 use crate::model::*;
+use crate::view::*;
 use crate::scenario::*;
 use crate::infrastructure::*;
 use crate::selection::*;
@@ -32,6 +33,22 @@ pub fn graph(size: ImVec2, app :&mut App) -> bool {
 
   let draw_list = igGetWindowDrawList();
   igText(const_cstr!("Here is the graph:").as_ptr());
+
+  // we are in the graph mode, so we should have a selected dispatch
+  let history = match app.model.view.selected_scenario {
+      SelectedScenario::Dispatch(d) => {
+          if let Some(Scenario::Dispatch(Dispatch { history: Derive::Ok(h), .. })) 
+              = app.model.scenarios.get(d) { Some(h) } else { None }
+      },
+      SelectedScenario::Usage(u,Some(d)) => {
+          if let Some(Scenario::Usage(_, Derive::Ok(dispatches))) 
+              = app.model.scenarios.get(d) { 
+                  if let Some(Dispatch { history: Derive::Ok(h), .. }) 
+                      = dispatches.get(d) { Some(h) } else { None }
+              } else { None }
+      },
+      _ => None,
+  };
 
 
   igEndChild();

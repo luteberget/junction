@@ -21,5 +21,6 @@ pub mod scenario;
 pub mod issue;
 pub mod analysis;
 pub mod instant;
+pub mod graph;
 
 
