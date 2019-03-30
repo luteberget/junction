@@ -95,7 +95,7 @@ impl BackgroundUpdates {
                 match res {
                     Ok(h) => {
                         println!("Received sim results.");
-                        model.scenarios[*k].set_history(Derive::Ok(h));
+                        model.scenarios[*k].set_history(Derive::Ok(HistoryGraph::new(h)));
                     },
                     Err(s) => {
                         println!("Received sim error {:?}.",s);

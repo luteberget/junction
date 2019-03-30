@@ -1,8 +1,6 @@
 use crate::selection::*;
 use crate::infrastructure::*;
 use serde::{Deserialize, Serialize};
-use crate::instant::*;
-
 
 #[derive(Serialize, Deserialize)]
 pub enum InputDir {
@@ -16,8 +14,6 @@ pub struct View {
     pub hot_route :Option<usize>,
     pub selected_scenario :SelectedScenario,
     pub canvas_context_menu_item :Option<EntityId>,
-    #[serde(skip)]
-    pub dispatch_view :Option<Graph>,
 }
 
 #[derive(PartialEq, Eq)]
@@ -36,13 +32,6 @@ impl SelectedScenario {
             _ => false,
         }
     }
-    pub fn get_dispatch(&self, ) -> bool  {
-        match self {
-            SelectedScenario::Dispatch(_) => true,
-            SelectedScenario::Usage(_, Some(_)) => true,
-            _ => false,
-        }
-    }
 }
 
 impl View {
@@ -53,21 +42,7 @@ impl View {
             hot_route: None,
             selected_scenario: SelectedScenario::None,
             canvas_context_menu_item: None,
-            instant: None,
-            time_range: None,
         }
-    }
-
-    pub fn get_dispatch_view(&mut self) -> Option<&Graph> {
-        if let Some(g) = &mut self.dispatch_view {
-            if self.selected_scenario == g.selected_scenario {
-                return g;
-            }
-        }
-
-        // update dispatch
-        self.dispatch_view = Some(graph::mk_graph(&
-
     }
 }
 

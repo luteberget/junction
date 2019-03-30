@@ -27,7 +27,6 @@ mod interlocking;
 mod scenario;
 mod issue;
 mod analysis;
-mod instant;
 mod graph;
 
 

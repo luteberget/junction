@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::scenario::{Usage, Dispatch, Command, History};
+use crate::scenario::{Usage, Dispatch, Command, History, HistoryGraph};
 use crate::vehicle::Vehicle;
 use crate::model::Derive;
 use crate::infrastructure::EntityId;
@@ -182,7 +182,7 @@ pub fn get_dispatches(vehicles :&[Vehicle],
         //unimplemented!()
         Ok(vec![Dispatch {
             commands,
-            history: Derive::Ok(history),
+            history: Derive::Ok(HistoryGraph::new(history)),
         }])
     } else {
         Err(format!("No plans found."))

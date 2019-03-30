@@ -7,12 +7,16 @@ use serde::{Serialize, Deserialize};
 use rolling::input::staticinfrastructure as rolling_inf;
 pub use rolling::output::history::History;
 use crate::infrastructure::*;
+use crate::graph::*;
+use crate::dgraph::DGraph;
+use crate::schematic::Schematic;
 
 #[derive(Debug)]
 pub enum ScenarioEdit {
     NewDispatch,
     AddDispatchCommand(usize, f32, Command),
     ModifyDispatchCommand(usize, usize, Option<(f32, Command)>),
+
 
     NewUsage,
     AddUsageMovement(usize),
@@ -31,7 +35,7 @@ pub enum Scenario {
 }
 
 impl Scenario {
-    pub fn set_history(&mut self, h :Derive<History>)  {
+    pub fn set_history(&mut self, h :Derive<HistoryGraph>)  {
         match self {
             Scenario::Dispatch(Dispatch { ref mut history, .. }) => *history = h,
             _ => {},
@@ -46,12 +50,50 @@ impl Scenario {
     }
 }
 
+pub struct HistoryGraph {
+    history :History,
+    graph: Option<Graph>,
+}
+
+impl Default for HistoryGraph {
+    fn default() -> HistoryGraph {
+        HistoryGraph {
+            history: Default::default(),
+            graph: None,
+        }
+    }
+}
+
+impl HistoryGraph {
+    pub fn new(history :History) -> Self {
+        Self { history, graph: None }
+    }
+
+    pub fn history(&self) -> &History { &self.history }
+    pub fn graph(&mut self, inf :&Infrastructure, dgraph :&DGraph, schematic :&Schematic) -> &Graph {
+        if self.graph.is_none() {
+            println!("Pre-drawing graph");
+            self.graph = Some(Graph::new(0.0, &self.history,inf, dgraph, schematic));
+            println!("{:?}", self.graph.as_ref().unwrap());
+        }
+        self.graph.as_ref().unwrap()
+    }
+    pub fn set_time(&mut self, t: f32, inf:&Infrastructure, dgraph :&DGraph, schematic :&Schematic) {
+        self.graph = Some(Graph::new(t, &self.history, inf, dgraph, schematic));
+        println!("new time {} {:?}", t, self.graph.as_ref().unwrap());
+        let x = self.graph.as_ref().unwrap().instant.geom.clone();
+        for x in x {
+            println!("{:?}",x);
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Dispatch {
     pub commands :Vec<(f32, Command)>,
 
     #[serde(skip)]
-    pub history :Derive<History>,
+    pub history :Derive<HistoryGraph>,
 }
 impl Default for Dispatch {
     fn default() -> Dispatch { Dispatch {
