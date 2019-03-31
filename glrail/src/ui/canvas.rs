@@ -9,6 +9,7 @@ use crate::selection::*;
 use crate::dgraph::*;
 use crate::command_builder::*;
 use crate::view::*;
+use crate::graph::*;
 use std::ptr;
 use std::ffi::CString;
 use const_cstr::const_cstr;
@@ -73,6 +74,10 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
     let selected_col  = 175 + (175<<8) + (255<<16) + (255<<24);
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     // TODO make some colors config struct
+
+    let reserved_col  = 255 + (65<<8) + (55<<16) + (255<<24);
+    let occupied_col  = 55 + (255<<8) + (55<<16) + (255<<24);
+    let overlap_col  = 209 + (208<<8) + (22<<16) + (255<<24);
 
     unsafe {
 
@@ -277,6 +282,55 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                   }
               }
           }
+
+
+          // Get instant (occupied TVDs, trains, switch positions, etc.)
+          //
+          let historygraph = match app.model.view.selected_scenario {
+              SelectedScenario::Dispatch(d) => {
+                  if let Some(Scenario::Dispatch(Dispatch { history: Derive::Ok(h), .. }))
+                      = app.model.scenarios.get_mut(d) { Some(h) } else { None }
+              },
+              SelectedScenario::Usage(u,Some(d)) => {
+                  if let Some(Scenario::Usage(_, Derive::Ok(dispatches)))
+                      = app.model.scenarios.get_mut(d) {
+                          if let Some(Dispatch { history: Derive::Ok(h), .. })
+                              = dispatches.get_mut(d) { Some(h) } else { None }
+                      } else { None }
+              },
+              _ => None,
+          };
+
+
+          if let Some(hg) = historygraph {
+              let graph = hg.graph(&app.model.inf, &app.model.dgraph.get().unwrap(), &app.model.schematic.get().unwrap());
+              for (g,_) in &graph.instant.geom {
+                  match g {
+                      DispatchCanvasGeom::SectionStatus(p1,p2,status) => {
+                          let color = match status {
+                              SectionStatus::Free => line_col,
+                              SectionStatus::Reserved => reserved_col,
+                              SectionStatus::Occupied => occupied_col,
+                              SectionStatus::Overlap => overlap_col,
+                          };
+                          let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, *p1);
+                          let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, *p2);
+                          ImDrawList_AddLine(draw_list, ps1,ps2, color, 5.0);
+                      },
+                      DispatchCanvasGeom::SignalAspect(p,object_id, aspect) => {
+                      },
+                      DispatchCanvasGeom::TrainLoc(p1,p2,id) => {
+                          let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, *p1);
+                          let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, *p2);
+                          ImDrawList_AddLine(draw_list, ps1,ps2, selected_col, 10.0);
+                      },
+
+                      DispatchCanvasGeom::SwitchStatus(pt,object_id,status) => {
+                      }
+                  }
+              }
+          }
+
 
 
           let (mut last_x,mut line_no) = (None,0);

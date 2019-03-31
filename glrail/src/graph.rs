@@ -83,6 +83,23 @@ fn max_time(history :&History) -> f64 {
     t
 }
 
+fn truncate_edge_list(e :&mut Vec<((&usize, &Option<usize>), f64, f64)>, mut l :f64) {
+    let mut del = false;
+    for i in (0..e.len()).rev() {
+        if del {
+            e.remove(i);
+        } else {
+            let (_, ref mut a, ref mut b) = e[i];
+            if *b - *a > l {
+                *a = *b - l;
+                del = true;
+            } else {
+                l -= *b - *a;
+            }
+        }
+    }
+}
+
 fn mk_instant( time :f64, history: &History, 
                inf: &Infrastructure, schematic :&Schematic, dgraph :&DGraph) 
     -> Instant {
@@ -116,6 +133,8 @@ fn mk_instant( time :f64, history: &History,
             _ => {}, // TODO route
         }
     }
+
+    
 
     let mut sections :HashMap<usize, SectionStatus> = sections_reserved.into_iter().map(|(k,v)| {
         (k, if v { SectionStatus::Reserved } else { SectionStatus::Free })}).collect();
@@ -151,6 +170,47 @@ fn mk_instant( time :f64, history: &History,
                     if let Some((pt1,_)) = schematic.track_line_at(track, *p1) {
                         if let Some((pt2,_)) = schematic.track_line_at(track, *p2) {
                             geom.push((DispatchCanvasGeom::SectionStatus(pt1,pt2,status.clone()), None));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (train_i,(name,params,events)) in history.trains.iter().enumerate() {
+        use rolling::railway::dynamics::*;
+        let mut t = 0.0;
+        let mut edges = Vec::new();
+        let mut velocity = 0.0;
+        for e in events {
+            match e {
+                TrainLogEvent::Edge(a,b) => { edges.push(((a,b), 0.0, 0.0));},
+                TrainLogEvent::Move(dt, action, DistanceVelocity { dx, v }) => { 
+                    let update_x = if t + *dt < time { *dx } else {
+                        dynamic_update(params, velocity, DriverPlan { action: *action, dt: time - t}).dx
+                    };
+                    edges.last_mut().unwrap().2 += update_x;
+                    truncate_edge_list(&mut edges, params.length);
+                    velocity = *v;
+                    t += *dt;
+                },
+                TrainLogEvent::Wait(dt) => { t += dt; },
+                _ => {},
+            };
+            if t >= time { break; }
+        }
+
+
+        // Then map edge list to coordinatse
+        for (e,a,b) in edges {
+            if let (ea,Some(eb)) = e {
+                if let Some(Interval { track, p1, p2 }) = dgraph.edge_intervals.get(&(*ea,*eb)) {
+                    // TODO this is not really Km units
+                    let x1 = *p1 + a as f32;
+                    let x2 = *p1 + b as f32;
+                    if let Some((pt1,_)) = schematic.track_line_at(track, x1) {
+                        if let Some((pt2,_)) = schematic.track_line_at(track, x2) {
+                            geom.push((DispatchCanvasGeom::TrainLoc(pt1,pt2,train_i), None));
                         }
                     }
                 }
