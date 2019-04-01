@@ -80,11 +80,11 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
     fn join_linear(nodes :&mut Vec<rolling_inf::Node>, 
                    edge_intervals :&mut HashMap<(rolling_inf::NodeId,rolling_inf::NodeId),Interval>, 
-                   interval: Interval, i1 :rolling_inf::NodeId, i2 :rolling_inf::NodeId, dist :f64) {
+                   track_id :TrackId, p1 :f32, p2: f32, i1 :rolling_inf::NodeId, i2 :rolling_inf::NodeId, dist :f64) {
         nodes[i1].edges = rolling_inf::Edges::Single(i2, dist);
         nodes[i2].edges = rolling_inf::Edges::Single(i1, dist);
-        edge_intervals.insert((i1,i2),interval);
-        edge_intervals.insert((i2,i1),interval);
+        edge_intervals.insert((i1,i2),Interval { track: track_id, p1: p1, p2: p2 } );
+        edge_intervals.insert((i2,i1),Interval { track: track_id, p1:  p2, p2: p1 } );
     }
 
     struct OTrack<'a> {
@@ -187,7 +187,8 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
             // set edge from last to na
             join_linear(&mut model.nodes, &mut edge_intervals, 
-                        Interval { track: track_id, p1: last_pos, p2: pos },
+                        track_id, last_pos, pos,
+                        //Interval { track: track_id, p1: last_pos, p2: pos },
                         last_node, na, (pos - last_pos) as _);
 
             last_pos = pos;
@@ -201,7 +202,8 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
         let (na, nb) = new_pair(&mut model.nodes);
         join_linear(&mut model.nodes, &mut edge_intervals,
-                    Interval { track: track_id, p1: last_pos, p2: t.pos_end },
+                    //Interval { track: track_id, p1: last_pos, p2: t.pos_end },
+                    track_id, last_pos, t.pos_end,
                     last_node, na, (t.pos_end - last_pos) as _);
 
         match t.end {
@@ -265,6 +267,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
     // Call tvd section finder
 
+    println!("Edge intervals {:?}", edge_intervals);
     let dgraph = DGraph {
         rolling_inf: Arc::new(model),
         tvd_sections: tvd_sections,
@@ -277,24 +280,30 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 }
 
 
-pub fn convert_route_map(node_ids :&BiMap<EntityId,rolling_inf::NodeId>, 
+pub fn convert_route_map(dg :&DGraph,
                          dgroutes :Vec<(Route, Vec<(rolling_inf::NodeId,rolling_inf::NodeId)>)>) 
     -> (Vec<Route>, HashMap<EntityId, Vec<usize>>) {
+        println!("convert_route_map node_ids: {:?}", &dg.node_ids);
 
     let mut route_vec = Vec::new();
     let mut route_entity_map = HashMap::new();
     for (ri,(r,l)) in dgroutes.into_iter().enumerate() {
+        println!("CONVERT_ROUTE_MAP for route {:?}: {:?}", r, l);
         route_vec.push(r);
         for (n1,n2) in l {
             use std::iter;
-            for n in iter::once(n1).chain(iter::once(n2)) {
-                if let Some(entity) = node_ids.get_by_right(&n) {
-                    route_entity_map.entry(*entity).or_insert(Vec::new())
-                        .push(ri);
+            for dn in iter::once(n1).chain(iter::once(n2)) {
+                let other_node = dg.rolling_inf.nodes[dn].other_node;
+                for n in iter::once(dn).chain(iter::once(other_node)) {
+                    if let Some(entity) = dg.node_ids.get_by_right(&n) {
+                        route_entity_map.entry(*entity).or_insert(Vec::new())
+                            .push(ri);
+                    }
                 }
             }
         }
     }
+    println!("calculated route map {:?}", route_entity_map);
 
     (route_vec, route_entity_map)
 }

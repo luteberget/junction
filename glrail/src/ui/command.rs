@@ -87,6 +87,9 @@ pub fn command(loc :ImVec2, app :&mut App) -> bool {
                               Arg::Id(Some(x)) => {
                                   show_text(&format!("obj:{:?}", x));
                               },
+                              Arg::Usize(Some(x)) => {
+                                  show_text(&format!("obj:{:?}", x));
+                              },
                               Arg::Float(val) => {
                                   show_text(&format!("{}", val));
                               },

@@ -181,7 +181,7 @@ pub fn synthesis(
     let (maximal_dg, dg_convert_issues) = dgraph::convert_entities(&maximal_inf).unwrap();
     let (maximal_routes, maximal_route_issues) = route_finder::find_routes(Default::default(), 
                                                                            &maximal_dg.rolling_inf).unwrap();
-    let (routes,route_entity_map) = dgraph::convert_route_map(&maximal_dg.node_ids,
+    let (routes,route_entity_map) = dgraph::convert_route_map(&maximal_dg,
                                                               maximal_routes);
     let routes = routes.into_iter().enumerate().collect();
     let plan_inf_maximal = analysis::plan::convert_inf(&routes);

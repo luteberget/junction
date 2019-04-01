@@ -74,6 +74,7 @@ impl BackgroundUpdates {
                 Ok((dgraph,(routes, route_entity_map),issues)) => {
                     println!("RECEIVED dg {:#?}", dgraph);
                     println!("RECEIVED routes {:#?}", routes);
+                    println!("RECEIVED routes {:#?}", route_entity_map);
                     println!("RECEIVED issues {:#?}", issues);
                     model.dgraph = Derive::Ok(dgraph);
                     model.interlocking.routes = Derive::Ok(Arc::new((routes, route_entity_map)));
@@ -167,7 +168,7 @@ impl BackgroundUpdates {
                 // convert Vec<(Route, Vec<(NodeId,NodeId)>)> 
                 //     to  (Vec<Route>, HashMap<EntityId, Vec<usize>>)
                 
-                let routes = dgraph::convert_route_map(&dg.node_ids, routes);
+                let routes = dgraph::convert_route_map(&dg, routes);
                 Ok((dg, routes, route_issues))
             });
 

@@ -69,6 +69,12 @@ impl Schematic {
             Ok(i) => Some(self.pos_map[i].2),
             Err(i) => {
                 if i <= 0 || i >= self.pos_map.len() {
+                    if i == 0 && (self.pos_map[0].2 - pos).abs() < 1e-6 {
+                        return Some(self.pos_map[0].0);
+                    }
+                    if i == self.pos_map.len()-1 && (self.pos_map[self.pos_map.len()-1].2 - pos).abs() < 1e-6 {
+                        return Some(self.pos_map[self.pos_map.len()].0);
+                    }
                     return None;
                 }
                 let prev = self.pos_map[i-1];

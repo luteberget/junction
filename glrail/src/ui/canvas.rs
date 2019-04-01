@@ -406,10 +406,10 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                           igSeparator();
                           if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
                               if let Some(d) = app.model.dgraph.get() {
-                                  for (ri,r) in app.model.interlocking.routes_from_boundary(d,node_id).enumerate() {
+                                  for (ri,r) in app.model.interlocking.routes_from_boundary(d,node_id) {
                                       igPushIDInt(ri as _);
 
-                                      let train_to = CString::new(format!("Train to {:?}", r.exit)).unwrap();
+                                      let train_to = CString::new(format!("Train to {:?} ({})", r.exit, ri)).unwrap();
                                       if igBeginMenu(train_to.as_ptr(), true) {
                                           for (vi,vehicle) in app.model.vehicles.iter().enumerate() {
                                               igPushIDInt(vi as _);

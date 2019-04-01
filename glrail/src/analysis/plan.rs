@@ -111,6 +111,7 @@ pub fn convert_usage(entity_routes :&HashMap<EntityId, Vec<usize>>,
     let mut trains  = HashMap::new();
     let mut train_ord = Vec::new();
 
+    println!("Converting usage movement train using entity_routes: {:?}", entity_routes);
     for (m_i,movement) in usage.movements.iter().enumerate() {
         let vehicle = &vehicles[movement.vehicle_ref];
 

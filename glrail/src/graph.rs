@@ -202,12 +202,16 @@ fn mk_instant( time :f64, history: &History,
 
 
         // Then map edge list to coordinatse
+        println!("Edge instavles {:?}", dgraph.edge_intervals);
         for (e,a,b) in edges {
             if let (ea,Some(eb)) = e {
                 if let Some(Interval { track, p1, p2 }) = dgraph.edge_intervals.get(&(*ea,*eb)) {
                     // TODO this is not really Km units
-                    let x1 = *p1 + a as f32;
-                    let x2 = *p1 + b as f32;
+                    let (x1,x2) = if p1 < p2 {
+                        (*p1 + a as f32, *p1 + b as f32)
+                    } else {
+                        (*p1 - a as f32, *p1 - b as f32)
+                    };
                     if let Some((pt1,_)) = schematic.track_line_at(track, x1) {
                         if let Some((pt2,_)) = schematic.track_line_at(track, x2) {
                             geom.push((DispatchCanvasGeom::TrainLoc(pt1,pt2,train_i), None));
