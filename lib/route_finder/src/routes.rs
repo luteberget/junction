@@ -226,6 +226,12 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
     sections.extend(state.entered_sections.iter().map(|&(x, l)| (x, l, state.length)));
     sections.retain(|&mut (_,a,b)| b-a > config.section_tolerance);
 
+    let trigger = sections.first();
+    let entry = match (trigger,entry) {
+        (Some((tvd,_,_)),RouteEntryExit::Signal(x)) => RouteEntryExit::SignalTrigger { signal: x, trigger_section: *tvd },
+        _ => entry,
+    };
+
     let mut cleared_length = 0.0;
     let mut releases = sections.iter().map(|(trigger, start, end)| {
         let start = if cleared_length > *start { cleared_length } else { *start };

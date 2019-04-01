@@ -75,8 +75,8 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     // TODO make some colors config struct
 
-    let reserved_col  = 255 + (65<<8) + (55<<16) + (255<<24);
-    let occupied_col  = 55 + (255<<8) + (55<<16) + (255<<24);
+    let occupied_col  = 255 + (65<<8) + (55<<16) + (255<<24);
+    let reserved_col  = 55 + (255<<8) + (55<<16) + (255<<24);
     let overlap_col  = 209 + (208<<8) + (22<<16) + (255<<24);
 
     unsafe {
@@ -223,6 +223,7 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
               if let Some((loc,tangent)) = s.track_line_at(track_id, *pos) {
                   let rightside = (tangent.1, -tangent.0);
                   match obj {
+                      ObjectType::Sight { .. } => {}, // ignore for now
                       ObjectType::Signal(Dir::Up) => {
                           let pw = (loc.0 + rightside.0*0.2, loc.1 + rightside.1*0.2);
                           let ps = world2screen(canvas_pos, canvas_lower, center, zoom, pw);

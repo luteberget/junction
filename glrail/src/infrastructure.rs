@@ -118,6 +118,11 @@ pub struct Object(pub TrackId, pub Pos, pub ObjectType);
 #[derive(Serialize, Deserialize)]
 pub enum ObjectType {
     Signal(Dir),
+    Sight {
+        dir :Dir,
+        signal :ObjectId,
+        distance :f64,
+    },
     Balise(bool),
     Detector,
 }

@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use ordered_float::OrderedFloat;
 use std::sync::Arc;
 use bimap::BiMap;
+use crate::analysis::synthesis::sight_objects;
 pub use route_finder::ConvertRouteIssue;
 
 
@@ -58,6 +59,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
     let mut edge_intervals = HashMap::new();
     let mut detector_nodes = HashSet::new();
 
+
     let mut model = rolling_inf::StaticInfrastructure {
         nodes: Vec::new(),
         objects: Vec::new(),
@@ -92,7 +94,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         pos_end :f32,
         start :(&'a NodeType, (NodeId, Port)),
         end :(&'a NodeType, (NodeId, Port)),
-        objs :Vec<(f32, ObjectId, &'a ObjectType)>,
+        objs :Vec<(f32, Option<ObjectId>, &'a ObjectType)>,
     }
 
     #[derive(Debug)]
@@ -102,6 +104,23 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         right :Option<rolling_inf::NodeId>,
         side: Option<Side>,
     }
+    
+
+
+    // Create signal and sight objects
+
+    let mut static_signals :HashMap<ObjectId,rolling_inf::ObjectId> = HashMap::new();
+    for (object_id, Object(_,_,o)) in inf.iter_objects() {
+        match o {
+            ObjectType::Signal(dir) => {
+                let objid = new_object_id(&mut model.objects, rolling_inf::StaticObject::Signal);
+                static_signals.insert(object_id, objid);
+            },
+            _ => {},
+        };
+    }
+
+    // Create track lists with corresponding objects and their positions
 
     for (track_id, Track { start_node, end_node, .. }) in inf.iter_tracks() {
         let (p1,n1) = if let Some(Node(p1, n1)) = inf.get_node(&start_node.0) { (p1,n1) } else { panic!() };
@@ -116,9 +135,15 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         });
     }
 
+    let sight = sight_objects(inf, 200.0);
+    for Object(track,pos,obj) in sight.iter() {
+        let track = tracks.get_mut(&track).ok_or(format!("Invalid track ref"))?;
+        track.objs.push((*pos, None, &obj));
+    }
+
     for (object_id,object) in inf.iter_objects() {
         let track = tracks.get_mut(&object.0).ok_or(format!("Invalid track ref"))?;
-        track.objs.push((object.1, object_id, &object.2));
+        track.objs.push((object.1, Some(object_id), &object.2));
     }
 
     let mut dswitches = HashMap::new();
@@ -127,6 +152,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
             dswitches.insert(node_id, DSwitch { trunk: None, left: None, right: None, side: None});
         }
     }
+
 
     for (track_id, mut t) in tracks {
         let (na, nb) = new_pair(&mut model.nodes);
@@ -168,19 +194,32 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         for (pos,object_id,obj) in t.objs {
             let (na, nb) = new_pair(&mut model.nodes);
             match obj {
+                ObjectType::Sight { dir, distance, signal } => {
+                    let node_idx = match dir {
+                        Dir::Up => nb,
+                        Dir::Down => na,
+                    };
+                    let signal_id = *static_signals.get(signal).expect("sight object not seen before.");
+                    let objid = new_object_id(&mut model.objects, rolling_inf::StaticObject::Sight {
+                        signal: signal_id,
+                        distance: *distance,
+                    });
+
+                    model.nodes[node_idx].objects.push(objid);
+                }
                 ObjectType::Detector => {
                     detector_nodes.insert((na,nb));
-                    node_ids.insert(EntityId::Object(object_id), na);
+                    node_ids.insert(EntityId::Object(object_id.unwrap()), na);
                 },
                 ObjectType::Signal(dir) => {
                     let node_idx = match dir {
                         Dir::Up => nb,
                         Dir::Down => na,
                     };
-                    let objid = new_object_id(&mut model.objects, rolling_inf::StaticObject::Signal);
+                    let objid = *static_signals.get(&object_id.unwrap()).expect("sight object not seen before.");
                     model.nodes[node_idx].objects.push(objid);
-                    node_ids.insert(EntityId::Object(object_id), node_idx);
-                    object_ids.insert(EntityId::Object(object_id), objid);
+                    node_ids.insert(EntityId::Object(object_id.unwrap()), node_idx);
+                    object_ids.insert(EntityId::Object(object_id.unwrap()), objid);
                 },
                 ObjectType::Balise(_) => {}, // not used in simulation, for now.
             }
@@ -262,6 +301,8 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
         node_ids.insert(EntityId::Node(node_id), trunk);
         object_ids.insert(EntityId::Node(node_id), objid);
     }
+
+    //add_sight = route_finder::add_sight(&mut model, 200.0);
 
     let tvd_sections = route_finder::detectors_to_sections(&mut model, &detector_nodes)?;
 

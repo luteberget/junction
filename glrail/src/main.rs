@@ -94,7 +94,7 @@ fn main() -> Result<(), String>{
 
     let mut canvas = window.into_canvas()
         .target_texture()
-        .present_vsync()
+        //.present_vsync()
         .build()
         .map_err(|e| format!("{}", e))?;
 

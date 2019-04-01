@@ -311,7 +311,7 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                                       si, ti, am as _, av as _, bm as _, bv as _, 
                                       if time < 0.0 { None } else { Some(time) } )); }
                           if igInputInt(const_cstr!("B visit").as_ptr(), 
-                                        &mut bm as *mut _, 1, 1, 
+                                        &mut bv as *mut _, 1, 1, 
                                         ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _) {
                               scenario_action = Some(ScenarioEdit::SetUsageTimingSpec(
                                       si, ti, am as _, av as _, bm as _, bv as _, 
@@ -336,8 +336,26 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
                           Derive::Err(s) => { show_text("solver error:"); igSameLine(0.0,-1.0); show_text(s); },
                           Derive::Ok(dispatches) => {
                               show_text(&format!("We have {} dispatches.", dispatches.len()));
-                              for d in dispatches {
-                                  show_dispatch_command_list(&d.commands);
+
+                              let selected_dispatch = if let SelectedScenario::Usage(_,sd) = &app.model.view.selected_scenario { *sd } else { None };
+                              for (di,d) in dispatches.iter().enumerate() {
+                                  let selected = selected_dispatch == Some(di);
+                                  if igSelectable(const_cstr!("##dispatch").as_ptr(), selected, 0, v2_0) {
+                                      app.model.view.selected_scenario = if selected { SelectedScenario::Usage(si,None) } 
+                                                                      else { SelectedScenario::Usage(si,Some(di)) };
+                                  }
+                                  igSameLine(0.0,-1.0);
+                                  show_text("Dispatch ");
+                                  igSameLine(0.0,-1.0);
+                                  show_text(&format!("{}", si));
+
+                                  if selected {
+                                      show_dispatch_command_list(&d.commands);
+                                      // read only
+                                      //if let Some(cmd) = show_dispatch_command_list(&dispatch.commands) {
+                                      //    scenario_action = Some(cmd);
+                                      //}
+                                  }
                               }
                           }
                       }

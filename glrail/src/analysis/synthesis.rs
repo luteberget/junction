@@ -261,6 +261,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     unimplemented!()
 }
 
+// TODO move this to infrastructure model
 #[derive(Copy,Clone,Debug)]
 struct Cursor {
     track :TrackId,
@@ -276,6 +277,71 @@ impl Cursor {
               let Node(p2, _) = inf.get_node(&end_node.0)?;
               if *p1 <= c.pos  && c.pos <= *p2 { Some(()) } else { None } };
         f(self).is_some()
+    }
+
+    pub fn advance_nonoverlapping(&self, inf :&Infrastructure, l :f32) -> Vec<(f32,Cursor)> {
+        let Track { start_node, end_node } = inf.get_track(&self.track).unwrap();
+        let Node(p1, n1) = inf.get_node(&start_node.0).unwrap();
+        let Node(p2, n2) = inf.get_node(&end_node.0).unwrap();
+        let mut cursors : Vec<(f32,Cursor)> = Vec::new();
+        match self.dir {
+            Dir::Up => {
+                if self.pos + l < *p2 { 
+                    cursors.push((l, Cursor { pos: self.pos + l, .. *self }));
+                } else { 
+                    // goto other side of node, and work from there.
+                    let advanced_length = p2 - self.pos;
+                    match n2 {
+                        NodeType::Switch(Dir::Up, _) => { // facing switch
+                            // split into left and right
+                            for side in vec![Side::Left, Side::Right] {
+                                let next = Cursor::at_port(inf, end_node.0, 
+                                                           Port { dir: Dir::Up, course: Some(side)});
+                                cursors.extend(next.advance_nonoverlapping(inf, l - advanced_length).into_iter()
+                                               .map(|(d,c)| (advanced_length + d, c)));
+                            }
+                        },
+                        NodeType::Switch(Dir::Down, _) | NodeType::BufferStop | NodeType::Macro(_) => { 
+                            // trailing switch or model boundary
+                            // Truncate since we are doing "nonoverlapping" paths
+
+                            // TODO make sure that this cursor is on the right side of the switch
+                            let epsilon = 0.0005;
+                            cursors.push((advanced_length - epsilon, Cursor { pos: p2 - epsilon , .. *self} ));
+                        },
+                        _ => panic!(),
+                    }
+                }
+            },
+            Dir::Down => {
+                if self.pos - l > *p1 { 
+                    cursors.push((l, Cursor { pos: self.pos - l, .. *self }));
+                } else { 
+                    // goto other side of node, and work from there.
+                    let advanced_length = self.pos - p1;
+                    match n1 {
+                        NodeType::Switch(Dir::Down, _) => { // facing switch
+                            // split into left and right
+                            for side in vec![Side::Left, Side::Right] {
+                                let next = Cursor::at_port(inf, start_node.0, 
+                                                           Port { dir: Dir::Down, course: Some(side)});
+                                cursors.extend(next.advance_nonoverlapping(inf, l - advanced_length).into_iter()
+                                               .map(|(d,c)| (advanced_length + d, c)));
+                            }
+                        },
+                        NodeType::Switch(Dir::Up, _) | NodeType::BufferStop | NodeType::Macro(_) => { // trailing switch
+                            // Truncate since we are doing "nonoverlapping" paths
+
+                            let epsilon = 0.0005;
+                            cursors.push((advanced_length - epsilon, Cursor { pos: p1 + epsilon, .. *self} ));
+                        },
+                        _ => panic!(),
+                    }
+                }
+            },
+        }
+
+        cursors
     }
 
     pub fn advance_all(&self, inf :&Infrastructure, l :f32) -> Vec<Cursor> {
@@ -373,6 +439,27 @@ impl Cursor {
         }
         panic!()
     }
+
+    pub fn at_pos(track :TrackId, pos :Pos, dir :Dir) -> Cursor {
+        Cursor { track, pos, dir }
+    }
+}
+
+// Called when conveting Infrastructure to rolling_inf::StaticInfrastructure
+// TODO custom sight distance specified by each signal.
+pub fn sight_objects(inf :&Infrastructure, default_sight_distance :f64) -> Vec<Object> {
+    let mut objects = Vec::new();
+    for (object_id, Object(t,p,o)) in inf.iter_objects() {
+        if let ObjectType::Signal(dir) = o {
+            let curr = Cursor::at_pos(*t,*p,dir.opposite());
+            for (dist, c) in curr.advance_nonoverlapping(inf, default_sight_distance as f32) {
+                objects.push(Object(c.track, c.pos, ObjectType::Sight {
+                    dir: *dir, signal: object_id, distance: dist as f64
+                }));
+            }
+        }
+    }
+    objects
 }
 
 
