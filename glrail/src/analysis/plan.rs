@@ -37,6 +37,7 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
         }
     }
 
+    let mut boundary_routes :HashMap<rolling_inf::NodeId, HashSet<usize>> = HashMap::new();
     for (route_name,route) in routes.iter() {
         let mut signals = vec![convert_routeentryexit(&route.entry)];
         if route.resources.releases.len() > 0 {
@@ -45,6 +46,13 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
             }
         }
         signals.push(convert_routeentryexit(&route.exit));
+
+        if let rolling_inf::RouteEntryExit::Boundary(Some(n)) = &route.entry {
+            boundary_routes.entry(*n).or_insert(HashSet::new()).insert(*route_name);
+        }
+        if let rolling_inf::RouteEntryExit::Boundary(Some(n)) = &route.exit {
+            boundary_routes.entry(*n).or_insert(HashSet::new()).insert(*route_name);
+        }
 
         let mut elementary_route = HashSet::new();
         for (i,(entry,exit)) in signals.iter().zip(signals.iter().skip(1)).enumerate() {
@@ -95,6 +103,23 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
             // there are no resources. But we have to add the overlap choice anyway.
             partial_routes.get_mut(&(*rn,0)).unwrap().conflicts =
                 vec![std::iter::empty().collect()];
+        }
+    }
+
+    // add boundary conflicts
+    for (_,set) in boundary_routes {
+        println!("Excluding set of routes because they share a boundary: {:?}", set);
+        let set :Vec<usize> = set.into_iter().collect();
+        for (i,j) in set.iter().flat_map(|x| set.iter().map(move |y| (*x,*y)))
+                .filter(|(x,y)| x != y) {
+
+            let j_choices = partial_routes.get_mut(&(j,0)).unwrap().conflicts.len();
+
+            for cs in partial_routes.get_mut(&(i, 0)).unwrap().conflicts.iter_mut() {
+                for choice in 0..j_choices {
+                    cs.insert(((j,0),choice));
+                }
+            }
         }
     }
 

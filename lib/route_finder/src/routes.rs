@@ -231,6 +231,10 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
         (Some((tvd,_,_)),RouteEntryExit::Signal(x)) => RouteEntryExit::SignalTrigger { signal: x, trigger_section: *tvd },
         _ => entry,
     };
+    
+    let add_length = if let RouteEntryExit::Boundary(_) = &exit { 
+        1000.0 } 
+    else { 0.0 };
 
     let mut cleared_length = 0.0;
     let mut releases = sections.iter().map(|(trigger, start, end)| {
@@ -259,10 +263,12 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
         releases.last_mut().unwrap().length += state.length - sum_releases_length;
     } 
 
+    if let Some(last_release) = releases.last_mut() { last_release.length += add_length; }
+
     Ok(Route {
         entry: entry,
         exit: exit,
-        length: state.length,
+        length: state.length + add_length,
 
         resources: RouteResources {
             sections: sections.into_iter().map(|(x,_,_)| x).collect(),

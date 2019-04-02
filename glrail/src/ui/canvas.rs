@@ -171,28 +171,6 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
               }
           }
 
-          // Example plot of a detection section 
-          // TODO trigger by selecting/hovering routes in the menu
-          if let Derive::Ok(DGraph { tvd_sections, edge_intervals, .. }) = &app.model.dgraph {
-              if let Some((sec_id, edges)) = tvd_sections.iter().nth(0) {
-                  for e in edges.iter() {
-                      if let Some(Interval { track, p1, p2 }) = edge_intervals.get(e) {
-
-                          if let Some((loc1,_)) = s.track_line_at(track, *p1) {
-                          if let Some((loc2,_)) = s.track_line_at(track, *p2) {
-
-                              let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, loc1);
-                              let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, loc2);
-                              ImDrawList_AddLine(draw_list, ps1,ps2, tvd_col, 5.0);
-
-                          }
-                          }
-                      }
-                  }
-              }
-          }
-
-
           for (k,v) in &s.points {
               let mut p = world2screen(canvas_pos, canvas_lower, center, zoom, *v);
               let tl = ImVec2 { x: p.x - caret_right_halfsize.x, 

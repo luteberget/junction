@@ -25,7 +25,7 @@ use log::*;
 //   a. powell
 //   b. brent
 //   c. convert from abstract dispatches
-//   d. hash consing?
+//   d. hash consing? or persistent data structures?
 // 3. X    add track signal
 // 4. X    maximal design
 //
@@ -33,10 +33,20 @@ use log::*;
 // 6. examples
 //
 
+
+
+type VarObjId = usize;
+
+#[derive(Debug)]
+enum AbstractEntryExit {
+    Const(EntityId), // boundary node or signal from base infrastructure
+    Variable(VarObjId), // signal from variable infrastructure
+}
+
 #[derive(Debug)]
 struct AbstractDispatch {
-    from :EntityId, // signal or boundary node
-    to :EntityId, // signal or boundary node
+    from :AbstractEntryExit, // var signal, const signal, or const boundary node
+    to :AbstractEntryExit, // var signal, const signal, or const boundary node
     switch_positions: BTreeSet<(NodeId, rolling_inf::SwitchPosition)>, // glrail switch node
     train :usize,
 }
@@ -96,6 +106,7 @@ fn get_sw_node(object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
 fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
                         node_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
                         object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
+                        variable_objs :&BiMap<VarObjId, EntityId>,
                         usage :&Usage,
                         routeplan :&planner::input::RoutePlan) -> Vec<AbstractDispatch> {
     let mut output = Vec::new();
@@ -113,13 +124,18 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
         for (new_route,train_id) in active_routes.difference(&last_active_routes) {
             trains.entry(*train_id).or_insert(Vec::new()).push(*new_route);
         }
+        println!("TRAINS  {:?}", trains);
         for (train_id,route_ids) in trains {
-            let mut start :HashSet<_> = route_ids.iter().map(|rid| routes[rid].entry).collect();
-            let mut end :HashSet<_> = route_ids.iter().map(|rid| routes[rid].exit).collect();
+            let mut start :HashSet<_> = route_ids.iter().map(|rid| ignore_trigger(routes[rid].entry))
+                .collect();
+            println!("train {}: starts {:?}", train_id, start);
+            let mut end :HashSet<_> = route_ids.iter().map(|rid| ignore_trigger(routes[rid].exit))
+                .collect();
             let mut switches :BTreeSet<(_,_)> = BTreeSet::new();
             for rid in route_ids {
-                start.remove(&routes[&rid].exit);
-                end.remove(&routes[&rid].entry);
+                start.remove(&ignore_trigger(routes[&rid].exit));
+                println!("train {}: remove {:?} from starts {:?}", train_id, &routes[&rid].exit, start);
+                end.remove(&ignore_trigger(routes[&rid].entry));
                 for x in routes[&rid].resources.switch_positions.iter()
                                 .map(|(sw,side)| (get_sw_node(object_ids, *sw), *side)) {
                                     switches.insert(x);
@@ -130,6 +146,17 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
 
             let start = get_entryexit(node_ids, object_ids, start.iter().nth(0).unwrap());
             let end = get_entryexit(node_ids, object_ids, end.iter().nth(0).unwrap());
+
+            let start = match variable_objs.get_by_right(&start) {
+                Some(var) => AbstractEntryExit::Variable(var),
+                None => AbstractEntryExit::Const(*start),
+            };
+
+            let end = match variable_objs.get_by_right(&end) {
+                Some(var) => AbstractEntryExit::Variable(var),
+                None => AbstractEntryExit::Const(*end),
+            };
+
             output.push(AbstractDispatch {
                 from: start,
                 to: end,
@@ -138,14 +165,24 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
             });
         }
 
+        last_active_routes = active_routes;
+
     }
     output
 }
 
-fn convert_signals(maximal_inf :&Infrastructure, 
+fn ignore_trigger(r :rolling_inf::RouteEntryExit) -> rolling_inf::RouteEntryExit {
+    use self::rolling_inf::RouteEntryExit;
+    match r {
+        RouteEntryExit::SignalTrigger { signal, .. } => RouteEntryExit::Signal(signal),
+        x => x,
+    }
+}
+
+fn convert_signals(maximal_object_names :&Infrastructure, 
                    node_ids :&BiMap<EntityId, rolling_inf::NodeId>, 
                    object_ids :&BiMap<EntityId, rolling_inf::ObjectId>, 
-                   signals :&HashMap<planner::input::SignalId, bool>) -> Vec<Object> {
+                   signals :&HashMap<planner::input::SignalId, bool>) -> HashMap<VarObjId, Object> {
     maximal_inf.iter_objects().filter(|(object_id, Object(t,p,o))| {
         if let ObjectType::Signal(_) = o {
             if let Some(dgobj) 
@@ -163,6 +200,7 @@ pub fn add_maximal(base_inf :&mut Infrastructure) {
     for o in &maximal_signals { base_inf.new_object(o.clone()); }
 }
 
+
 pub fn synthesis(
     base_inf :&Infrastructure,
     usages :&[Usage], 
@@ -172,9 +210,13 @@ pub fn synthesis(
 {
     debug!("Starting synthesis.");
     // first, we need to create a maximal design
-    let maximal_signals = maximal_design(base_inf);
+    let maximal_objects = maximal_design(base_inf);
     let mut maximal_inf = base_inf.clone();
-    for o in &maximal_signals { maximal_inf.new_object(o.clone()); }
+    let mut maximal_object_names : BiMap<VarObjId, ObjectId> = BiMap::new();
+    for (o_idx,o) in maximal_signals.iter().enumerate() { 
+        let object_id = maximal_inf.new_object(o.clone());
+        maximal_object_names.insert(o_idx, object_id);
+    }
 
     // then we find the minimum amount of signals required
     // to dispatch all usages
@@ -190,7 +232,7 @@ pub fn synthesis(
     }).collect::<Vec<_>>();
 
 
-    let mut opt = planner::solver::SignalOptimizer::new(&plan_inf_maximal, &plan_usages);
+    let mut opt = planner::optimize::SignalOptimizer::new(&plan_inf_maximal, &plan_usages);
     let mut min_n_signals = None;
     let mut current_best_signals = maximal_signals;
     'outer: while let Some(mut signal_set) = opt.next_signal_set() {
@@ -206,18 +248,20 @@ pub fn synthesis(
 
         let mut abstract_dispatches : Vec<(&Usage, Vec<Vec<AbstractDispatch>>)> = Vec::new();
         for (i,dispatches) in signal_set.get_dispatches().iter().enumerate() {
+            debug!("Dispatch{} {:?}", i, dispatches);
             let usage = &usages[i];
             let abstracts = dispatches.iter().map(|d| {
                 mk_abstract_dispatch(&routes, 
                                      &maximal_dg.node_ids, 
                                      &maximal_dg.object_ids, 
+                                     &maximal_object_names,
                                      usage, d) });
             abstract_dispatches.push((usage, abstracts.collect()));
         }
         debug!("Abstract dispatches {:#?}", abstract_dispatches);
 
 
-        let mut objects = convert_signals(&maximal_inf, 
+        let mut objects :HashMap<VarObjId, Object> = convert_signals(&maximal_inf, 
                                           &maximal_dg.node_ids, 
                                           &maximal_dg.object_ids, 
                                           signal_set.get_signals());
@@ -258,6 +302,48 @@ pub fn synthesis(
 fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>, 
                       dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) -> f64 {
     debug!("Starting optimize_locations");
+    // TODO how can we recognize/identify the signals from the original maximal infrastructure 
+
+    let dimensions = signals.len();
+    let mut search_vectors = (0..dimensions).map(|i| {
+        let mut v :nalgebra::DVector<f64> = nalgebra::DVector::from_element(dimensions, 0.0);
+        v[i] = 1.0;
+        v
+    }).collect::<Vec<_>>();
+
+    use rand::{thread_rng, Rng};
+    thread_rng().shuffle(&mut search_vectors);
+
+    println!("Search vectors:");
+    for v in &search_vectors {
+        println!("{:?}", v);
+    }
+
+
+    let tolerance = 0.1; // 0.1 seconds tolerance?
+    //     let baseline_value = measure_cost(base_inf, dispatches); 
+    //     let (mut pt,mut value) = (current_vector, baseline_value);
+    //     'powell: loop {
+    //         let mut next_vector = Vec::new();
+    //         let mut max_contribution_idx = None;;
+    //         for (v_i,v) in search_vectors.iter().enumerate() {
+    //             // if Brent line search along this vector gives an improvement, 
+    //             // add the vec
+    //             let contribution = unimplemented!();
+    //             if max_contribution_idx.is_none() || max_contribution_idx.unwrap() < contribution {
+    //                 max_contribution_idx = Some(v_i);
+    //             }
+    //         }
+
+    //         search_vectors.remove(max_contribution_idx);
+    //         search_vectors.push(x1 - x0); // displacement to new optimum is a new search vector,
+    //         // replacing the one which made the maximum contribution to this step's improvement.
+
+    //         if improvement < tolerance {
+    //             break 'powell;
+    //         }
+    //     }
+
     unimplemented!()
 }
 
@@ -468,7 +554,7 @@ fn maximal_design(base_inf :&Infrastructure) -> Vec<Object> {
     let fouling_length = 50.0;
     let overlap_lengths = vec![0.0, 150.0];
 
-    // for ewach switch
+    // for each switch
     let mut objects = Vec::new();
     for (node_id, Node(pos, node)) in base_inf.iter_nodes() {
         if let NodeType::Switch(dir,_) = node {
@@ -495,6 +581,36 @@ fn maximal_design(base_inf :&Infrastructure) -> Vec<Object> {
     objects 
 }
 
-fn measure_cost(inf :&Infrastructure, dispatches :&Vec<Vec<AbstractDispatch>>, usages :&[Usage]) -> f64 {
-    unimplemented!()
+fn measure_cost(inf :&Infrastructure, objs :Vec<Object>,
+                vehicles :&[Vehicle], dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) -> f64 {
+
+    println!("Measuring cost {:?}", objs);
+    let mut infrastructure = inf.clone();
+    let mut map = Vec::new();
+    for o in objs { map.push(infrastructure.new_object(o)); }
+
+    let (dg, _) = dgraph::convert_entities(&infrastructure).unwrap();
+    let (dg_routes, _) = route_finder::find_routes(Default::default(), &dg.rolling_inf).unwrap();
+    let (routes,_) = dgraph::convert_route_map(&dg, dg_routes);
+    let routes :Vec<_> = routes.into_iter().enumerate().collect();
+
+    let mut total_cost = 0.0;
+    for (usage, dispatches) in dispatches {
+        assert!(dispatches.len() > 0);
+
+        // measure abstract dispatch
+        let mut usage_costs = 0.0;
+        for d in dispatches.iter() {
+            println!("  cost on dispatch {:?}", d);
+            let concrete = concretize_dispatch(&infrastructure, &map, &routes, d);
+            let history = sim::get_history(vehicles, &dg.rolling_inf, &routes, &concrete);
+            usage_costs += history.max_time(); // TODO use timing constraints instead 
+        }
+        usage_costs /= dispatches.len() as f64;
+        total_cost += usage_costs;
+        println!("  sum {:?}"; usage_costs);
+    }
+
+    println!(" SUM {:?}"; total_cost);
+    return total_cost;
 }

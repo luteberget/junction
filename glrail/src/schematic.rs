@@ -35,7 +35,7 @@ impl Schematic {
         let x = self.find_pos(pos)?;
         let line = self.lines.get(track)?;
         for ((x0,y0),(x1,y1)) in line.iter().zip(line.iter().skip(1)) {
-            if *x0 <= x && x <= *x1 {
+            if *x0 <= x+0.0005 && x-0.0005 <= *x1 {
                 let y = lerp(*y0,*y1, (x-*x0)/(*x1-*x0));
                 let pt = (x,y);
                 let tangent = (*x1-*x0,*y1-*y0);
@@ -49,7 +49,7 @@ impl Schematic {
     pub fn x_to_pos(&self, x: f32) -> Option<f32> {
         match self.pos_map.binary_search_by_key(&OrderedFloat(x), |&(x,_,p)| OrderedFloat(x)) {
             Ok(i) => {
-                Some(self.pos_map[i].0)
+                Some(self.pos_map[i].2)
             },
             Err(i) => {
                 if i <= 0 || i >= self.pos_map.len() {
@@ -66,7 +66,7 @@ impl Schematic {
 
     pub fn find_pos(&self, pos :f32) -> Option<f32> {
         match self.pos_map.binary_search_by_key(&OrderedFloat(pos), |&(x,_,p)| OrderedFloat(p)) {
-            Ok(i) => Some(self.pos_map[i].2),
+            Ok(i) => Some(self.pos_map[i].0),
             Err(i) => {
                 if i <= 0 || i >= self.pos_map.len() {
                     if i == 0 && (self.pos_map[0].2 - pos).abs() < 1e-6 {

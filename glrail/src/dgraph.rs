@@ -154,8 +154,16 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
     }
 
 
+    let anonymous_detector = ObjectType::Detector;
     for (track_id, mut t) in tracks {
         let (na, nb) = new_pair(&mut model.nodes);
+
+        if let NodeType::Macro(_) = t.start.0 {
+            t.objs.push((t.pos_start, None, &anonymous_detector)); // Detector at all boundaries
+        }
+        if let NodeType::Macro(_) = t.end.0 {
+            t.objs.push((t.pos_end, None, &anonymous_detector)); // Detector at all boundaries
+        }
 
         //
         // BEGIN NODE
@@ -209,7 +217,9 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
                 }
                 ObjectType::Detector => {
                     detector_nodes.insert((na,nb));
-                    node_ids.insert(EntityId::Object(object_id.unwrap()), na);
+                    if let Some(object_id) = object_id {
+                        node_ids.insert(EntityId::Object(object_id), na);
+                    }
                 },
                 ObjectType::Signal(dir) => {
                     let node_idx = match dir {

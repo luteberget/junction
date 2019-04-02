@@ -9,7 +9,7 @@ env_logger::from_env(env_logger::Env::default().default_filter_or("trace")).init
    use std::fs::File;
    use std::path::Path;
 
-   let json_path = Path::new(&"twotrack.ron");
+   let json_path = Path::new(&"overtake_noinf.ron");
    let json_file = File::open(json_path).unwrap();
    let model : Model = ron::de::from_reader(json_file).unwrap();
 
