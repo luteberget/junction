@@ -6,6 +6,7 @@ use crate::vehicle::*;
 use crate::scenario::*;
 use crate::analysis;
 use crate::dgraph;
+use crate::dgraph::DGraph;
 use route_finder;
 use std::collections::{HashMap,HashSet,BTreeSet};
 use ordered_float::OrderedFloat;
@@ -108,7 +109,7 @@ fn get_sw_node(object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
 fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
                         node_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
                         object_ids :&BiMap<EntityId, rolling_inf::ObjectId>,
-                        variable_objs :&BiMap<VarObjId, EntityId>,
+                        variable_objs :&BiMap<VarObjId, ObjectId>,
                         usage :&Usage,
                         routeplan :&planner::input::RoutePlan) -> Vec<AbstractDispatch> {
     let mut output = Vec::new();
@@ -149,15 +150,26 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
             let start = get_entryexit(node_ids, object_ids, start.iter().nth(0).unwrap());
             let end = get_entryexit(node_ids, object_ids, end.iter().nth(0).unwrap());
 
-            let start = match variable_objs.get_by_right(&start) {
-                Some(var) => AbstractEntryExit::Variable(var),
-                None => AbstractEntryExit::Const(*start),
+            let start = if let EntityId::Object(o) = start {
+                if let Some(var) = variable_objs.get_by_right(&o) {
+                    AbstractEntryExit::Variable(*var)
+                } else {
+                    AbstractEntryExit::Const(start)
+                }
+            } else {
+                AbstractEntryExit::Const(start)
             };
 
-            let end = match variable_objs.get_by_right(&end) {
-                Some(var) => AbstractEntryExit::Variable(var),
-                None => AbstractEntryExit::Const(*end),
+            let end = if let EntityId::Object(o) = end {
+                if let Some(var) = variable_objs.get_by_right(&o) {
+                    AbstractEntryExit::Variable(*var)
+                } else {
+                    AbstractEntryExit::Const(end)
+                }
+            } else {
+                AbstractEntryExit::Const(end)
             };
+
 
             output.push(AbstractDispatch {
                 from: start,
@@ -182,7 +194,7 @@ fn ignore_trigger(r :rolling_inf::RouteEntryExit) -> rolling_inf::RouteEntryExit
 }
 
 fn convert_signals(maximal_inf :&Infrastructure,
-                   maximal_object_names :&BiMap<VarObjId,EntityId>, 
+                   maximal_object_names :&BiMap<VarObjId,ObjectId>, 
                    node_ids :&BiMap<EntityId, rolling_inf::NodeId>, 
                    object_ids :&BiMap<EntityId, rolling_inf::ObjectId>, 
                    signals :&HashMap<planner::input::SignalId, bool>) 
@@ -193,13 +205,13 @@ fn convert_signals(maximal_inf :&Infrastructure,
 
     for (object_id, o) in maximal_inf.iter_objects() {
         if let ObjectType::Signal(_) = o.2 {
-            if let Some(dgobj) = object_ids.get_by_left(&EntityId::Object(*object_id)) {
-                let activated = signals.get(&planner::input::SignalId::ExternalId(*dgobj))
-                    .unwrap_or(false);
+            if let Some(dgobj) = object_ids.get_by_left(&EntityId::Object(object_id)) {
+                let activated = *signals.get(&planner::input::SignalId::ExternalId(*dgobj))
+                    .unwrap_or(&false);
                 if activated {
                     // TODO what about fixed signals?
                     let name = *maximal_object_names
-                        .get_by_left(&EntityId::Object(*object_id)).unwrap());
+                        .get_by_right(&object_id).unwrap();
                     names.insert(name, objs.len());
                     objs.push(o.clone());
                 }
@@ -225,7 +237,7 @@ pub fn synthesis(
     let maximal_objects = maximal_design(base_inf);
     let mut maximal_inf = base_inf.clone();
     let mut maximal_object_names : BiMap<VarObjId, ObjectId> = BiMap::new();
-    for (o_idx,o) in maximal_signals.iter().enumerate() { 
+    for (o_idx,o) in maximal_objects.iter().enumerate() { 
         let object_id = maximal_inf.new_object(o.clone());
         maximal_object_names.insert(o_idx, object_id);
     }
@@ -246,7 +258,7 @@ pub fn synthesis(
 
     let mut opt = planner::optimize::SignalOptimizer::new(&plan_inf_maximal, &plan_usages);
     let mut min_n_signals = None;
-    let mut current_best_signals = maximal_signals;
+    let mut current_best_signals = maximal_objects;
     'outer: while let Some(mut signal_set) = opt.next_signal_set() {
         // have now decided on a set of signals 
         let count = |s :&HashMap<planner::input::SignalId,bool>| { s.iter().filter(|(s,active)| **active).count() };
@@ -288,7 +300,9 @@ pub fn synthesis(
         debug!("Added objects {:?}", objects);
 
         let score = optimize_locations(&base_inf, &mut objects, 
-                                       &object_ad_names, &abstract_dispatches);
+                                       &object_ad_names, 
+                                       vehicles,
+                                       &abstract_dispatches);
         if test(score, &objects) { break 'outer; }
 
         // try to add signals at any track/dir
@@ -301,7 +315,10 @@ pub fn synthesis(
                     // TODO check that any train actually goes here
                     let mut new_signal_entities = current_best_signals.clone();
                     add_track_signal(&base_inf, track_id,*dir,&mut new_signal_entities);
-                    let score = optimize_locations(&base_inf, &mut new_signal_entities, &abstract_dispatches);
+                    let score = optimize_locations(&base_inf, &mut new_signal_entities, 
+                                                   &object_ad_names, 
+                                                   vehicles,
+                                                   &abstract_dispatches);
                     if best_score.is_none() || (best_score.is_some() && best_score.unwrap() > score) {
                         best_score = Some(score);
                         best_inf = Some(new_signal_entities);
@@ -379,7 +396,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     
     //unimplemented!()
 
-    baseline_value;
+    baseline_value
 }
 
 // TODO move this to infrastructure model
@@ -618,69 +635,72 @@ fn maximal_design(base_inf :&Infrastructure) -> Vec<Object> {
 
 fn concretize_dispatch(ad :&AbstractDispatch, 
                        signal_varids :&HashMap<VarObjId, usize>,
-                       var_map :&Vec<EntityId>,
-                       routes :&Vec<Route>,
-                       route_entry :&HashMap<RouteEntryExit, Vec<usize>>,
+                       var_map :&Vec<ObjectId>,
+                       routes :&HashMap<usize, rolling_inf::Route>,
+                       route_entry :&HashMap<rolling_inf::RouteEntryExit, Vec<usize>>,
                        dg :&DGraph,
-                       ) -> Vec<Command> {
+                       ) -> Vec<usize> {
+    use self::rolling_inf::RouteEntryExit;
     let start_id = match ad.from {
         AbstractEntryExit::Variable(var) => {
-            let var_no = signal_varids[var];
+            let var_no = signal_varids[&var];
             let eid = var_map[var_no];
-            eid
+            EntityId::Object(eid)
         },
         AbstractEntryExit::Const(id) => id,
     };
     let end_id = match ad.to {
         AbstractEntryExit::Variable(var) => {
-            let var_no = signal_varids[var];
+            let var_no = signal_varids[&var];
             let eid = var_map[var_no];
-            eid
+            EntityId::Object(eid)
         },
         AbstractEntryExit::Const(id) => id,
     };
 
     let mut curr_start = match start_id {
         EntityId::Object(sig) => {
-            let rsig = dg.object_ids.get_by_left(&start_id);
-            RouteEntryExit::Signal(rsig); // rolling_inf::ObjectId
+            let rsig = dg.object_ids.get_by_left(&start_id).unwrap();
+            RouteEntryExit::Signal(*rsig) // rolling_inf::ObjectId
         },
         EntityId::Node(nd) => {
-            let rnode = dg.node_ids.get_by_left(&start_id);
-            RouteEntryExit::Boundary(Some(rnode))
+            let rnode = dg.node_ids.get_by_left(&start_id).unwrap();
+            RouteEntryExit::Boundary(Some(*rnode))
         },
+        _ => panic!(),
     };
 
     let mut end = match end_id {
         EntityId::Object(sig) => {
-            let rsig = get(sig);
-            RouteEntryExit::Signal(rsig);
+            let rsig = dg.object_ids.get_by_left(&end_id).unwrap();
+            RouteEntryExit::Signal(*rsig)
         },
         EntityId::Node(nd) => {
-            let rnode = get(nd);
-            RouteEntryExit::Boundary(Some(rnode))
+            let rnode = dg.node_ids.get_by_left(&end_id).unwrap();
+            RouteEntryExit::Boundary(Some(*rnode))
         },
+        _ => panic!(),
     };
 
     let mut curr_sw_idx = 0;
     // Choose any route that matches with switch positions.
-    let mut commands = Vec::new();
+    let mut output = Vec::new();
 
-    while start != end {
-        'rs: for route_idx in route_entry[curr_start].iter() {
-            let route = &routes[*route_idx];
+    while curr_start != end {
+        'rs: for route_idx in route_entry[&curr_start].iter() {
+            let route = &routes[route_idx];
             // check if switch matches
 
             let mut switches = BTreeSet::new();
             for x in route.resources.switch_positions.iter()
-                .map(|(sw,side)| (get_sw_node(object_ids, *sw), *side)) {
+                .map(|(sw,side)| (get_sw_node(&dg.object_ids, *sw), *side)) {
                                switches.insert(x);
                            }
 
-            let sw_ok = switches.difference(ad.switch_positions).nth(0).is_none();
+            let sw_ok = switches.difference(&ad.switch_positions).nth(0).is_none();
             if sw_ok {
-                commands.push(Command::Route(*route_idx));
-                start = route.exit;
+                output.push(*route_idx);
+                curr_start = route.exit;
                 break 'rs;
             } else {
                 continue 'rs;
@@ -689,10 +709,11 @@ fn concretize_dispatch(ad :&AbstractDispatch,
         panic!();
     }
 
-    commands
+    output 
 }
 
-fn routes_by_entry(routes :&Vec<Route>) -> HashMap<RouteEntryExit, Vec<usize>> {
+fn routes_by_entry(routes :&Vec<rolling_inf::Route>) 
+    -> HashMap<rolling_inf::RouteEntryExit, Vec<usize>> {
     let mut map = HashMap::new();
     for (i,r) in routes.iter().enumerate() {
         map.entry(r.entry).or_insert(Vec::new()).push(i);
@@ -710,22 +731,24 @@ fn measure_cost(base_inf :&Infrastructure,
     println!("Measuring cost {:?}", objs);
     let mut infrastructure = base_inf.clone();
     let mut map = Vec::new();
-    for o in objs { map.push(infrastructure.new_object(o)); }
+    for o in objs { map.push(infrastructure.new_object(o.clone())); }
 
     let (dg, _) = dgraph::convert_entities(&infrastructure).unwrap();
     let (dg_routes, _) = route_finder::find_routes(Default::default(), &dg.rolling_inf).unwrap();
     let (routes,_) = dgraph::convert_route_map(&dg, dg_routes);
-    let routes :Vec<_> = routes.into_iter().enumerate().collect();
+    //let routes :Vec<_> = routes.into_iter().enumerate().collect();
     let routes_entry = routes_by_entry(&routes);
+    let routes :HashMap<usize,rolling_inf::Route> = routes.into_iter().enumerate().collect();
 
     let mut total_cost = 0.0;
-    for (usage, dispatches) in dispatches {
+    // Each usage has a set of plans (dispatches: Vec<Vec<AbstractDispatch>)
+    for (usage, plans) in dispatches {
         assert!(dispatches.len() > 0);
 
         // measure abstract dispatch
         let mut usage_costs = 0.0;
-        for d in dispatches.iter() {
-            println!("  cost on dispatch {:?}", d);
+
+        for dispatches in plans.iter() {
 
 // fn concretize_dispatch(ad :&AbstractDispatch, 
 //                        signal_varids :&HashMap<VarObjId, usize>,
@@ -737,14 +760,19 @@ fn measure_cost(base_inf :&Infrastructure,
 
             //let concrete = concretize_dispatch(&infrastructure, &map, &routes, &routes_entry, d);
 
-            let concrete = concretize_dispatch(d,
-                                               signal_varids,
-                                               &map,
-                                               &routes, &route_entry,
-                                               &dg);
+            let mut commands = Vec::new();
+            for dispatch in dispatches.iter() {
+                println!("  cost on dispatch {:?}", dispatch);
+                let concrete = concretize_dispatch(dispatch, 
+                           signal_varids, &map, &routes, &routes_entry, &dg);
+                let vehicle = usage.movements[dispatch.train].vehicle_ref;
+                commands.extend(convert_commands(vehicle, &routes, concrete));
+            }
 
-            let history = sim::get_history(vehicles, &dg.rolling_inf, &routes, &concrete);
-            usage_costs += history.max_time(); // TODO use timing constraints instead 
+            let commands = commands.into_iter().map(|c| (0.0, c)).collect::<Vec<(f32,_)>>();
+            let history = analysis::sim::get_history(vehicles, &dg.rolling_inf, &routes, &commands).unwrap();
+            usage_costs += dispatch_time(&history); 
+            // TODO use timing constraints instead as cost measure
         }
         usage_costs /= dispatches.len() as f64;
         total_cost += usage_costs;
@@ -755,8 +783,23 @@ fn measure_cost(base_inf :&Infrastructure,
     return total_cost;
 }
 
+fn convert_commands(v :usize, routes :&HashMap<usize, rolling_inf::Route>, concrete :Vec<usize>) -> Vec<Command> {
+    let mut cmds = Vec::new();
+    for c in concrete {
+        let route = &routes[&c];
+        if let rolling_inf::RouteEntryExit::Boundary(_) = route.entry {
+            // Train
+            cmds.push(Command::Train(v,c));
+        } else {
+            cmds.push(Command::Route(c));
+        }
+    }
+    cmds
+}
+
 fn dispatch_time(h :&History) -> f64 {
-    pub fn train_time(log :impl IntoIterator<Item = &TrainLogEvent>) -> f64 {
+    use rolling::output::history::*;
+    pub fn train_time<'a>(log :impl IntoIterator<Item = &'a TrainLogEvent>) -> f64 {
         let mut t = 0.0;
         for e in log {
             match e {
@@ -769,7 +812,7 @@ fn dispatch_time(h :&History) -> f64 {
     }
 
 
-    pub fn inf_time(log :impl IntoIterator<Item = &InfrastructureLogEvent>) -> f64 {
+    pub fn inf_time<'a>(log :impl IntoIterator<Item = &'a InfrastructureLogEvent>) -> f64 {
         let mut t = 0.0;
         for e in log {
             match e {
@@ -781,6 +824,14 @@ fn dispatch_time(h :&History) -> f64 {
     }
 
     let mut max_t = inf_time(&h.inf);
-    for (_,_,t) in &history_trains { max_t = max_t.max(train_time(t)); }
+    for (_,_,t) in &h.trains { max_t = max_t.max(train_time(t)); }
     max_t
+}
+
+
+pub fn add_maximal(base_inf :&mut Infrastructure) {
+    let maximal_signals = maximal_design(base_inf);
+    for o in &maximal_signals { 
+        base_inf.new_object(o.clone()); 
+    }
 }
