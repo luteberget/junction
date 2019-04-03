@@ -78,7 +78,7 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
 
     let mut sec_edges = HashMap::new();
 
-    println!("sec num map {:?}",sec_num_map);
+    //println!("sec num map {:?}",sec_num_map);
     for (i,n) in m.nodes.iter().enumerate() {
         let section = sets.find(i +1);
         match n.edges {

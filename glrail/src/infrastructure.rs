@@ -50,6 +50,12 @@ impl Infrastructure {
     pub fn new_object(&mut self, t :Object) -> ObjectId {
         ObjectId(self.objects.insert(t))
     }
+    pub fn track_pos_interval(&self, t :TrackId) -> Option<(f32,f32)> {
+        let Track { start_node, end_node, .. } = self.get_track(&t)?;
+        let Node(p1,_) = self.get_node(&start_node.0)?;
+        let Node(p2,_) = self.get_node(&end_node.0)?;
+        Some((*p1,*p2))
+    }
 
     pub fn delete(&mut self, e :EntityId) {
         match e {

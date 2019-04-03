@@ -23,9 +23,9 @@ use log::*;
 //   X d. convert signals from id to glrail objects
 //   x e. convert to abstract_dispathces
 // 2. optimize_locations
-//   a. powell
-//   b. brent
-//   c. x convert from abstract dispatches
+//   a. X powell
+//   b. X brent
+//   c. X convert from abstract dispatches
 //   d. ? hash consing? or persistent data structures?
 // 3. X    add track signal
 // 4. X    maximal design
@@ -260,13 +260,20 @@ pub fn synthesis(
     let mut min_n_signals = None;
     let mut current_best_signals = maximal_objects;
     'outer: while let Some(mut signal_set) = opt.next_signal_set() {
+
         // have now decided on a set of signals 
-        let count = |s :&HashMap<planner::input::SignalId,bool>| { s.iter().filter(|(s,active)| **active).count() };
-        min_n_signals = Some(min_n_signals.unwrap_or_else(|| count(signal_set.get_signals())));
+        let count = |s :&HashMap<planner::input::SignalId,bool>| { 
+            s.iter().filter(|(s,active)| **active).count() 
+        };
+
+        min_n_signals = Some(min_n_signals.unwrap_or_else(
+                || count(signal_set.get_signals())));
+
         if count(signal_set.get_signals()) > min_n_signals.unwrap() {
             println!("No more solutions with the lowest number of signals. Stopping now.");
             break; 
         }
+
 
         debug!("Got a signal set with {:?} signals {:?}", min_n_signals, signal_set.get_signals());
 
@@ -291,11 +298,6 @@ pub fn synthesis(
                                           &maximal_dg.object_ids, 
                                           signal_set.get_signals());
 
-//fn convert_signals(maximal_inf :&Infrastructure,
-//                   maximal_object_names :&BiMap<VarObjId,EntityId>, 
-//                   node_ids :&BiMap<EntityId, rolling_inf::NodeId>, 
-//                   object_ids :&BiMap<EntityId, rolling_inf::ObjectId>, 
-//                   signals :&HashMap<planner::input::SignalId, bool>) 
 
         debug!("Added objects {:?}", objects);
 
@@ -336,65 +338,134 @@ pub fn synthesis(
     Ok(current_best_signals)
 }
 
+//     // do a timing test
+//     use timeit::*;
+//     timeit!({measure_cost(base_inf, signals, signal_varids, vehicles, dispatches);});
 
 fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>, 
                       signal_varids :&HashMap<VarObjId, usize>,
                       vehicles :&[Vehicle],
                       dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) -> f64 {
     debug!("Starting optimize_locations");
-    // TODO how can we recognize/identify the signals from the original maximal infrastructure 
-
+    use nalgebra::DVector;
     let dimensions = signals.len();
     let mut search_vectors = (0..dimensions).map(|i| {
-        let mut v :nalgebra::DVector<f64> = nalgebra::DVector::from_element(dimensions, 0.0);
+        let mut v :DVector<f64> = DVector::from_element(dimensions, 0.0);
         v[i] = 1.0;
         v
     }).collect::<Vec<_>>();
-
     use rand::{thread_rng, Rng};
     thread_rng().shuffle(&mut search_vectors);
 
-    println!("Search vectors:");
-    for v in &search_vectors {
-        println!("{:?}", v);
+    let tolerance = 0.1; // 0.1 seconds tolerance?
+    let baseline_value = measure_cost(base_inf, signals, signal_varids, 
+                                      vehicles, dispatches);
+
+    // permutation of signals ordered by (track,pos) 
+    let mut pos_order :Vec<(_,usize)> = signals.iter_mut().enumerate()
+        .map(|(i,o)| ((o.0,OrderedFloat(o.1)),i)).collect();
+    pos_order.sort_by_key(|(k,_)| *k);
+    let pos_order :Vec<usize> 
+        = pos_order.into_iter().map(|(_,i)| i).collect();
+
+    pub fn pos2intrinsic(base_inf: &Infrastructure, order :&[usize], objs :&[Object]) -> DVector<f64> {
+        let mut last_loc = None;
+        let mut output = DVector::from_element(order.len(), 0.0);
+        for (i,obj_i) in order.iter().enumerate() {
+            let Object(t,p,_) = &objs[*obj_i];
+            let (t_low,t_high) = base_inf.track_pos_interval(*t).unwrap();
+            let low_pos = last_loc.iter().filter_map(|(lt,lp)| 
+                                              if *lt == t { Some(*lp) } else { None })
+                .nth(0).unwrap_or(t_low);
+            // TODO avoid approaching 1.0 intrinsic coordinate, because
+            // it will make any object after it have (t_high-low_pos) ~= 0.0,
+            // which will cause problems.
+            output[i] = (*p as f64 - low_pos as f64)/(t_high as f64 - low_pos as f64);
+            last_loc = Some((t,*p));
+        }
+        output
     }
 
+    pub fn intrinsic2pos(base_inf: &Infrastructure, order :&[usize], objs :&[Object],
+                         x :&DVector<f64>) -> Vec<Pos> {
+        let mut last_loc = None;
+        let mut output = Vec::new();
+        for (dx, obj_i) in x.iter().zip(order.iter()) {
+            let Object(t,_,_) = &objs[*obj_i];
+            let (t_low,t_high) = base_inf.track_pos_interval(*t).unwrap();
+            let low_pos = last_loc.iter().filter_map(|(lt,lp)| 
+                                              if *lt == t { Some(*lp) } else { None })
+                .nth(0).unwrap_or(t_low);
+            // Output is track pos in (low_pos, t_high)
+            // remapped to (t_low, t_high)
+            //  pos = lerp(low_pos, t_high, dx);
+            let pos = low_pos + *dx as f32 * (t_high - low_pos);
+            output.push(pos);
+            last_loc = Some((t, pos));
+        }
+        output
+    }
 
-// fn measure_cost(base_inf :&Infrastructure, 
-//                 objs :&Vec<Object>,
-//                 signal_varids :&HashMap<VarObjId, usize>,
-//                 vehicles :&[Vehicle], 
-//                 dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) 
+    let mut current_pt :DVector<f64> = pos2intrinsic(base_inf, &pos_order, &signals);
 
-    let tolerance = 0.1; // 0.1 seconds tolerance?
-    let baseline_value = measure_cost(base_inf, signals, signal_varids, vehicles, dispatches);
+    'powell: loop {
+        let iter_start = current_pt.clone();
+        let (mut best_vector_i,mut best_vector_len) = (None,None);
+        for (v_i,v) in search_vectors.iter().enumerate() {
 
-    // TODO optimize
+            // current_pt + alpha * v
+            // we want to stay in the unit cube, so calculate bounds
+            let min_alpha :f64 = v.iter().zip(current_pt.iter()).map(|(l,x0)| {
+                // we are at x0, l is in (0,1) because v is a unit vector.
+                // looking for the lowest value of alpha which is above 0 (inside unit cube)
+                // x0 + alpha*l > 0
+                // alpha > -x0/l
+                OrderedFloat(-*x0 as f64/(*l))
+            }).max().unwrap().into_inner();
+            let max_alpha :f64 = v.iter().zip(current_pt.iter()).map(|(l,x0)| {
+                // we are at x0, l is in (0,1) because v is a unit vector.
+                // looking for the highest value of alpha which is below 1 (inside unit cube)
+                // x0 + alpha*l < 1
+                // alpha < (1-x0)/l
+                OrderedFloat((1.0-*x0 as f64)/(*l))
+            }).min().unwrap().into_inner();
 
-    //     let (mut pt,mut value) = (current_vector, baseline_value);
-    //     'powell: loop {
-    //         let mut next_vector = Vec::new();
-    //         let mut max_contribution_idx = None;;
-    //         for (v_i,v) in search_vectors.iter().enumerate() {
-    //             // if Brent line search along this vector gives an improvement, 
-    //             // add the vec
-    //             let contribution = unimplemented!();
-    //             if max_contribution_idx.is_none() || max_contribution_idx.unwrap() < contribution {
-    //                 max_contribution_idx = Some(v_i);
-    //             }
-    //         }
+            let (best_alpha,best_time) = numerical_optimization::brent_minimum(|alpha| { 
+                let pt = current_pt.clone() + alpha*v;
+                let new_pos = intrinsic2pos(base_inf, &pos_order, &signals, &pt);
+                for (obj_i,p) in pos_order.iter_mut()
+                    .zip(new_pos.iter()) {
+                        let Object(_,pos,_) = &mut signals[*obj_i];
+                        *pos = *p as f32;
+                }
 
-    //         search_vectors.remove(max_contribution_idx);
-    //         search_vectors.push(x1 - x0); // displacement to new optimum is a new search vector,
-    //         // replacing the one which made the maximum contribution to this step's improvement.
+                let cost = measure_cost(base_inf, signals,
+                                        signal_varids, vehicles,
+                                        dispatches);
+                assert!(cost <= baseline_value);
+                cost
+            }, min_alpha, 0.0, max_alpha, 32, None);
 
-    //         if improvement < tolerance {
-    //             break 'powell;
-    //         }
-    //     }
+            if best_vector_len.is_none() || best_vector_len.unwrap() < best_alpha.abs() {
+                best_vector_i = Some(v_i);
+                best_vector_len = Some(best_alpha.abs());
+            }
 
-    
-    //unimplemented!()
+            current_pt += best_alpha*v;
+        }
+        
+        let iter_offset = current_pt.clone() - iter_start;
+        search_vectors.remove(best_vector_i.unwrap());
+        search_vectors.push(iter_offset.normalize());
+
+
+        // termination condition
+        if iter_offset.norm() < tolerance {
+            break;
+        }
+    }
+
+    // TODO update input signals positions from current_pt
 
     baseline_value
 }
@@ -686,9 +757,9 @@ fn concretize_dispatch(ad :&AbstractDispatch,
     // Choose any route that matches with switch positions.
     let mut output = Vec::new();
 
-    println!("ROUTES {:#?}", route_entry);
+    //println!("ROUTES {:#?}", route_entry);
     'ds: while curr_start != end {
-        println!("Finding route from {:?}", curr_start);
+        //println!("Finding route from {:?}", curr_start);
         'rs: for route_idx in route_entry[&curr_start].iter() {
             let route = &routes[route_idx];
             // check if switch matches
@@ -729,8 +800,7 @@ fn measure_cost(base_inf :&Infrastructure,
                 vehicles :&[Vehicle], 
                 dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) 
     -> f64 {
-
-    println!("Measuring cost {:?}", objs);
+    //println!("Measuring cost {:?}", objs);
     let mut infrastructure = base_inf.clone();
     let mut map = Vec::new();
     for o in objs { map.push(infrastructure.new_object(o.clone())); }
@@ -751,20 +821,9 @@ fn measure_cost(base_inf :&Infrastructure,
         let mut usage_costs = 0.0;
 
         for dispatches in plans.iter() {
-
-// fn concretize_dispatch(ad :&AbstractDispatch, 
-//                        signal_varids :&HashMap<VarObjId, usize>,
-//                        var_map :&Vec<EntityId>,
-//                        routes :&Vec<Route>,
-//                        route_entry :&HashMap<RouteEntryExit, Vec<usize>>,
-//                        dg :&DGraph,
-//                        ) -> Vec<Command> {
-
-            //let concrete = concretize_dispatch(&infrastructure, &map, &routes, &routes_entry, d);
-
             let mut commands = Vec::new();
             for dispatch in dispatches.iter() {
-                println!("  cost on dispatch {:?}", dispatch);
+                //println!("  cost on dispatch {:?}", dispatch);
                 let concrete = concretize_dispatch(dispatch, 
                            signal_varids, &map, &routes, &routes_entry, &dg);
                 let vehicle = usage.movements[dispatch.train].vehicle_ref;
@@ -778,10 +837,9 @@ fn measure_cost(base_inf :&Infrastructure,
         }
         usage_costs /= dispatches.len() as f64;
         total_cost += usage_costs;
-        println!("  sum {:?}", usage_costs);
+        //println!("  sum {:?}", usage_costs);
     }
-
-    println!(" SUM {:?}", total_cost);
+    //println!(" SUM {:?}", total_cost);
     return total_cost;
 }
 

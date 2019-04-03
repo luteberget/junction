@@ -64,7 +64,7 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
 
     let mut entry_visited = HashSet::new();
     for boundary_idx in boundary_nodes {
-        println!("Boundary start {:?}", boundary_idx);
+        //println!("Boundary start {:?}", boundary_idx);
 
         let mut entry_stack = Vec::new();
         entry_stack.push(RouteEntry {
@@ -258,8 +258,8 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
 
     let sum_releases_length = releases.iter().map(|r| r.length).sum::<f64>();
     if releases.len() > 0 && sum_releases_length != state.length {
-        println!("Release length and route length differ by {} {} {:?} {:?}", 
-                 state.length, sum_releases_length, entry, exit);
+        //println!("Release length and route length differ by {} {} {:?} {:?}", 
+        //         state.length, sum_releases_length, entry, exit);
         releases.last_mut().unwrap().length += state.length - sum_releases_length;
     } 
 

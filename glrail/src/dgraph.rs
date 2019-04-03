@@ -284,7 +284,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
     //
 
     for (node_id,s) in dswitches {
-        println!("SWITCH {:?}", s);
+        //println!("SWITCH {:?}", s);
         let trunk = s.trunk.ok_or(format!("Inconsistent switch data."))?;
         let left = s.left.ok_or(format!("Inconsistent switch data."))?;
         let right = s.right.ok_or(format!("Inconsistent switch data."))?;
@@ -318,7 +318,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
     // Call tvd section finder
 
-    println!("Edge intervals {:?}", edge_intervals);
+    //println!("Edge intervals {:?}", edge_intervals);
     let dgraph = DGraph {
         rolling_inf: Arc::new(model),
         tvd_sections: tvd_sections,
@@ -334,12 +334,12 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 pub fn convert_route_map(dg :&DGraph,
                          dgroutes :Vec<(Route, Vec<(rolling_inf::NodeId,rolling_inf::NodeId)>)>) 
     -> (Vec<Route>, HashMap<EntityId, Vec<usize>>) {
-        println!("convert_route_map node_ids: {:?}", &dg.node_ids);
+        //println!("convert_route_map node_ids: {:?}", &dg.node_ids);
 
     let mut route_vec = Vec::new();
     let mut route_entity_map = HashMap::new();
     for (ri,(r,l)) in dgroutes.into_iter().enumerate() {
-        println!("CONVERT_ROUTE_MAP for route {:?}: {:?}", r, l);
+        //println!("CONVERT_ROUTE_MAP for route {:?}: {:?}", r, l);
         route_vec.push(r);
         for (n1,n2) in l {
             use std::iter;
@@ -354,7 +354,7 @@ pub fn convert_route_map(dg :&DGraph,
             }
         }
     }
-    println!("calculated route map {:?}", route_entity_map);
+    //println!("calculated route map {:?}", route_entity_map);
 
     (route_vec, route_entity_map)
 }

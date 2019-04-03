@@ -28,3 +28,5 @@ generational-arena = { version = "0.2", features = ["serde"] }
 bimap = "*"
 ron = "*"
 rand = "*"
+timeit ="*"
+numerical_optimization = { path = "../lib/numerical_optimization" }

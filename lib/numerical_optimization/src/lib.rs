@@ -50,20 +50,19 @@ fn brent_step(state :&BrentState, rel_move :f64, rel_move2 :f64) -> (f64,f64) {
 }
 
 
-pub fn brent_minimum(f :impl Fn(f64) -> f64, min :f64, max :f64, bits :usize, max_iter :Option<usize>) -> (f64,f64) {
+pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f64, bits :usize, max_iter :Option<usize>) -> (f64,f64) {
     println!("Brent minimum {} {} {} {:?}", min, max, bits, max_iter);
     // ported from boost 1.63 boost/math/tools/minima.hpp
     let tolerance = (1.0 - bits as f64).exp2(); // 2^-(1-bits)
-
     
     let mut state = {
-        let fmax = f(max);
+        let fstart = f(start);
         BrentState {
             min: min,
             max: max,
-            best: (max, fmax),
-            second_best: (max, fmax),
-            prev_loc: (max, fmax),
+            best: (start, fstart),
+            second_best: (start, fstart),
+            prev_loc: (start, fstart),
             delta: 0.0,
             prev_delta: 0.0,
         }
@@ -78,7 +77,7 @@ pub fn brent_minimum(f :impl Fn(f64) -> f64, min :f64, max :f64, bits :usize, ma
         // check if we are done
         let rel_move  = tolerance*( 0.25 + state.best.0.abs() );
         let rel_move2 = 2.0 * rel_move;
-        println!("Checking terrmination {} <= {}", (state.best.0 - mid).abs(), (rel_move2 - 0.5*(state.max - state.min)));
+        println!("Checking termination {} <= {}", (state.best.0 - mid).abs(), (rel_move2 - 0.5*(state.max - state.min)));
         if (state.best.0 - mid).abs() <= (rel_move2 - 0.5*(state.max - state.min)) {
             break;
         }
@@ -152,7 +151,7 @@ mod tests {
 
         use crate::*;
         let f  = |x| (x + 3.0)*(x - 1.0)*(x - 1.0); // (x+3)(x-1)^2
-        let r = brent_minimum(f, 0.0, 4.0 / 3.0, 50, None);
+        let r = brent_minimum(f, 0.0, 0.5, 4.0 / 3.0, 50, None);
         println!("Minimum of (x+3)(x-1)^2 in interval (-4, 4/3) = {:?}", r);
 
     }
