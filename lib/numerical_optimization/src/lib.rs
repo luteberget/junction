@@ -36,7 +36,7 @@ fn brent_step(state :&BrentState, rel_move :f64, rel_move2 :f64) -> (f64,f64) {
                     rel_move.abs()
                 };
             }
-            println!("Parabolic");
+            //println!("Parabolic");
             return (new_delta, state.delta);
         }
     }
@@ -45,13 +45,13 @@ fn brent_step(state :&BrentState, rel_move :f64, rel_move2 :f64) -> (f64,f64) {
 
     let golden = 0.3819660; 
     let new_prev_delta = if state.best.0 >= mid { state.min - state.best.0 } else { state.max - state.best.0 };
-    println!("Golden section");
+    //println!("Golden section");
     (golden*new_prev_delta, new_prev_delta)
 }
 
 
 pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f64, bits :usize, max_iter :Option<usize>) -> (f64,f64) {
-    println!("Brent minimum {} {} {} {:?}", min, max, bits, max_iter);
+    //println!("Brent minimum {} {} {} {:?}", min, max, bits, max_iter);
     // ported from boost 1.63 boost/math/tools/minima.hpp
     let tolerance = (1.0 - bits as f64).exp2(); // 2^-(1-bits)
     
@@ -71,13 +71,13 @@ pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f
     let mut iters = max_iter.unwrap_or(1_000_000_000);
 
     loop {
-        println!("Iteration {:?}", state);
+        //println!("Iteration {:?}", state);
         let mid = 0.5*(state.min + state.max); // midpoint of current interval
 
         // check if we are done
         let rel_move  = tolerance*( 0.25 + state.best.0.abs() );
         let rel_move2 = 2.0 * rel_move;
-        println!("Checking termination {} <= {}", (state.best.0 - mid).abs(), (rel_move2 - 0.5*(state.max - state.min)));
+        //println!("Checking termination {} <= {}", (state.best.0 - mid).abs(), (rel_move2 - 0.5*(state.max - state.min)));
         if (state.best.0 - mid).abs() <= (rel_move2 - 0.5*(state.max - state.min)) {
             break;
         }

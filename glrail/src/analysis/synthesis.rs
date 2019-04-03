@@ -94,7 +94,7 @@ fn get_entryexit(node_ids :&BiMap<EntityId,rolling_inf::NodeId>,
                 *e
             } else { panic!() }
         },
-        _ => unimplemented!()
+        _ => panic!()
     }
 }
 
@@ -357,7 +357,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     use rand::{thread_rng, Rng};
     thread_rng().shuffle(&mut search_vectors);
 
-    let tolerance = 0.1; // 0.1 seconds tolerance?
+    let tolerance = 0.001; // 1.0 seconds tolerance?
     let baseline_value = measure_cost(base_inf, signals, signal_varids, 
                                       vehicles, dispatches);
 
@@ -407,44 +407,67 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     }
 
     let mut current_pt :DVector<f64> = pos2intrinsic(base_inf, &pos_order, &signals);
+    let mut current_cost = std::panic::catch_unwind(|| {
+             measure_cost(base_inf, signals,
+                            signal_varids, vehicles,
+                            dispatches)
+    }).unwrap_or(std::f64::INFINITY);
 
     'powell: loop {
+        let mut new_cost = None;
         let iter_start = current_pt.clone();
         let (mut best_vector_i,mut best_vector_len) = (None,None);
         for (v_i,v) in search_vectors.iter().enumerate() {
 
-            // current_pt + alpha * v
-            // we want to stay in the unit cube, so calculate bounds
-            let min_alpha :f64 = v.iter().zip(current_pt.iter()).map(|(l,x0)| {
-                // we are at x0, l is in (0,1) because v is a unit vector.
-                // looking for the lowest value of alpha which is above 0 (inside unit cube)
-                // x0 + alpha*l > 0
-                // alpha > -x0/l
-                OrderedFloat(-*x0 as f64/(*l))
-            }).max().unwrap().into_inner();
-            let max_alpha :f64 = v.iter().zip(current_pt.iter()).map(|(l,x0)| {
-                // we are at x0, l is in (0,1) because v is a unit vector.
-                // looking for the highest value of alpha which is below 1 (inside unit cube)
-                // x0 + alpha*l < 1
-                // alpha < (1-x0)/l
-                OrderedFloat((1.0-*x0 as f64)/(*l))
-            }).min().unwrap().into_inner();
+            // find bounds for alpha s.t. x0+alpha*v stays within [0,1]^n
 
-            let (best_alpha,best_time) = numerical_optimization::brent_minimum(|alpha| { 
+            let mut max_alpha = std::f64::INFINITY;
+            let mut min_alpha = -std::f64::INFINITY;
+            for (v0,x0) in v.iter().cloned().zip(current_pt.iter().cloned()) {
+                // x0 + alpha*v0 < 1
+                if v0 > 0.0 {
+                    // alpha < (1-x0)/v0
+                    max_alpha = max_alpha.min( (1.0-x0)/(v0) );
+                } else if v0 < 0.0 {
+                    // alpha > (1-x0)/v0
+                    min_alpha = min_alpha.max( (1.0-x0)/(v0) );
+                }
+
+                // x0 + alpha*v0 > 0
+                if v0 > 0.0 {
+                    // alpha > -x0/v0
+                    min_alpha = min_alpha.max( -x0 / v0 );
+                } else if v0 < 0.0 {
+                    // alpha < -x0/v0
+                    max_alpha = max_alpha.min( -x0 / v0 );
+                }
+            }
+
+            println!("min {:?} max {:?} ", min_alpha, max_alpha);
+            //println!("v {:?}", v);
+            //println!("current_pt {:?}", current_pt);
+            assert!(min_alpha < max_alpha);
+
+            let (best_alpha,best_cost) = numerical_optimization::brent_minimum(|alpha| { 
                 let pt = current_pt.clone() + alpha*v;
                 let new_pos = intrinsic2pos(base_inf, &pos_order, &signals, &pt);
-                for (obj_i,p) in pos_order.iter_mut()
-                    .zip(new_pos.iter()) {
+                for (obj_i,p) in pos_order.iter().zip(new_pos.iter()) {
                         let Object(_,pos,_) = &mut signals[*obj_i];
                         *pos = *p as f32;
                 }
 
-                let cost = measure_cost(base_inf, signals,
+                let cost = std::panic::catch_unwind(|| {
+                         measure_cost(base_inf, signals,
                                         signal_varids, vehicles,
-                                        dispatches);
-                assert!(cost <= baseline_value);
+                                        dispatches)
+                }).unwrap_or(std::f64::INFINITY);
+                //println!("brent iteration with value {:?}", cost);
                 cost
             }, min_alpha, 0.0, max_alpha, 32, None);
+
+            println!("Brent minimum {:?} {:?}", best_alpha, best_cost);
+            assert!(best_cost <= baseline_value);
+            new_cost = Some(best_cost);
 
             if best_vector_len.is_none() || best_vector_len.unwrap() < best_alpha.abs() {
                 best_vector_i = Some(v_i);
@@ -457,17 +480,31 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
         let iter_offset = current_pt.clone() - iter_start;
         search_vectors.remove(best_vector_i.unwrap());
         search_vectors.push(iter_offset.normalize());
+        //thread_rng().shuffle(&mut search_vectors);
 
 
         // termination condition
-        if iter_offset.norm() < tolerance {
+        if (new_cost.unwrap() - current_cost) < tolerance {
             break;
+        } else {
+            current_cost = new_cost.unwrap();
         }
     }
 
     // TODO update input signals positions from current_pt
+    let new_pos = intrinsic2pos(base_inf, &pos_order, &signals, &current_pt);
+    for (obj_i,p) in pos_order.iter().zip(new_pos.iter()) {
+            let Object(_,pos,_) = &mut signals[*obj_i];
+            *pos = *p as f32;
+    }
 
-    baseline_value
+    let cost = std::panic::catch_unwind(|| {
+             measure_cost(base_inf, signals,
+                            signal_varids, vehicles,
+                            dispatches)
+    }).unwrap_or(std::f64::INFINITY);
+
+    cost
 }
 
 // TODO move this to infrastructure model
