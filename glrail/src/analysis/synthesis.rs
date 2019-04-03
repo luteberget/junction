@@ -686,7 +686,9 @@ fn concretize_dispatch(ad :&AbstractDispatch,
     // Choose any route that matches with switch positions.
     let mut output = Vec::new();
 
-    while curr_start != end {
+    println!("ROUTES {:#?}", route_entry);
+    'ds: while curr_start != end {
+        println!("Finding route from {:?}", curr_start);
         'rs: for route_idx in route_entry[&curr_start].iter() {
             let route = &routes[route_idx];
             // check if switch matches
@@ -701,7 +703,7 @@ fn concretize_dispatch(ad :&AbstractDispatch,
             if sw_ok {
                 output.push(*route_idx);
                 curr_start = route.exit;
-                break 'rs;
+                continue 'ds;
             } else {
                 continue 'rs;
             }
@@ -716,7 +718,7 @@ fn routes_by_entry(routes :&Vec<rolling_inf::Route>)
     -> HashMap<rolling_inf::RouteEntryExit, Vec<usize>> {
     let mut map = HashMap::new();
     for (i,r) in routes.iter().enumerate() {
-        map.entry(r.entry).or_insert(Vec::new()).push(i);
+        map.entry(ignore_trigger(r.entry)).or_insert(Vec::new()).push(i);
     }
     map
 }
