@@ -58,8 +58,10 @@ fn add_track_signal(inf :&Infrastructure, track :TrackId, dir :Dir, signals :&mu
     let Node(p1,_) = inf.get_node(&inf.get_track(&track).unwrap().start_node.0).unwrap();
     let Node(p2,_) = inf.get_node(&inf.get_track(&track).unwrap().end_node.0  ).unwrap();
 
+
     let mut local_signals = Vec::new();
     for Object(t,p,o) in signals.iter() {
+        if *t != track { continue; }
         if let ObjectType::Signal(sig_dir) = o {
             if sig_dir == &dir {
                 local_signals.push((dir.factor() as f32)*p);
@@ -82,10 +84,10 @@ fn add_track_signal(inf :&Infrastructure, track :TrackId, dir :Dir, signals :&mu
         let p = diff[0].1;
         let dist = diff[0].0 / 2.0;
         signals.push(Object(track, p, ObjectType::Signal(dir)));
-        println!("Added dist={}/{} {:?}", dist, dist ,  signals.last());
         signals.push(Object(track, p, ObjectType::Detector));
-        println!("Added dist={}/{} {:?}", dist, dist ,  signals.last());
+        println!("Added dist={}/{}", dist, dist);
     }
+    println!("Signals {:?}", signals);
 }
 
 fn get_entryexit(node_ids :&BiMap<EntityId,rolling_inf::NodeId>, 
@@ -313,14 +315,22 @@ pub fn synthesis(
                                        &object_ad_names, 
                                        vehicles,
                                        &abstract_dispatches);
-        current_best_signals = objects.clone(); // take a copy before potentially exiting
         println!("First optimization gave score {:?}", score);
-        break 'outer;
-        //if test(score, &objects) { break 'outer; }
+        let score = optimize_locations(&base_inf, &mut objects, 
+                                       &object_ad_names, 
+                                       vehicles,
+                                       &abstract_dispatches);
+        println!("First optimization gave score {:?}", score);
+        let score = optimize_locations(&base_inf, &mut objects, 
+                                       &object_ad_names, 
+                                       vehicles,
+                                       &abstract_dispatches);
+        println!("First optimization gave score {:?}", score);
 
         // try to add signals at any track/dir
         let mut current_best_score = score;
         current_best_signals = objects;
+
         loop {
             let (mut best_score, mut best_inf) = (None, None);
             for (track_id,_) in base_inf.iter_tracks() {
@@ -342,7 +352,7 @@ pub fn synthesis(
 
 
             if best_score.unwrap() < current_best_score - 0.1 {
-                println!("SUcecssfully addded signal {} --> {}", current_best_score, best_score.unwrap());
+                println!("SUcecssfully addded signal {} {} --> {}", current_best_signals.len(), current_best_score, best_score.unwrap());
                 current_best_score = best_score.unwrap();
                 current_best_signals = best_inf.unwrap();
             } else {
@@ -362,6 +372,89 @@ pub fn synthesis(
 //     use timeit::*;
 //     timeit!({measure_cost(base_inf, signals, signal_varids, vehicles, dispatches);});
 
+use nalgebra::DVector;
+fn powell_optimize_unit(initial_point :DVector<f64>,
+                        mut point_cost :impl FnMut(&DVector<f64>) -> f64) -> DVector<f64> {
+
+    let cost_improvement_threshold = 0.1;
+
+    println!("powell_optimize_unit");
+    let initial_cost = point_cost(&initial_point);
+    let mut powell_point = initial_point;
+    let mut powell_cost = initial_cost;
+
+    // all axis-aligned unit vectors
+    let mut search_vectors = (0..(powell_point.len())).map(|i| {
+        let mut v = DVector::from_element(powell_point.len(), 0.0);
+        v[i] = 1.0; v }).collect::<Vec<_>>();
+
+    loop {
+        println!("powell iteration");
+        let mut iter_point = powell_point.clone();
+        let mut iter_start_point = powell_point.clone();
+        let mut iter_cost = powell_cost;
+        let mut best_search_vector :Option<(usize,f64)> = None;
+        for (v_i,v) in search_vectors.iter().enumerate() {
+            let (min_alpha,max_alpha) = unit_box_parameter_bounds(&iter_point, v);
+            let (alpha,brent_cost) = numerical_optimization::brent_minimum(
+                |alpha| point_cost(&(iter_point.clone() + alpha*v)), 
+                min_alpha, 0.0, max_alpha, 32, None);
+
+            let brent_improvement = iter_cost - brent_cost;
+                println!(" brent improvement {}.", brent_improvement);
+                if brent_improvement > cost_improvement_threshold {
+                iter_cost = brent_cost;
+                iter_point += alpha*v;
+                if best_search_vector.is_none() || best_search_vector.unwrap().1 > brent_cost {
+                    best_search_vector = Some((v_i, brent_cost));
+                }
+            } else {
+                println!(" no brent improvement.");
+            }
+        }
+
+        let iter_offset = iter_point.clone() - iter_start_point;
+        let iter_improvement = powell_cost - iter_cost;
+        if iter_improvement > cost_improvement_threshold {
+            println!(" iter improvement.");
+            search_vectors.remove(best_search_vector.unwrap().0);
+            search_vectors.push(iter_offset.normalize());
+            powell_point = iter_point;
+            powell_cost = iter_cost;
+        } else {
+            println!(" no iter improvement.");
+            break;
+        }
+    }
+
+    powell_point
+}
+
+fn unit_box_parameter_bounds(point :&DVector<f64>, vector :&DVector<f64>) -> (f64,f64) {
+    let mut max_alpha = std::f64::INFINITY;
+    let mut min_alpha = -std::f64::INFINITY;
+    for (x0,v0) in point.iter().cloned().zip(vector.iter().cloned()) {
+        // x0 + alpha*v0 < 1
+        if v0 > 0.0 {
+            // alpha < (1-x0)/v0
+            max_alpha = max_alpha.min( (1.0-x0)/(v0) );
+        } else if v0 < 0.0 {
+            // alpha > (1-x0)/v0
+            min_alpha = min_alpha.max( (1.0-x0)/(v0) );
+        }
+
+        // x0 + alpha*v0 > 0
+        if v0 > 0.0 {
+            // alpha > -x0/v0
+            min_alpha = min_alpha.max( -x0 / v0 );
+        } else if v0 < 0.0 {
+            // alpha < -x0/v0
+            max_alpha = max_alpha.min( -x0 / v0 );
+        }
+    }
+    (min_alpha,max_alpha)
+}
+
 fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>, 
                       signal_varids :&HashMap<VarObjId, usize>,
                       vehicles :&[Vehicle],
@@ -372,6 +465,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     let tolerance = 0.001; // 1.0 seconds tolerance?
     let (baseline_value,baseline_travel) = measure_cost(base_inf, signals, signal_varids, 
                                       vehicles, dispatches);
+    println!("baseline_value {} baseline_travel {}", baseline_value, baseline_travel);
 
     let mut the_dimensions :Vec<(Vec<usize>, usize)> = Vec::new();
 
@@ -387,13 +481,13 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     let mut last_loc :Option<(TrackId,Pos)>= None;
     for obj_i in pos_order.iter() {
         let Object(track,pos,_) = &signals[*obj_i];
-        println!("adding dimension {:?} {:?}", track,pos);
+        //println!("adding dimension {:?} {:?}", track,pos);
         if let Some((last_track, last_pos)) = last_loc {
             if last_track == *track && (last_pos - pos).abs() < 5.0 {
                 the_dimensions.last_mut().unwrap().0.push(*obj_i);
                 continue;
             } else {
-                println!("new dimension {:?} {:?} {:?} {:?}", track,pos, last_track, last_pos);
+                //println!("new dimension {:?} {:?} {:?} {:?}", track,pos, last_track, last_pos);
             }
 
             if last_track == *track {
@@ -413,7 +507,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
             }
 
         } else {
-                println!("new dimension because no last-Loc.");
+                //println!("new dimension because no last-Loc.");
         }
         the_dimensions.push((vec![*obj_i], 0));
         last_loc = Some((*track,*pos));
@@ -446,7 +540,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
 
             assert!(low_pos < t_high);
             let low_pos = low_pos + min_dist as f32;
-            let t_high = t_high - (*nexts as f32) *min_dist as f32;
+            let t_high = t_high - (*nexts as f32 + 1.0) *min_dist as f32;
             assert!(low_pos < t_high);
 
             // TODO avoid approaching 1.0 intrinsic coordinate, because
@@ -477,7 +571,7 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
             //println!("low pos {} t high {}", low_pos, t_high);
             assert!(low_pos < t_high);
             let low_pos = low_pos + min_dist as f32;
-            let t_high = t_high - (*nexts as f32) *min_dist as f32;
+            let t_high = t_high - (*nexts as f32 + 1.0) *min_dist as f32;
             assert!(low_pos < t_high);
 
             // Output is track pos in (low_pos, t_high)
@@ -502,105 +596,139 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
                             dispatches)
     }).unwrap_or((std::f64::INFINITY,0.0));
 
+    println!("Current cost {:?}", current_cost);
         println!("powell starting.");
-    'powell: loop {
-        println!("powell iteration.");
-        let mut new_cost = None;
-        let iter_start = current_pt.clone();
-        let (mut best_vector_i,mut best_vector_len) = (None,None);
-        for (v_i,v) in search_vectors.iter().enumerate() {
 
-            // find bounds for alpha s.t. x0+alpha*v stays within [0,1]^n
-
-            let mut max_alpha = std::f64::INFINITY;
-            let mut min_alpha = -std::f64::INFINITY;
-            for (v0,x0) in v.iter().cloned().zip(current_pt.iter().cloned()) {
-                // x0 + alpha*v0 < 1
-                if v0 > 0.0 {
-                    // alpha < (1-x0)/v0
-                    max_alpha = max_alpha.min( (1.0-x0)/(v0) );
-                } else if v0 < 0.0 {
-                    // alpha > (1-x0)/v0
-                    min_alpha = min_alpha.max( (1.0-x0)/(v0) );
-                }
-
-                // x0 + alpha*v0 > 0
-                if v0 > 0.0 {
-                    // alpha > -x0/v0
-                    min_alpha = min_alpha.max( -x0 / v0 );
-                } else if v0 < 0.0 {
-                    // alpha < -x0/v0
-                    max_alpha = max_alpha.min( -x0 / v0 );
-                }
-            }
-
-            //println!("min {:?} max {:?} ", min_alpha, max_alpha);
-            //println!("v {:?}", v);
-            //println!("current_pt {:?}", current_pt);
-            assert!(min_alpha < max_alpha);
-
-            let (best_alpha,best_cost) = numerical_optimization::brent_minimum(|alpha| { 
-                let pt = current_pt.clone() + alpha*v;
-                let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &pt);
-                for ((idxs,_),p) in the_dimensions.iter().zip(new_pos.iter()) {
-                    for obj_i in idxs.iter() {
-                        let Object(_,pos,_) = &mut signals[*obj_i];
-                        *pos = *p as f32;
-                    }
-                }
-
-                let (cost,travel) = std::panic::catch_unwind(|| {
-                         measure_cost(base_inf, signals,
-                                        signal_varids, vehicles,
-                                        dispatches)
-                }).unwrap_or((std::f64::INFINITY, 0.0));
-
-                if (travel - baseline_travel).abs() > 20.0 {
-                    //println!("Deviating travel length.");
-                    return std::f64::INFINITY;
-                }
-
-                //println!("brent iteration with value {:?}", cost);
-                cost
-            }, min_alpha, 0.0, max_alpha, 32, None);
-
-            //println!("Brent minimum {:?} {:?}", best_alpha, best_cost);
-            assert!(best_cost <= baseline_value);
-
-            if best_vector_len.is_none() || best_vector_len.unwrap() < best_alpha.abs() {
-                best_vector_i = Some(v_i);
-                best_vector_len = Some(best_alpha.abs());
-            }
-
-            if (best_cost - new_cost.unwrap_or(baseline_value)).abs() > 0.5 {
-                println!("improved by {}",
-                     (new_cost.unwrap_or(baseline_value) - best_cost) );
-                new_cost = Some(best_cost);
-                current_pt += best_alpha*v;
-            } else {
-                println!("no improvement on this search vector. {}",
-                     (new_cost.unwrap_or(baseline_value) - best_cost) );
+    let best_pt = powell_optimize_unit(current_pt, |new_pt| {
+        //println!("got pt");
+        let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &new_pt);
+        for ((idxs,_),p) in the_dimensions.iter().zip(new_pos.iter()) {
+            for obj_i in idxs.iter() {
+                let Object(_,pos,_) = &mut signals[*obj_i];
+                *pos = *p as f32;
             }
         }
-        
-        let iter_offset = current_pt.clone() - iter_start;
-        search_vectors.remove(best_vector_i.unwrap());
-        search_vectors.push(iter_offset.normalize());
-        //thread_rng().shuffle(&mut search_vectors);
 
+        let (cost,travel) = std::panic::catch_unwind(|| {
+                 measure_cost(base_inf, signals,
+                                signal_varids, vehicles,
+                                dispatches)
+        }).unwrap_or((std::f64::INFINITY, 0.0));
+        //println!("cost {:?} travel {:?}", cost, travel);
 
-        // termination condition
-        if new_cost.is_none() || (new_cost.unwrap() - current_cost).abs() < tolerance {
-            println!("powell terminating last={} next={:?}.", current_cost, new_cost);
-            break;
-        } else {
-            println!("powell restarting.");
-            current_cost = new_cost.unwrap();
+        if (travel - baseline_travel).abs() > 20.0 {
+            return std::f64::INFINITY;
         }
-    }
 
-    // TODO update input signals positions from current_pt
-    let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &current_pt);
+        //println!("measure ok");
+        cost
+    });
+
+    //let mut powell_best_cost = None;
+
+    //'powell: loop {
+    //    println!("powell iteration.");
+    //    let mut powell_iter_cost = None;
+    //    let iter_start = current_pt.clone();
+    //    let (mut best_vector_i,mut best_vector_len) = (None,None);
+    //    for (v_i,v) in search_vectors.iter().enumerate() {
+
+    //        // find bounds for alpha s.t. x0+alpha*v stays within [0,1]^n
+
+    //        let mut max_alpha = std::f64::INFINITY;
+    //        let mut min_alpha = -std::f64::INFINITY;
+    //        for (v0,x0) in v.iter().cloned().zip(current_pt.iter().cloned()) {
+    //            // x0 + alpha*v0 < 1
+    //            if v0 > 0.0 {
+    //                // alpha < (1-x0)/v0
+    //                max_alpha = max_alpha.min( (1.0-x0)/(v0) );
+    //            } else if v0 < 0.0 {
+    //                // alpha > (1-x0)/v0
+    //                min_alpha = min_alpha.max( (1.0-x0)/(v0) );
+    //            }
+
+    //            // x0 + alpha*v0 > 0
+    //            if v0 > 0.0 {
+    //                // alpha > -x0/v0
+    //                min_alpha = min_alpha.max( -x0 / v0 );
+    //            } else if v0 < 0.0 {
+    //                // alpha < -x0/v0
+    //                max_alpha = max_alpha.min( -x0 / v0 );
+    //            }
+    //        }
+
+    //        //println!("min {:?} max {:?} ", min_alpha, max_alpha);
+    //        //println!("v {:?}", v);
+    //        //println!("current_pt {:?}", current_pt);
+    //        assert!(min_alpha < max_alpha);
+
+    //        let (best_alpha,best_cost) = numerical_optimization::brent_minimum(|alpha| { 
+    //            let pt = current_pt.clone() + alpha*v;
+    //            let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &pt);
+    //            for ((idxs,_),p) in the_dimensions.iter().zip(new_pos.iter()) {
+    //                for obj_i in idxs.iter() {
+    //                    let Object(_,pos,_) = &mut signals[*obj_i];
+    //                    *pos = *p as f32;
+    //                }
+    //            }
+
+    //            let (cost,travel) = std::panic::catch_unwind(|| {
+    //                     measure_cost(base_inf, signals,
+    //                                    signal_varids, vehicles,
+    //                                    dispatches)
+    //            }).unwrap_or((std::f64::INFINITY, 0.0));
+
+    //            if (travel - baseline_travel).abs() > 20.0 {
+    //                //println!("Deviating travel length.");
+    //                return std::f64::INFINITY;
+    //            }
+
+    //            //println!("brent iteration with value {:?}", cost);
+    //            cost
+    //        }, min_alpha, 0.0, max_alpha, 32, None);
+
+    //        //println!("Brent minimum {:?} {:?}", best_alpha, best_cost);
+    //        assert!(best_cost <= baseline_value);
+
+    //        if best_vector_len.is_none() || best_vector_len.unwrap() < best_alpha.abs() {
+    //            best_vector_i = Some(v_i);
+    //            best_vector_len = Some(best_alpha.abs());
+    //        }
+
+    //        if (best_cost - powell_iter_cost.unwrap_or(powell_best_cost.unwrap_or(baseline_value))).abs() > 0.5 {
+    //            println!("improved by {}",
+    //                (best_cost - powell_iter_cost.unwrap_or(powell_best_cost.unwrap_or(baseline_value)))
+    //            );
+
+    //            powell_iter_cost = Some(best_cost);
+    //            current_pt += best_alpha*v;
+    //        } else {
+    //            println!("no improvement on this search vector. {}",
+    //                (best_cost - powell_iter_cost.unwrap_or(powell_best_cost.unwrap_or(baseline_value))));
+    //        }
+    //    }
+    //    
+    //    let iter_offset = current_pt.clone() - iter_start;
+    //    search_vectors.remove(best_vector_i.unwrap());
+    //    search_vectors.push(iter_offset.normalize());
+    //    //thread_rng().shuffle(&mut search_vectors);
+
+
+    //    // termination condition
+    //    if powell_iter_cost.is_none() || (powell_iter_cost.unwrap() - powell_best_cost.unwrap_or(baseline_value)).abs() < tolerance {
+    //        println!("powell terminating last={:?} next={:?}.", current_cost, powell_iter_cost);
+    //        break;
+    //    } else {
+    //        println!("powell restarting.");
+    //        //current_cost = new_cost.unwrap();
+    //        powell_best_cost = powell_iter_cost;
+    //    }
+    //}
+
+    //// TODO update input signals positions from current_pt
+
+
+    let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &best_pt);
     for ((obj_idxs,_),p) in the_dimensions.iter().zip(new_pos.iter()) {
         for obj_i in obj_idxs.iter() {
             let Object(_,pos,_) = &mut signals[*obj_i];

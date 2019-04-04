@@ -72,6 +72,7 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
     let line_col  = 208 + (208<<8) + (175<<16) + (255<<24);
     let tvd_col  = 175 + (255<<8) + (175<<16) + (255<<24);
     let selected_col  = 175 + (175<<8) + (255<<16) + (255<<24);
+    let white  = 255 + (255<<8) + (255<<16) + (255<<24);
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
     // TODO make some colors config struct
 
@@ -302,6 +303,11 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                           let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, *p1);
                           let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, *p2);
                           ImDrawList_AddLine(draw_list, ps1,ps2, selected_col, 10.0);
+                      },
+                      DispatchCanvasGeom::SightLine(p1,p2,id) => {
+                          let ps1 = world2screen(canvas_pos, canvas_lower, center, zoom, *p1);
+                          let ps2 = world2screen(canvas_pos, canvas_lower, center, zoom, *p2);
+                          ImDrawList_AddLine(draw_list, ps1,ps2, white, 1.0);
                       },
 
                       DispatchCanvasGeom::SwitchStatus(pt,object_id,status) => {

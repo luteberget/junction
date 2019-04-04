@@ -49,7 +49,7 @@ pub fn get_history(vehicles :&[Vehicle], inf :&StaticInfrastructure,
     let history = rolling::evaluate_plan(inf, routes, 
              &rolling::input::dispatch::Dispatch { actions: dispatch }, None);
 
-    //println!("History output: {:#?}", history);
+    //println!("History output: {:?}", history);
     // TODO Convert back? Or just keep it like this
     //unimplemented!();
 

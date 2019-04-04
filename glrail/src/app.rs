@@ -99,6 +99,7 @@ impl App {
                ()
            })?;
        self.model = loaded_model;
+       self.integrate(AppAction::Model(ModelAction::Inf(InfrastructureEdit::Invalidate)));
        Ok(())
     }
 

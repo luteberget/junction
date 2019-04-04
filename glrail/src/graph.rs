@@ -5,7 +5,7 @@ use crate::dgraph::*;
 use crate::model::*;
 use rolling::input::staticinfrastructure as rolling_inf;
 use bimap::BiMap;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug)]
 pub struct Graph {
@@ -64,6 +64,7 @@ pub enum DispatchCanvasGeom {
     SectionStatus(Pt,Pt,SectionStatus),
     SwitchStatus(Pt, NodeId, SwitchStatus),
     TrainLoc(Pt,Pt,usize),
+    SightLine(Pt,Pt,usize),
 }
 
 
@@ -182,6 +183,7 @@ fn mk_instant( time :f64, history: &History,
         let mut t = 0.0;
         let mut edges = Vec::new();
         let mut velocity = 0.0;
+        let mut sight = HashSet::new();
         for e in events {
             match e {
                 TrainLogEvent::Edge(a,b) => { edges.push(((a,b), 0.0, 0.0));},
@@ -195,11 +197,16 @@ fn mk_instant( time :f64, history: &History,
                     t += *dt;
                 },
                 TrainLogEvent::Wait(dt) => { t += dt; },
+                TrainLogEvent::Sight(id,value) => {
+                    if *value { sight.insert(*id); } else { sight.remove(id); }
+                },
                 _ => {},
             };
             if t >= time { break; }
         }
 
+
+        let mut front = None;
 
         // Then map edge list to coordinatse
         println!("Edge instavles {:?}", dgraph.edge_intervals);
@@ -214,12 +221,27 @@ fn mk_instant( time :f64, history: &History,
                     };
                     if let Some((pt1,_)) = schematic.track_line_at(track, x1) {
                         if let Some((pt2,_)) = schematic.track_line_at(track, x2) {
+                            if front.is_none() { front = Some(pt1); }
                             geom.push((DispatchCanvasGeom::TrainLoc(pt1,pt2,train_i), None));
                         }
                     }
                 }
             }
         }
+
+        // Draw line from front of train to any signals in sighting range
+        if let Some(front) = front {
+            for signal_id in sight {
+                if let Some(EntityId::Object(object_id)) = dgraph.object_ids.get_by_right(&signal_id) {
+                    if let Some(Object(track,pos,_)) = inf.get_object(object_id) {
+                        if let Some((pt,_)) = schematic.track_line_at(track,*pos) {
+                            geom.push((DispatchCanvasGeom::SightLine(front,pt,train_i), None));
+                        }
+                    }
+                }
+            }
+        }
+
     }
 
     Instant { time, geom }
