@@ -368,20 +368,12 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
                       dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) -> f64 {
     debug!("Starting optimize_locations");
     use nalgebra::DVector;
-    let dimensions = signals.len();
-    let mut search_vectors = (0..dimensions).map(|i| {
-        let mut v :DVector<f64> = DVector::from_element(dimensions, 0.0);
-        v[i] = 1.0;
-        v
-    }).collect::<Vec<_>>();
-    use rand::{thread_rng, Rng};
-    thread_rng().shuffle(&mut search_vectors);
-
+    //let dimensions = signals.len();
     let tolerance = 0.001; // 1.0 seconds tolerance?
     let (baseline_value,baseline_travel) = measure_cost(base_inf, signals, signal_varids, 
                                       vehicles, dispatches);
 
-    //let track_poss : HashMap<TrackId, 
+    let mut the_dimensions :Vec<(Vec<usize>, usize)> = Vec::new();
 
 
     // permutation of signals ordered by (track,pos) 
@@ -391,21 +383,71 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     let pos_order :Vec<usize> 
         = pos_order.into_iter().map(|(_,i)| i).collect();
 
+    {
+    let mut last_loc :Option<(TrackId,Pos)>= None;
+    for obj_i in pos_order.iter() {
+        let Object(track,pos,_) = &signals[*obj_i];
+        println!("adding dimension {:?} {:?}", track,pos);
+        if let Some((last_track, last_pos)) = last_loc {
+            if last_track == *track && (last_pos - pos).abs() < 5.0 {
+                the_dimensions.last_mut().unwrap().0.push(*obj_i);
+                continue;
+            } else {
+                println!("new dimension {:?} {:?} {:?} {:?}", track,pos, last_track, last_pos);
+            }
+
+            if last_track == *track {
+                let mut idx = the_dimensions.len() -1;
+                // go backwards updating no_same_track_objects_after
+                loop {
+                    let obj = (the_dimensions[idx].0)[0];
+                    let Object(t,_,_) = &signals[obj];
+                    if *t == *track {
+                        the_dimensions[idx].1 += 1;
+                        if idx == 0 { break; }
+                        idx -= 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+        } else {
+                println!("new dimension because no last-Loc.");
+        }
+        the_dimensions.push((vec![*obj_i], 0));
+        last_loc = Some((*track,*pos));
+    }
+    println!("DIMENSINO {:?}", the_dimensions);
+    }
+
+    let mut search_vectors = (0..the_dimensions.len()).map(|i| {
+        let mut v :DVector<f64> = DVector::from_element(the_dimensions.len(), 0.0);
+        v[i] = 1.0;
+        v
+    }).collect::<Vec<_>>();
+    use rand::{thread_rng, Rng};
+    thread_rng().shuffle(&mut search_vectors);
+
+
     pub fn pos2intrinsic(min_dist :f64,
-                         base_inf: &Infrastructure, order :&[usize], objs :&[Object]) -> DVector<f64> {
+                         base_inf: &Infrastructure, 
+                         dimensions :&Vec<(Vec<usize>, usize)>,
+                         objs :&[Object]) -> DVector<f64> {
         let mut last_loc = None;
-        let mut output = DVector::from_element(order.len(), 0.0);
-        for (i,obj_i) in order.iter().enumerate() {
-            let Object(t,p,_) = &objs[*obj_i];
+        let mut output = DVector::from_element(dimensions.len(), 0.0);
+        for (i,(obj_idxs, nexts)) in dimensions.iter().enumerate() {
+            let obj_i = obj_idxs[0];
+            let Object(t,p,_) = &objs[obj_i];
             let (t_low,t_high) = base_inf.track_pos_interval(*t).unwrap();
             let low_pos = last_loc.iter().filter_map(|(lt,lp)| 
                                               if *lt == t { Some(*lp) } else { None })
                 .nth(0).unwrap_or(t_low);
 
-            //assert!(low_pos < t_high);
-            //let low_pos = low_pos + min_dist as f32;
-            //let t_high = t_high - min_dist as f32;
-            //assert!(low_pos < t_high);
+            assert!(low_pos < t_high);
+            let low_pos = low_pos + min_dist as f32;
+            let t_high = t_high - (*nexts as f32) *min_dist as f32;
+            assert!(low_pos < t_high);
 
             // TODO avoid approaching 1.0 intrinsic coordinate, because
             // it will make any object after it have (t_high-low_pos) ~= 0.0,
@@ -417,35 +459,43 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     }
 
     pub fn intrinsic2pos(min_dist: f64,
-                         base_inf: &Infrastructure, order :&[usize], objs :&[Object],
+                         base_inf: &Infrastructure, 
+                         dimensions :&Vec<(Vec<usize>, usize)>,
+                         objs :&[Object],
                          x :&DVector<f64>) -> Vec<Pos> {
         let mut last_loc = None;
         let mut output = Vec::new();
-        for (dx, obj_i) in x.iter().zip(order.iter()) {
-            let Object(t,_,_) = &objs[*obj_i];
+        for (dx, (obj_idxs, nexts)) in x.iter().zip(dimensions.iter()) {
+            let obj_i_representative = obj_idxs[0];
+            let Object(t,_,_) = &objs[obj_i_representative];
+
             let (t_low,t_high) = base_inf.track_pos_interval(*t).unwrap();
             let low_pos = last_loc.iter().filter_map(|(lt,lp)| 
                                               if *lt == t { Some(*lp) } else { None })
                 .nth(0).unwrap_or(t_low);
 
             //println!("low pos {} t high {}", low_pos, t_high);
-            //assert!(low_pos < t_high);
-            //let low_pos = low_pos + min_dist as f32;
-            //let t_high = (low_pos+5.0).max(t_high - min_dist as f32);
-            //assert!(low_pos < t_high);
+            assert!(low_pos < t_high);
+            let low_pos = low_pos + min_dist as f32;
+            let t_high = t_high - (*nexts as f32) *min_dist as f32;
+            assert!(low_pos < t_high);
 
             // Output is track pos in (low_pos, t_high)
             // remapped to (t_low, t_high)
             //  pos = lerp(low_pos, t_high, dx);
+
             let pos = low_pos + *dx as f32 * (t_high - low_pos);
-            output.push(pos);
+            for _ in 0..obj_idxs.len() {
+                output.push(pos);
+            }
+
             last_loc = Some((t, pos));
         }
         output
     }
 
-    let min_dist = 21.0;
-    let mut current_pt :DVector<f64> = pos2intrinsic(min_dist, base_inf, &pos_order, &signals);
+    let min_dist = 22.0;
+    let mut current_pt :DVector<f64> = pos2intrinsic(min_dist, base_inf, &the_dimensions, &signals);
     let (mut current_cost,_ ) = std::panic::catch_unwind(|| {
              measure_cost(base_inf, signals,
                             signal_varids, vehicles,
@@ -491,10 +541,12 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
 
             let (best_alpha,best_cost) = numerical_optimization::brent_minimum(|alpha| { 
                 let pt = current_pt.clone() + alpha*v;
-                let new_pos = intrinsic2pos(min_dist, base_inf, &pos_order, &signals, &pt);
-                for (obj_i,p) in pos_order.iter().zip(new_pos.iter()) {
+                let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &pt);
+                for ((idxs,_),p) in the_dimensions.iter().zip(new_pos.iter()) {
+                    for obj_i in idxs.iter() {
                         let Object(_,pos,_) = &mut signals[*obj_i];
                         *pos = *p as f32;
+                    }
                 }
 
                 let (cost,travel) = std::panic::catch_unwind(|| {
@@ -548,10 +600,12 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     }
 
     // TODO update input signals positions from current_pt
-    let new_pos = intrinsic2pos(min_dist, base_inf, &pos_order, &signals, &current_pt);
-    for (obj_i,p) in pos_order.iter().zip(new_pos.iter()) {
+    let new_pos = intrinsic2pos(min_dist, base_inf, &the_dimensions, &signals, &current_pt);
+    for ((obj_idxs,_),p) in the_dimensions.iter().zip(new_pos.iter()) {
+        for obj_i in obj_idxs.iter() {
             let Object(_,pos,_) = &mut signals[*obj_i];
             *pos = *p as f32;
+        }
     }
 
     let (cost,_) = std::panic::catch_unwind(|| {
