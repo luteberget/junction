@@ -194,7 +194,11 @@ pub fn get_dispatches(vehicles :&[Vehicle],
     let routeplan = planner::solver::plan(&config, &plan_inf, &plan_usage, |_| true);
     // convert dispatch
 
-    println!("plan() returned {:#?}.", routeplan);
+    if let Some(r) = &routeplan {
+        println!("plan() returned:\n {}.", planner::input::format_schedule(r));
+    } else {
+        println!("plan() returned nothing.");
+    }
 
     if let Some(routeplan) = routeplan {
         let commands = convert_dispatch_commands(&routeplan, routes, usage);

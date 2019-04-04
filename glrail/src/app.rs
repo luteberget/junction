@@ -5,6 +5,7 @@ use crate::infrastructure::*;
 use crate::schematic::*;
 use crate::background::*;
 use crate::analysis;
+use crate::scenario;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 
@@ -238,6 +239,22 @@ impl App {
                // TODO all of this stuff
                ('i', format!("maximaldesign"), |app| {
                    analysis::synthesis::add_maximal(&mut app.model.inf);
+                   app.integrate(AppAction::Model(ModelAction::Inf(InfrastructureEdit::Invalidate)));
+                   None
+               }),
+               ('y', format!("synthesize"), |app| {
+                   let usages = app.model.scenarios.iter().filter_map(|s| {
+                       match s {
+                           scenario::Scenario::Usage(u,_) => Some(u.clone()),
+                           _ => None,
+                       }
+                   }).collect::<Vec<_>>();
+                   let objs = analysis::synthesis::synthesis(&app.model.inf, &usages, &app.model.vehicles, |t,o| { 
+                       println!("Received score {}", t); true }).unwrap();
+                   for o in objs {
+                       println!("Adding {:?}", o);
+                       app.model.inf.new_object(o);
+                   }
                    app.integrate(AppAction::Model(ModelAction::Inf(InfrastructureEdit::Invalidate)));
                    None
                }),

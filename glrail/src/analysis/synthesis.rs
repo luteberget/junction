@@ -67,7 +67,11 @@ fn add_track_signal(inf :&Infrastructure, track :TrackId, dir :Dir, signals :&mu
         }
     }
     if local_signals.len() == 0  {
-        signals.push(Object(track, 0.5*(p1 + p2), ObjectType::Signal(dir)));
+        let pos = 0.5*(p1 + p2);
+        signals.push(Object(track, pos, ObjectType::Signal(dir)));
+        println!("Added dist={}/{} {:?}", pos-p1, p2-pos,  signals.last());
+        signals.push(Object(track, pos, ObjectType::Detector));
+        println!("Added dist={}/{} {:?}", pos-p1, p2-pos,  signals.last());
     } else {
         local_signals.sort_by_key(|x| OrderedFloat(*x));
         let lowest = local_signals[0];
@@ -76,7 +80,11 @@ fn add_track_signal(inf :&Infrastructure, track :TrackId, dir :Dir, signals :&mu
             .map(|(p1,p2)| (p2-p1, 0.5*(p1+p2))).collect::<Vec<_>>();
         diff.sort_by_key(|(d,_)| OrderedFloat(-*d));
         let p = diff[0].1;
+        let dist = diff[0].0 / 2.0;
         signals.push(Object(track, p, ObjectType::Signal(dir)));
+        println!("Added dist={}/{} {:?}", dist, dist ,  signals.last());
+        signals.push(Object(track, p, ObjectType::Detector));
+        println!("Added dist={}/{} {:?}", dist, dist ,  signals.last());
     }
 }
 
@@ -305,7 +313,10 @@ pub fn synthesis(
                                        &object_ad_names, 
                                        vehicles,
                                        &abstract_dispatches);
-        if test(score, &objects) { break 'outer; }
+        current_best_signals = objects.clone(); // take a copy before potentially exiting
+        println!("First optimization gave score {:?}", score);
+        break 'outer;
+        //if test(score, &objects) { break 'outer; }
 
         // try to add signals at any track/dir
         let mut current_best_score = score;
@@ -316,6 +327,7 @@ pub fn synthesis(
                 for dir in &[Dir::Up, Dir::Down] {
                     // TODO check that any train actually goes here
                     let mut new_signal_entities = current_best_signals.clone();
+                    println!("Adding at {:?}", (track_id, dir));
                     add_track_signal(&base_inf, track_id,*dir,&mut new_signal_entities);
                     let score = optimize_locations(&base_inf, &mut new_signal_entities, 
                                                    &object_ad_names, 
@@ -328,10 +340,18 @@ pub fn synthesis(
                 }
             }
 
-            current_best_signals = best_inf.unwrap();
+
+            if best_score.unwrap() < current_best_score - 0.1 {
+                println!("SUcecssfully addded signal {} --> {}", current_best_score, best_score.unwrap());
+                current_best_score = best_score.unwrap();
+                current_best_signals = best_inf.unwrap();
+            } else {
+                println!("No signals could improve.");
+                break;
+            }
 
             // report the solution, see if consumer is happy
-            if test(score, &current_best_signals) { break 'outer; }
+            //if test(score, &current_best_signals) { break 'outer; }
         }
     }
 
@@ -358,8 +378,11 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     thread_rng().shuffle(&mut search_vectors);
 
     let tolerance = 0.001; // 1.0 seconds tolerance?
-    let baseline_value = measure_cost(base_inf, signals, signal_varids, 
+    let (baseline_value,baseline_travel) = measure_cost(base_inf, signals, signal_varids, 
                                       vehicles, dispatches);
+
+    //let track_poss : HashMap<TrackId, 
+
 
     // permutation of signals ordered by (track,pos) 
     let mut pos_order :Vec<(_,usize)> = signals.iter_mut().enumerate()
@@ -368,7 +391,8 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
     let pos_order :Vec<usize> 
         = pos_order.into_iter().map(|(_,i)| i).collect();
 
-    pub fn pos2intrinsic(base_inf: &Infrastructure, order :&[usize], objs :&[Object]) -> DVector<f64> {
+    pub fn pos2intrinsic(min_dist :f64,
+                         base_inf: &Infrastructure, order :&[usize], objs :&[Object]) -> DVector<f64> {
         let mut last_loc = None;
         let mut output = DVector::from_element(order.len(), 0.0);
         for (i,obj_i) in order.iter().enumerate() {
@@ -377,6 +401,12 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
             let low_pos = last_loc.iter().filter_map(|(lt,lp)| 
                                               if *lt == t { Some(*lp) } else { None })
                 .nth(0).unwrap_or(t_low);
+
+            //assert!(low_pos < t_high);
+            //let low_pos = low_pos + min_dist as f32;
+            //let t_high = t_high - min_dist as f32;
+            //assert!(low_pos < t_high);
+
             // TODO avoid approaching 1.0 intrinsic coordinate, because
             // it will make any object after it have (t_high-low_pos) ~= 0.0,
             // which will cause problems.
@@ -386,7 +416,8 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
         output
     }
 
-    pub fn intrinsic2pos(base_inf: &Infrastructure, order :&[usize], objs :&[Object],
+    pub fn intrinsic2pos(min_dist: f64,
+                         base_inf: &Infrastructure, order :&[usize], objs :&[Object],
                          x :&DVector<f64>) -> Vec<Pos> {
         let mut last_loc = None;
         let mut output = Vec::new();
@@ -396,6 +427,13 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
             let low_pos = last_loc.iter().filter_map(|(lt,lp)| 
                                               if *lt == t { Some(*lp) } else { None })
                 .nth(0).unwrap_or(t_low);
+
+            //println!("low pos {} t high {}", low_pos, t_high);
+            //assert!(low_pos < t_high);
+            //let low_pos = low_pos + min_dist as f32;
+            //let t_high = (low_pos+5.0).max(t_high - min_dist as f32);
+            //assert!(low_pos < t_high);
+
             // Output is track pos in (low_pos, t_high)
             // remapped to (t_low, t_high)
             //  pos = lerp(low_pos, t_high, dx);
@@ -406,14 +444,17 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
         output
     }
 
-    let mut current_pt :DVector<f64> = pos2intrinsic(base_inf, &pos_order, &signals);
-    let mut current_cost = std::panic::catch_unwind(|| {
+    let min_dist = 21.0;
+    let mut current_pt :DVector<f64> = pos2intrinsic(min_dist, base_inf, &pos_order, &signals);
+    let (mut current_cost,_ ) = std::panic::catch_unwind(|| {
              measure_cost(base_inf, signals,
                             signal_varids, vehicles,
                             dispatches)
-    }).unwrap_or(std::f64::INFINITY);
+    }).unwrap_or((std::f64::INFINITY,0.0));
 
+        println!("powell starting.");
     'powell: loop {
+        println!("powell iteration.");
         let mut new_cost = None;
         let iter_start = current_pt.clone();
         let (mut best_vector_i,mut best_vector_len) = (None,None);
@@ -443,38 +484,51 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
                 }
             }
 
-            println!("min {:?} max {:?} ", min_alpha, max_alpha);
+            //println!("min {:?} max {:?} ", min_alpha, max_alpha);
             //println!("v {:?}", v);
             //println!("current_pt {:?}", current_pt);
             assert!(min_alpha < max_alpha);
 
             let (best_alpha,best_cost) = numerical_optimization::brent_minimum(|alpha| { 
                 let pt = current_pt.clone() + alpha*v;
-                let new_pos = intrinsic2pos(base_inf, &pos_order, &signals, &pt);
+                let new_pos = intrinsic2pos(min_dist, base_inf, &pos_order, &signals, &pt);
                 for (obj_i,p) in pos_order.iter().zip(new_pos.iter()) {
                         let Object(_,pos,_) = &mut signals[*obj_i];
                         *pos = *p as f32;
                 }
 
-                let cost = std::panic::catch_unwind(|| {
+                let (cost,travel) = std::panic::catch_unwind(|| {
                          measure_cost(base_inf, signals,
                                         signal_varids, vehicles,
                                         dispatches)
-                }).unwrap_or(std::f64::INFINITY);
+                }).unwrap_or((std::f64::INFINITY, 0.0));
+
+                if (travel - baseline_travel).abs() > 20.0 {
+                    //println!("Deviating travel length.");
+                    return std::f64::INFINITY;
+                }
+
                 //println!("brent iteration with value {:?}", cost);
                 cost
             }, min_alpha, 0.0, max_alpha, 32, None);
 
-            println!("Brent minimum {:?} {:?}", best_alpha, best_cost);
+            //println!("Brent minimum {:?} {:?}", best_alpha, best_cost);
             assert!(best_cost <= baseline_value);
-            new_cost = Some(best_cost);
 
             if best_vector_len.is_none() || best_vector_len.unwrap() < best_alpha.abs() {
                 best_vector_i = Some(v_i);
                 best_vector_len = Some(best_alpha.abs());
             }
 
-            current_pt += best_alpha*v;
+            if (best_cost - new_cost.unwrap_or(baseline_value)).abs() > 0.5 {
+                println!("improved by {}",
+                     (new_cost.unwrap_or(baseline_value) - best_cost) );
+                new_cost = Some(best_cost);
+                current_pt += best_alpha*v;
+            } else {
+                println!("no improvement on this search vector. {}",
+                     (new_cost.unwrap_or(baseline_value) - best_cost) );
+            }
         }
         
         let iter_offset = current_pt.clone() - iter_start;
@@ -484,25 +538,29 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
 
 
         // termination condition
-        if (new_cost.unwrap() - current_cost) < tolerance {
+        if new_cost.is_none() || (new_cost.unwrap() - current_cost).abs() < tolerance {
+            println!("powell terminating last={} next={:?}.", current_cost, new_cost);
             break;
         } else {
+            println!("powell restarting.");
             current_cost = new_cost.unwrap();
         }
     }
 
     // TODO update input signals positions from current_pt
-    let new_pos = intrinsic2pos(base_inf, &pos_order, &signals, &current_pt);
+    let new_pos = intrinsic2pos(min_dist, base_inf, &pos_order, &signals, &current_pt);
     for (obj_i,p) in pos_order.iter().zip(new_pos.iter()) {
             let Object(_,pos,_) = &mut signals[*obj_i];
             *pos = *p as f32;
     }
 
-    let cost = std::panic::catch_unwind(|| {
+    let (cost,_) = std::panic::catch_unwind(|| {
              measure_cost(base_inf, signals,
                             signal_varids, vehicles,
                             dispatches)
-    }).unwrap_or(std::f64::INFINITY);
+    }).unwrap_or((std::f64::INFINITY,0.0));
+
+    println!("optimize_locations: found cost {:?} (baseline {})", cost, baseline_value);
 
     cost
 }
@@ -708,6 +766,12 @@ pub fn sight_objects(inf :&Infrastructure, default_sight_distance :f64) -> Vec<O
     objects
 }
 
+enum DesignObjectType {
+    SignalDetector(Dir),
+    Detector,
+}
+
+struct DesignObject(TrackId,Pos,DesignObjectType); 
 
 fn maximal_design(base_inf :&Infrastructure) -> Vec<Object> {
     let stock_length = 10.0;
@@ -836,7 +900,7 @@ fn measure_cost(base_inf :&Infrastructure,
                 signal_varids :&HashMap<VarObjId, usize>,
                 vehicles :&[Vehicle], 
                 dispatches :&[(&Usage, Vec<Vec<AbstractDispatch>>)]) 
-    -> f64 {
+    -> (f64,f64) {
     //println!("Measuring cost {:?}", objs);
     let mut infrastructure = base_inf.clone();
     let mut map = Vec::new();
@@ -850,6 +914,7 @@ fn measure_cost(base_inf :&Infrastructure,
     let routes :HashMap<usize,rolling_inf::Route> = routes.into_iter().enumerate().collect();
 
     let mut total_cost = 0.0;
+    let mut total_travel = 0.0;
     // Each usage has a set of plans (dispatches: Vec<Vec<AbstractDispatch>)
     for (usage, plans) in dispatches {
         assert!(dispatches.len() > 0);
@@ -869,6 +934,8 @@ fn measure_cost(base_inf :&Infrastructure,
 
             let commands = commands.into_iter().map(|c| (0.0, c)).collect::<Vec<(f32,_)>>();
             let history = analysis::sim::get_history(vehicles, &dg.rolling_inf, &routes, &commands).unwrap();
+            total_travel += traveled_length(&history);
+            //println!("TIME {:?} LENGTH {:?}", dispatch_time(&history), traveled_length(&history));
             usage_costs += dispatch_time(&history); 
             // TODO use timing constraints instead as cost measure
         }
@@ -877,7 +944,7 @@ fn measure_cost(base_inf :&Infrastructure,
         //println!("  sum {:?}", usage_costs);
     }
     //println!(" SUM {:?}", total_cost);
-    return total_cost;
+    return (total_cost,total_travel);;
 }
 
 fn convert_commands(v :usize, routes :&HashMap<usize, rolling_inf::Route>, concrete :Vec<usize>) -> Vec<Command> {
@@ -923,6 +990,22 @@ fn dispatch_time(h :&History) -> f64 {
     let mut max_t = inf_time(&h.inf);
     for (_,_,t) in &h.trains { max_t = max_t.max(train_time(t)); }
     max_t
+}
+
+fn traveled_length(h :&History) -> f64 {
+    use rolling::output::history::*;
+    use rolling::railway::dynamics::*;
+    let mut l = 0.0;
+    for (_,_,t) in h.trains.iter() {
+        for e in t.iter() {
+            match e {
+                TrainLogEvent::Move(_,_,DistanceVelocity { dx, .. }) => { l += dx; },
+                _ => {},
+            }
+        }
+    }
+
+    l
 }
 
 
