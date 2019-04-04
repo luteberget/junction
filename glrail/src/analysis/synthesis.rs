@@ -193,7 +193,7 @@ fn mk_abstract_dispatch(routes :&rolling_inf::Routes<usize>,
     output
 }
 
-fn ignore_trigger(r :rolling_inf::RouteEntryExit) -> rolling_inf::RouteEntryExit {
+pub fn ignore_trigger(r :rolling_inf::RouteEntryExit) -> rolling_inf::RouteEntryExit {
     use self::rolling_inf::RouteEntryExit;
     match r {
         RouteEntryExit::SignalTrigger { signal, .. } => RouteEntryExit::Signal(signal),

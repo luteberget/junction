@@ -4,6 +4,9 @@ use crate::infrastructure::*;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
+// TODO move this function
+use crate::analysis::synthesis::ignore_trigger;
+
 pub use rolling::input::staticinfrastructure::Route;
 use std::sync::Arc;
 
@@ -29,7 +32,7 @@ impl Interlocking {
             if let Some(arc) = self.routes.get().clone() {
                 let routes = &arc.0;
                 use rolling::input::staticinfrastructure::{Route, RouteEntryExit};
-                return Box::new(routes.iter().enumerate().filter(move |(_,r)| r.entry == RouteEntryExit::Signal(*id)))
+                return Box::new(routes.iter().enumerate().filter(move |(_,r)| ignore_trigger(r.entry) == RouteEntryExit::Signal(*id)))
             }
         }
         Box::new(std::iter::empty())

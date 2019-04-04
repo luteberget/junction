@@ -411,6 +411,27 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
                           }
                       }
                   },
+                  Some(EntityId::Object(object_id)) => {
+                      if let Some(Object(_,_,ObjectType::Signal(_))) = app.model.inf.get_object(&object_id) {
+                          show_text("Signal");
+                          igSeparator();
+                          if let SelectedScenario::Dispatch(disp_id) = &app.model.view.selected_scenario {
+                              if let Some(d) = app.model.dgraph.get() {
+                                  show_text("Signal routes");
+                                  for (ri,r) in app.model.interlocking.routes_from_signal(d, object_id) {
+                                      igPushIDInt(ri as _);
+                                      show_text(&format!("{}", ri));
+
+                                      let route_to = CString::new(format!("Route to {:?} ({})", r.exit, ri)).unwrap();
+                                      if igMenuItemBool(route_to.as_ptr(), ptr::null(), false, true) {
+                                          cmd = Some(ScenarioEdit::AddDispatchCommand(*disp_id, 0.0, Command::Route(ri)));
+                                      }
+                                      igPopID();
+                                  }
+                              }
+                          }
+                      }
+                  }
                   Some(_) | None => {
                       show_text("Nothing to see here.");
                   },
