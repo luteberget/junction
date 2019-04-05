@@ -1,0 +1,200 @@
+(
+    inf: (
+        tracks: [
+            Some((0, (
+                start_node: (((0, 0)), (
+                    dir: Up,
+                    course: None,
+                )),
+                end_node: (((2, 0)), (
+                    dir: Down,
+                    course: None,
+                )),
+            ))),
+            Some((0, (
+                start_node: (((4, 0)), (
+                    dir: Up,
+                    course: None,
+                )),
+                end_node: (((1, 0)), (
+                    dir: Down,
+                    course: None,
+                )),
+            ))),
+            Some((0, (
+                start_node: (((2, 0)), (
+                    dir: Up,
+                    course: Some(Left),
+                )),
+                end_node: (((4, 0)), (
+                    dir: Down,
+                    course: Some(Right),
+                )),
+            ))),
+            Some((0, (
+                start_node: (((2, 0)), (
+                    dir: Up,
+                    course: Some(Right),
+                )),
+                end_node: (((4, 0)), (
+                    dir: Down,
+                    course: Some(Left),
+                )),
+            ))),
+            None,
+            None,
+            None,
+            None,
+        ],
+        nodes: [
+            Some((0, (0, Macro(None)))),
+            Some((0, (5600, Macro(None)))),
+            Some((0, (140.75362, Switch(Up, Left)))),
+            None,
+            Some((0, (438.20483, Switch(Down, Right)))),
+            None,
+            None,
+            None,
+        ],
+        objects: [
+            Some((0, (((0, 0)), 117.75362, Detector))),
+            Some((0, (((2, 0)), 190.75362, Detector))),
+            Some((0, (((3, 0)), 162.65363, Detector))),
+            Some((0, (((2, 0)), 340.7536, Detector))),
+            Some((0, (((3, 0)), 394.4048, Detector))),
+            Some((0, (((1, 0)), 4284.3726, Detector))),
+            Some((0, (((3, 0)), 416.3048, Signal(Up)))),
+            Some((0, (((3, 0)), 416.3048, Detector))),
+            Some((0, (((2, 0)), 388.20483, Detector))),
+            Some((0, (((3, 0)), 372.5047, Detector))),
+            Some((0, (((2, 0)), 238.20483, Detector))),
+            Some((0, (((1, 0)), 4262.4473, Signal(Up)))),
+            Some((0, (((1, 0)), 4262.4473, Detector))),
+            Some((0, (((1, 0)), 2926.3833, Signal(Up)))),
+            Some((0, (((1, 0)), 2926.3833, Detector))),
+            Some((0, (((1, 0)), 1578.7921, Signal(Up)))),
+            Some((0, (((1, 0)), 1578.7921, Detector))),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+    ),
+    schematic: Ok((
+        lines: {
+            ((1, 0)): [
+                (4, 0),
+                (5, 0),
+            ],
+            ((3, 0)): [
+                (1, 0),
+                (4, 0),
+            ],
+            ((0, 0)): [
+                (0, 0),
+                (1, 0),
+            ],
+            ((2, 0)): [
+                (1, 0),
+                (2, 1),
+                (3, 1),
+                (4, 0),
+            ],
+        },
+        points: {
+            ((0, 0)): (0, 0),
+            ((1, 0)): (5, 0),
+            ((2, 0)): (1, 0),
+            ((4, 0)): (4, 0),
+        },
+        pos_map: [
+            (0, ((0, 0)), 0),
+            (1, ((2, 0)), 140.75362),
+            (4, ((4, 0)), 438.20483),
+            (5, ((1, 0)), 600),
+        ],
+    )),
+    view: (
+        viewport: ((2.6085357144474983, -0.42333168536424637), 7.514477655091702),
+        selection: Entity(Node(((5, 0)))),
+        hot_route: None,
+        selected_scenario: Usage(0, Some(0)),
+        canvas_context_menu_item: None,
+    ),
+    interlocking: (
+        derive: Some((
+        )),
+    ),
+    scenarios: [
+        Usage((
+            movements: [
+                (
+                    vehicle_ref: 0,
+                    visits: [
+                        (
+                            nodes: [
+                                Node(((0, 0))),
+                            ],
+                            time: None,
+                        ),
+                        (
+                            nodes: [
+                                Node(((1, 0))),
+                            ],
+                            time: None,
+                        ),
+                    ],
+                ),
+                (
+                    vehicle_ref: 0,
+                    visits: [
+                        (
+                            nodes: [
+                                Node(((0, 0))),
+                            ],
+                            time: None,
+                        ),
+                        (
+                            nodes: [
+                                Node(((1, 0))),
+                            ],
+                            time: None,
+                        ),
+                    ],
+                ),
+            ],
+            timings: [
+                (
+                    visit_a: (0, 0),
+                    visit_b: (1, 0),
+                    time: None,
+                ),
+                (
+                    visit_a: (1, 1),
+                    visit_b: (0, 1),
+                    time: None,
+                ),
+            ],
+        ), Err("No plans found.")),
+    ],
+    vehicles: [
+        (
+            name: "New vehicle",
+            length: 110,
+            max_accel: 1.05,
+            max_brake: 0.95,
+            max_velocity: 20,
+        ),
+    ],
+)

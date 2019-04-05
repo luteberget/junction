@@ -1,0 +1,232 @@
+(
+    inf: (
+        tracks: [
+            Some((0, (
+                start_node: (((0, 0)), (
+                    dir: Up,
+                    course: None,
+                )),
+                end_node: (((2, 0)), (
+                    dir: Down,
+                    course: None,
+                )),
+            ))),
+            Some((0, (
+                start_node: (((4, 0)), (
+                    dir: Up,
+                    course: None,
+                )),
+                end_node: (((1, 0)), (
+                    dir: Down,
+                    course: None,
+                )),
+            ))),
+            Some((0, (
+                start_node: (((2, 0)), (
+                    dir: Up,
+                    course: Some(Left),
+                )),
+                end_node: (((4, 0)), (
+                    dir: Down,
+                    course: Some(Right),
+                )),
+            ))),
+            Some((0, (
+                start_node: (((2, 0)), (
+                    dir: Up,
+                    course: Some(Right),
+                )),
+                end_node: (((4, 0)), (
+                    dir: Down,
+                    course: Some(Left),
+                )),
+            ))),
+            None,
+            None,
+            None,
+            None,
+        ],
+        nodes: [
+            Some((0, (0, Macro(None)))),
+            Some((0, (5600, Macro(None)))),
+            Some((0, (140.75362, Switch(Up, Left)))),
+            None,
+            Some((0, (438.20483, Switch(Down, Right)))),
+            None,
+            None,
+            None,
+        ],
+        objects: [
+            Some((0, (((0, 0)), 118.853615, Detector))),
+            Some((0, (((2, 0)), 190.75362, Detector))),
+            Some((0, (((3, 0)), 162.65363, Detector))),
+            Some((0, (((2, 0)), 340.7536, Detector))),
+            Some((0, (((3, 0)), 394.4048, Detector))),
+            Some((0, (((1, 0)), 5325.7373, Detector))),
+            Some((0, (((3, 0)), 416.3048, Signal(Up)))),
+            Some((0, (((3, 0)), 416.3048, Detector))),
+            Some((0, (((2, 0)), 388.20483, Detector))),
+            Some((0, (((3, 0)), 372.5047, Detector))),
+            Some((0, (((2, 0)), 238.20483, Detector))),
+            Some((0, (((1, 0)), 5303.8325, Signal(Up)))),
+            Some((0, (((1, 0)), 5303.8325, Detector))),
+            Some((0, (((1, 0)), 5025.581, Signal(Up)))),
+            Some((0, (((1, 0)), 5025.581, Detector))),
+            Some((0, (((1, 0)), 4745.082, Signal(Up)))),
+            Some((0, (((1, 0)), 4745.082, Detector))),
+            Some((0, (((0, 0)), 96.9536, Signal(Up)))),
+            Some((0, (((0, 0)), 96.9536, Detector))),
+            Some((0, (((1, 0)), 4461.9375, Signal(Up)))),
+            Some((0, (((1, 0)), 4461.9375, Detector))),
+            Some((0, (((1, 0)), 4175.4927, Signal(Up)))),
+            Some((0, (((1, 0)), 4175.4927, Detector))),
+            Some((0, (((1, 0)), 3888.9214, Signal(Up)))),
+            Some((0, (((1, 0)), 3888.9214, Detector))),
+            Some((0, (((1, 0)), 3599.1, Signal(Up)))),
+            Some((0, (((1, 0)), 3599.1, Detector))),
+            Some((0, (((1, 0)), 3309.52, Signal(Up)))),
+            Some((0, (((1, 0)), 3309.52, Detector))),
+            Some((0, (((1, 0)), 3014.9343, Signal(Up)))),
+            Some((0, (((1, 0)), 3014.9343, Detector))),
+            Some((0, (((1, 0)), 2720.8247, Signal(Up)))),
+            Some((0, (((1, 0)), 2720.8247, Detector))),
+            Some((0, (((1, 0)), 2419.9868, Signal(Up)))),
+            Some((0, (((1, 0)), 2419.9868, Detector))),
+            Some((0, (((1, 0)), 2112.4177, Signal(Up)))),
+            Some((0, (((1, 0)), 2112.4177, Detector))),
+            Some((0, (((1, 0)), 1808.4276, Signal(Up)))),
+            Some((0, (((1, 0)), 1808.4276, Detector))),
+            Some((0, (((1, 0)), 1497.7958, Signal(Up)))),
+            Some((0, (((1, 0)), 1497.7958, Detector))),
+            Some((0, (((1, 0)), 1182.4841, Signal(Up)))),
+            Some((0, (((1, 0)), 1182.4841, Detector))),
+            Some((0, (((1, 0)), 870.80695, Signal(Up)))),
+            Some((0, (((1, 0)), 870.80695, Detector))),
+            Some((0, (((1, 0)), 551.97186, Signal(Up)))),
+            Some((0, (((1, 0)), 551.97186, Detector))),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+    ),
+    schematic: Ok((
+        lines: {
+            ((0, 0)): [
+                (0, 0),
+                (1, 0),
+            ],
+            ((1, 0)): [
+                (4, 0),
+                (5, 0),
+            ],
+            ((3, 0)): [
+                (1, 0),
+                (4, 0),
+            ],
+            ((2, 0)): [
+                (1, 0),
+                (2, 1),
+                (3, 1),
+                (4, 0),
+            ],
+        },
+        points: {
+            ((4, 0)): (4, 0),
+            ((0, 0)): (0, 0),
+            ((2, 0)): (1, 0),
+            ((1, 0)): (5, 0),
+        },
+        pos_map: [
+            (0, ((0, 0)), 0),
+            (1, ((2, 0)), 140.75362),
+            (4, ((4, 0)), 438.20483),
+            (5, ((1, 0)), 600),
+        ],
+    )),
+    view: (
+        viewport: ((2.6085357144474983, -0.42333168536424637), 7.514477655091702),
+        selection: Entity(Node(((5, 0)))),
+        hot_route: None,
+        selected_scenario: Usage(0, Some(0)),
+        canvas_context_menu_item: None,
+    ),
+    interlocking: (
+        derive: Some((
+        )),
+    ),
+    scenarios: [
+        Usage((
+            movements: [
+                (
+                    vehicle_ref: 0,
+                    visits: [
+                        (
+                            nodes: [
+                                Node(((0, 0))),
+                            ],
+                            time: None,
+                        ),
+                        (
+                            nodes: [
+                                Node(((1, 0))),
+                            ],
+                            time: None,
+                        ),
+                    ],
+                ),
+                (
+                    vehicle_ref: 0,
+                    visits: [
+                        (
+                            nodes: [
+                                Node(((0, 0))),
+                            ],
+                            time: None,
+                        ),
+                        (
+                            nodes: [
+                                Node(((1, 0))),
+                            ],
+                            time: None,
+                        ),
+                    ],
+                ),
+            ],
+            timings: [
+                (
+                    visit_a: (0, 0),
+                    visit_b: (1, 0),
+                    time: None,
+                ),
+                (
+                    visit_a: (1, 1),
+                    visit_b: (0, 1),
+                    time: None,
+                ),
+            ],
+        ), Err("No plans found.")),
+    ],
+    vehicles: [
+        (
+            name: "New vehicle",
+            length: 110,
+            max_accel: 1.05,
+            max_brake: 0.95,
+            max_velocity: 20,
+        ),
+    ],
+)
