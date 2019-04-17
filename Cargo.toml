@@ -1,11 +1,33 @@
+[package]
+name = "junction"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+bench = false
+path = "src/main.rs"
+name = "junc"
+
+[dependencies]
+junc_model = { path = "model" }
+junc_calc = { path = "calc" }
+junc_app = { path = "app" }
+junc_gui = { path = "gui" }
+
 [workspace]
 members = [
 	"glrail", 
 	"lib/imgui-sys-bindgen", 
 	"lib/imgui-sys-opengl", 
 	"lib/route_finder", 
-	"synthesis_tests",
 	"lib/numerical_optimization",
+	"synthesis_tests",
+	"builder",
+        "model",
+        "calc",
+        "app",
+        "gui",
 ]
 
 [profile.release]

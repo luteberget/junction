@@ -80,6 +80,10 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
     let reserved_col  = 55 + (255<<8) + (55<<16) + (255<<24);
     let overlap_col  = 209 + (208<<8) + (22<<16) + (255<<24);
 
+    let action_col  = 214 + (121<<8) + (34<<16) + (255<<24);
+    let spec_col  = 209 + (208<<8) + (22<<16) + (255<<24);
+    let selected_dark_col  = 105 + (105<<8) + (255<<16) + (255<<24);
+
     unsafe {
 
 
@@ -449,6 +453,68 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
               app.integrate(AppAction::Model(ModelAction::Scenario(cmd)));
           }
 
+
+          if let Selection::Pos(_,_,t) = &app.model.view.selection {
+              if let Derive::Ok(ref s) = &app.model.schematic {
+                  let lines = &s.lines[t];
+                  let p1 = lines[0];
+                  let p2 = lines[1];
+                  //let midpoint = ImVec2 { x: 0.5*(p1.x + p2.x), y: 0.5*(p1.y + p2.y) };
+                  let midpoint = (0.5*(p1.0+p2.0), 0.5*(p1.1+p2.1) - 0.05);
+
+                let ps = world2screen(canvas_pos, canvas_lower, center, zoom, midpoint);
+                  let hovered = dist2(&mouse_pos, &ImVec2 { x: ps.x+16.0, y: ps.y + 16.0} ) < 100.0;
+                          if hovered {
+                                          hovered_item = None;
+                              igBeginTooltip();
+                              // TODO entity_to_string
+                              //show_text(&entity_to_string(id, &app.model.inf));
+
+                              igPushStyleColorU32(ImGuiCol__ImGuiCol_Text as _,
+                                                  action_col);
+                              show_text("Add signal");
+                                igPopStyleColor(1);
+
+                                igSameLine(0.0,-1.0);
+
+                                show_text("to improve");
+
+                              igPushStyleColorU32(ImGuiCol__ImGuiCol_Text as _,
+                                                  occupied_col);
+                              show_text("Overtake");
+                                igPopStyleColor(1);
+
+                                igSameLine(0.0,-1.0);
+
+                                show_text("by");
+                                igSameLine(0.0,-1.0);
+                              igPushStyleColorU32(ImGuiCol__ImGuiCol_Text as _,
+                                                  selected_dark_col);
+                              show_text("9.802 s");
+                                igPopStyleColor(1);
+
+                              igEndTooltip();
+                          }
+                  //let selected = if let Selection::Entity(EntityId::Object(id)) = &app.model.view.selection { id == &i } else { false };
+                  let color = if canvas_hovered && hovered { 
+                      selected_col } else { line_col };
+
+
+                  let symbol = const_cstr!("\u{f06a}");
+                    ImDrawList_AddText(draw_list, ps,
+                                       color,
+                     symbol.as_ptr(), ptr::null());
+
+              }
+
+////              if let Some(p1) = s.find_pos(*pos) {
+////                  //println!("Drawing at {:?} {:?}", x, y);
+////                ImDrawList_AddLine(draw_list, 
+////                   world2screen(canvas_pos, canvas_lower, center, zoom, (x, y - 0.25)),
+////                   world2screen(canvas_pos, canvas_lower, center, zoom, (x, y + 0.25)),
+////                   selected_col, 2.0);
+////              }
+          }
 
           if let Some(id) = hovered_item {
               if canvas_hovered {

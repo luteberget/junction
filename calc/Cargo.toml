@@ -1,0 +1,12 @@
+[package]
+name = "junc_calc"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+route_finder = { path = "../lib/route_finder" }
+railplotlib = { path = "../../railplot/lib/railplotlib" }
+rolling = { path = "../../trainspotting/rolling" }
+planner = { path = "../../trainspotting/planner" }
+numerical_optimization = { path = "../lib/numerical_optimization" }
