@@ -6,3 +6,8 @@ edition = "2018"
 
 [dependencies]
 junc_app = { path = "../app" }
+imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
+imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }
+sdl2 = "0.32" 
+gl = "0.12"
+const-cstr="0.3"

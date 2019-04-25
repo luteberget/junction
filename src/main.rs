@@ -10,3 +10,8 @@ pub fn main() {
     junc_gui::run(app);                               // View
 } 
 
+
+pub use junc_model;
+pub use junc_calc;
+pub use junc_app;
+pub use junc_gui;

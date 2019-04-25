@@ -21,7 +21,7 @@ impl App {
     /// Inspect application state.
     pub fn get(&self) -> &AppContents { &self.contents }
     /// Update application state.
-    pub fn integrate(&mut self, _action :()) { unimplemented!() } 
+    pub fn integrate(&mut self, action :AppEvent) { unimplemented!() } 
 }
 
 /// 2D viewport and user interaction state.
@@ -33,3 +33,9 @@ impl View {
         View {} // TODO
     }
 }
+
+pub enum AppEvent {
+    Quit, // TODO ask for save?
+    Model(junc_model::ModelAction),
+}
+
