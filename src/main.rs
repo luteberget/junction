@@ -6,8 +6,7 @@ pub fn main() {
     // TODO command line options
 
     let model   = junc_model::Model::empty();         // Model
-    let calc    = junc_calc::Calc::from_model(model); // Extended (non-editable) model
-    let app     = junc_app::App::new(calc);           // View model
+    let app     = junc_app::App::new(model);          // View model
     junc_gui::run(app);                               // View
 } 
 

@@ -5,3 +5,4 @@ authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+junc_app = { path = "../app" }

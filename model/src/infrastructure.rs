@@ -19,6 +19,10 @@ pub struct Infrastructure {
     pub objects :Arena<Object>,
 }
 
+impl Default for Infrastructure {
+    fn default() -> Self { Infrastructure::new_empty() }
+}
+
 #[derive(Serialize, Deserialize)]
 #[derive(Copy,Clone,PartialEq, Eq, Hash, Debug,PartialOrd,Ord)]
 pub enum EntityId {

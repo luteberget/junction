@@ -1,6 +1,6 @@
 use rolling::input::staticinfrastructure as rolling_inf;
-use crate::infrastructure::*;
-use crate::interlocking::{ Route };
+use junc_model::infrastructure::*;
+use junc_model::interlocking::{ Route };
 use std::hash::Hash;
 use std::collections::{HashMap, HashSet}; 
 use ordered_float::OrderedFloat;

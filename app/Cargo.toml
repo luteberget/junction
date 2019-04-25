@@ -5,3 +5,5 @@ authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+junc_model = { path = "../model" }
+junc_calc = { path = "../calc" }
