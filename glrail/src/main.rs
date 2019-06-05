@@ -364,7 +364,8 @@ fn main() -> Result<(), String>{
 
                   igBegin(const_cstr!("Root").as_ptr(), ptr::null_mut(), dockspace_window_flags as _ );
                   
-                  let root_size = igGetContentRegionAvail();
+                  let root_size = igGetContentRegionAvail_nonUDT2();
+//                  let root_size = ImVec2 { x : 500.0, y: 500.0};
                   let mut main_column_size = ImVec2 { x: root_size.x - sidebar_size, y: root_size.y };
 
                   igSplitter(true, 4.0, &mut sidebar_size as _, &mut main_column_size.x as _, 100.0, 100.0, -1.0);

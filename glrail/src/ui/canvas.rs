@@ -85,10 +85,12 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
 
                       // TODO move this out of main loop
                 let caret_right = const_cstr!("\u{f0da}");
+                let crptr = caret_right.as_ptr();
                 let caret_left = const_cstr!("\u{f0d9}");
+                let clptr = caret_left.as_ptr();
                 let (caret_left_halfsize,caret_right_halfsize) = unsafe {
-                    let mut l = igCalcTextSize(caret_left.as_ptr(), ptr::null(), false, -1.0);
-                    let mut r = igCalcTextSize(caret_right.as_ptr(), ptr::null(), false, -1.0);
+                    let mut l = igCalcTextSize_nonUDT2(clptr, ptr::null(), false, -1.0);
+                    let mut r = igCalcTextSize_nonUDT2(clptr, ptr::null(), false, -1.0);
                     l.x *= 0.5; l.y *= 0.5; r.x *= 0.5; r.y *= 0.5;
                     (l,r)
                 };
