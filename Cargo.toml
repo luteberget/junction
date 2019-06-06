@@ -3,11 +3,11 @@ members = [
 	"glrail", 
 	"lib/imgui-sys-bindgen", 
 	"lib/backend_directx9",
+	"lib/backend_glfw",
 	"lib/imgui-sys-opengl", 
 	"lib/route_finder", 
 	"synthesis_tests",
 	"lib/numerical_optimization",
-	"sizetest",
 ]
 
 [profile.release]

@@ -349,7 +349,7 @@ fn main() -> Result<(), String>{
 
         */
 
-    backend_directx9::backend(|req| {
+    backend_glfw::backend(|req| {
               use self::app::*;
               use imgui_sys_bindgen::sys::*;
               let v2_0 = ImVec2 { x: 0.0, y: 0.0 };

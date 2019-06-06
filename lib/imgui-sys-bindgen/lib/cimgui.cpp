@@ -77,7 +77,7 @@ CIMGUI_API ImDrawData* igGetDrawData()
 }
 CIMGUI_API void igShowDemoWindow(bool* p_open)
 {
-    return ImGui::ShowDemoWindow(p_open);
+    //return ImGui::ShowDemoWindow(p_open);
 }
 CIMGUI_API void igShowAboutWindow(bool* p_open)
 {

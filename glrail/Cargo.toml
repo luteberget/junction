@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
 route_finder = { path = "../lib/route_finder" }
-imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }
 # sdl2 = { version = "*", features = ["bundled","static-link"] }
 sdl2 = { version = "*" }
 gl = "*"
@@ -20,7 +19,7 @@ serde_json="*"
 smallvec = "0.6"
 ordered-float = "*"
 nalgebra = "*"
-tinyfiledialogs = { path = "../../tinyfiledialogs-rs" }
+tinyfiledialogs = "*"
 threadpool="*"
 rolling = { path = "../../trainspotting/rolling" }
 planner = { path = "../../trainspotting/planner" }
@@ -30,4 +29,5 @@ ron = "*"
 rand = "*"
 timeit ="*"
 numerical_optimization = { path = "../lib/numerical_optimization" }
-backend_directx9 = { path = "../lib/backend_directx9" }
+backend_glfw = { path = "../lib/backend_glfw" }
+imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }

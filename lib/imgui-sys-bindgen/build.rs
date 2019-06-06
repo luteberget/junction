@@ -12,7 +12,7 @@ fn main() {
         .compile("libcimgui.a");
 
     let bindings = bindgen::Builder::default()
-        .header("wrapper.hpp")
+        .header("wrapper.h")
         .generate()
         .expect("Could not create bindings to library");
 
