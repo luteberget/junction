@@ -7,7 +7,7 @@ build = "build.rs"
 
 [build-dependencies]
 cc = "*"
-bindgen = "*"
+bindgen = "0.42"
 
 [dependencies]
 const-cstr = "*"

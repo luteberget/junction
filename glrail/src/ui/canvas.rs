@@ -116,13 +116,18 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
       },
       Derive::Ok(ref s) => {
           let mut hovered_item = None;
-          let canvas_pos = igGetCursorScreenPos();
-          let mut canvas_size = igGetContentRegionAvail();
+          let canvas_pos = igGetCursorScreenPos_nonUDT2();
+          let canvas_pos = ImVec2 { x : canvas_pos.x, y: canvas_pos.y };
+          let mut canvas_size = igGetContentRegionAvail_nonUDT2();
+          let mut canvas_size = ImVec2 { x: canvas_size.x, y: canvas_size.y };
+                    println!("content region avail {:?}", canvas_size);
+
           let canvas_lower = ImVec2 { x: canvas_pos.x + canvas_size.x,
                                       y: canvas_pos.y + canvas_size.y };
           if canvas_size.x < 10.0 { canvas_size.x = 10.0 }
 
           if canvas_size.y < 10.0 { canvas_size.y = 10.0 }
+          println!("canvas pos {:?}, canvas size {:?}", canvas_pos, canvas_size);
           ImDrawList_AddRectFilled(draw_list, canvas_pos,
                                    ImVec2 { x: canvas_pos.x + canvas_size.x,
                                             y: canvas_pos.y + canvas_size.y, },

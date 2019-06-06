@@ -20,7 +20,7 @@ serde_json="*"
 smallvec = "0.6"
 ordered-float = "*"
 nalgebra = "*"
-tinyfiledialogs = "*"
+tinyfiledialogs = { path = "../../tinyfiledialogs-rs" }
 threadpool="*"
 rolling = { path = "../../trainspotting/rolling" }
 planner = { path = "../../trainspotting/planner" }
@@ -30,3 +30,4 @@ ron = "*"
 rand = "*"
 timeit ="*"
 numerical_optimization = { path = "../lib/numerical_optimization" }
+backend_directx9 = { path = "../lib/backend_directx9" }

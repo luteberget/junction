@@ -39,9 +39,6 @@ impl Renderer {
     let gl = gl::Gl::load_with(load_fn);
 
     unsafe {
-      #[cfg(target_os = "macos")]
-      let glsl_version = b"#version 150\n\0";
-      #[cfg(not(target_os = "macos"))]
       let glsl_version = b"#version 130\n\0";
 
       let vert_source = b"
