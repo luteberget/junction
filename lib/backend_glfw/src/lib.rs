@@ -1,3 +1,9 @@
+pub mod imgui {
+	#![allow(non_upper_case_globals)]
+	#![allow(non_camel_case_types)]
+	#![allow(non_snake_case)]
+	include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
 
 pub enum SystemAction {
     Draw,
@@ -28,6 +34,10 @@ mod tests {
     #[test]
     fn it_works() {
         use crate::*;
-        backend(|_| { true });
+        backend(|_| { 
+            unsafe { imgui::igShowDemoWindow(std::ptr::null_mut()); }
+            true 
+        });
     }
 }
+

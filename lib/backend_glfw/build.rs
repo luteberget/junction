@@ -1,3 +1,6 @@
+use std::env;
+use std::path::PathBuf;
+
 
 fn main() {
 
@@ -6,6 +9,7 @@ fn main() {
         .file("lib/imgui_impl_glfw.cpp")
         .file("lib/imgui_impl_opengl3.cpp")
         .file("lib/main.cpp")
+        .file("../imgui-sys-bindgen/lib/cimgui.cpp")
         .file("../imgui-sys-bindgen/lib/imgui.cpp")
         .file("../imgui-sys-bindgen/lib/imgui_demo.cpp")
         .file("../imgui-sys-bindgen/lib/imgui_draw.cpp")
@@ -20,5 +24,17 @@ fn main() {
 
     println!("cargo:rustc-link-lib=glfw");
     println!("cargo:rustc-link-lib=GL");
+
+
+    let bindings = bindgen::Builder::default()
+        .header("../imgui-sys-bindgen/wrapper.h")
+        .generate()
+        .expect("Could not create bindings to library");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
+
 
 }
