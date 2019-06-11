@@ -7,6 +7,7 @@ members = [
 	"lib/imgui-sys-opengl", 
 	"lib/route_finder", 
 	"synthesis_tests",
+	"gridlinesedit",
 	"lib/numerical_optimization",
 ]
 

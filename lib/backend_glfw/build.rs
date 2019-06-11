@@ -17,13 +17,17 @@ fn main() {
         .file("lib/gl3w/GL/gl3w.c")
         .include("../imgui-sys-bindgen/lib")
         .include("lib/gl3w")
+        .include("lib/glfw/include")
         .compile("libimgui_glfw_opengl3.a");
 
     // add glfw to linker args
     //
 
-    println!("cargo:rustc-link-lib=glfw");
-    println!("cargo:rustc-link-lib=GL");
+    println!("cargo:rustc-link-lib=glfw3");
+    //println!("cargo:rustc-link-lib=GL");
+    println!("cargo:rustc-link-lib=gdi32");
+    println!("cargo:rustc-link-lib=shell32");
+    println!("cargo:rustc-link-lib=opengl32");
 
 
     let bindings = bindgen::Builder::default()
