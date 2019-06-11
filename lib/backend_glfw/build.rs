@@ -22,12 +22,22 @@ fn main() {
 
     // add glfw to linker args
     //
+    //
 
+    #[cfg(target_os = "windows")]
+    {
     println!("cargo:rustc-link-lib=glfw3");
     //println!("cargo:rustc-link-lib=GL");
     println!("cargo:rustc-link-lib=gdi32");
     println!("cargo:rustc-link-lib=shell32");
     println!("cargo:rustc-link-lib=opengl32");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+    println!("cargo:rustc-link-lib=glfw");
+    println!("cargo:rustc-link-lib=GL");
+    }
 
 
     let bindings = bindgen::Builder::default()
