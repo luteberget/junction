@@ -3,7 +3,7 @@ use const_cstr::const_cstr;
 use std::collections::{HashSet, HashMap};
 use generational_arena::*;
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash,PartialOrd,Ord)]
 pub struct Pt {
     x :i32,
     y :i32,
@@ -16,6 +16,86 @@ pub struct Polyline {
 
 pub fn length_maxmetric(p1 :Pt, p2 :Pt) -> i32 {
     ((p2.x - p1.x).abs()).max((p2.y - p1.y).abs())
+}
+
+trait Ortholinear {
+}
+
+pub fn to_railway(ls :Vec<(Pt,Pt)>, def_len :f64) -> Result<Railway, ()>{
+    // algo
+    // while edges:
+    // 1. pick any edge from bi-indexed set
+    // 2. follow edge to nodes, removing nodes from set
+    // 3. create track there, put ends into another set
+    //
+    // no more edges:
+    // 4. derive node types from shapes around nodes
+    //
+
+
+    let mut pieces = SymSet::from_iter(ls);
+    let mut tracks :Vec<Track> = Vec::new();
+    let mut locs :HashMap<Pt, Vec<usize>> = HashMap::new();
+    while let Some((p1,p2)) = pieces.remove_any() {
+        let mut length = def_len;
+        let mut p1 = p1;
+        let mut p2 = p2;
+
+        //while let Some(p) = remove_single(p1) { p1 = p; }
+        //while let Some(p) = remove_single(p2) { p2 = p; }
+    }
+
+    unimplemented!()
+}
+
+use std::collections::{BTreeSet, BTreeMap};
+
+pub struct SymSet<T> {
+    map :BTreeMap<T, BTreeSet<T>>
+}
+
+impl<T:Ord+Copy> SymSet<T> {
+    pub fn new() -> Self { SymSet { map: BTreeMap::new() } }
+    pub fn insert(&mut self, pt :(T,T)) -> bool {
+        if pt.0 > pt.1 { return self.insert((pt.1,pt.0)); }
+        self.map.entry(pt.0).or_insert(BTreeSet::new()).insert(pt.1)
+    }
+    pub fn remove(&mut self, pt :(T,T)) -> bool {
+        if pt.0 > pt.1 { return self.remove((pt.1,pt.0)); }
+        if let Some(set) = self.map.get_mut(&pt.0) {
+            set.remove(&pt.1)
+        } else {
+            false
+        }
+    }
+    pub fn contains(&self, val :(T,T)) -> bool {
+        self.map.get(&val.0).map(|v| v.contains(&val.1)) == Some(true)
+    }
+    pub fn remove_any(&mut self) -> Option<(T,T)> {
+        let (e1,set) = self.map.iter_mut().nth(0)?;
+        let e2 = *set.iter().nth(0)?;
+        let elem = (*e1,e2);
+        set.remove(&e2);
+        Some(elem)
+    }
+    pub fn remove_single(&mut self, val :T) -> Option<T> {
+        let set = self.map.get_mut(&val)?;
+        if set.len() != 1 { return None; }
+        self.remove_by_first(val)
+    }
+    pub fn remove_by_first(&mut self, val :T) -> Option<T> {
+        let set = self.map.get_mut(&val)?;
+        let e2 = *set.iter().nth(0)?;
+        set.remove(&e2);
+        Some(e2)
+    }
+    pub fn from_iter(x :impl IntoIterator<Item = (T,T)>) -> Self {
+        let mut map = BTreeMap::new();
+        for (a,b) in x.into_iter() {
+            map.entry(a).or_insert(BTreeSet::new()).insert(b);
+        }
+        SymSet { map }
+    }
 }
 
 impl Polyline {
