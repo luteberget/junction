@@ -21,6 +21,42 @@ pub fn length_maxmetric(p1 :Pt, p2 :Pt) -> i32 {
 trait Ortholinear {
 }
 
+pub type Vc = Pt;
+pub fn pt_sub_to_vector(to :Pt, from :Pt) -> Vc {
+    Pt { x: to.x - from.x,
+         y: to.y - from.y }
+}
+
+pub fn vector_angle(v :Vc) -> i8 {
+    match (v.x.signum(),v.y.signum()) {
+        ( 1, 0) => 0,
+        ( 1, 1) => 1,
+        ( 0, 1) => 2,
+        (-1, 1) => 3,
+        (-1, 0) => 4,
+        (-1,-1) => 5,
+        ( 0,-1) => 6,
+        ( 1,-1) => 7,
+        _ => panic!()
+    }
+}
+
+pub fn find_switch(a :i8, b :i8, c :i8) -> Result<(NDType,Vc),()> {
+    unimplemented!()
+}
+
+pub enum NDType { End, Cont, Sw }
+pub fn identify_node(p :Pt, edges :&[(usize, Pt)]) -> Result<(NDType,Vc), ()> {
+    let c = |x| vector_angle(pt_sub_to_vector(x,p));
+    match edges {
+        [(_,q)] => Ok((NDType::End, pt_sub_to_vector(*q, p))),
+        [(_,q),_] => Ok((NDType::Cont, pt_sub_to_vector(*q, p))),
+        [(_,n1),(_,n2),(_,n3)] => find_switch(c(*n1),c(*n2),c(*n3)),
+        _ => Err(()),
+    }
+}
+
+
 pub fn to_railway(ls :Vec<(Pt,Pt)>, def_len :f64) -> Result<Railway, ()>{
     // algo
     // while edges:
