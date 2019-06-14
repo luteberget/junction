@@ -2,6 +2,7 @@ use imgui_sys_bindgen::sys::*;
 use const_cstr::const_cstr;
 
 mod pt;
+mod symset;
 mod grid_canvas;
 
 fn main() {
