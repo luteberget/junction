@@ -9,3 +9,5 @@ backend_glfw = { path = "../lib/backend_glfw" }
 imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
 const-cstr = "*"
 generational-arena = "*"
+serde = { version = "1.0", features = ["derive"] }
+serde_json ="1.0"

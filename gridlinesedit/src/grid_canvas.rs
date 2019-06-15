@@ -1,6 +1,8 @@
 use imgui_sys_bindgen::sys::*;
 use const_cstr::const_cstr;
 use std::collections::{HashSet, HashMap};
+use serde::{Deserialize, Serialize};
+
 
 use crate::pt::*;
 use crate::symset::*;
@@ -11,13 +13,20 @@ use crate::symset::*;
 //
 
 #[derive(Debug,Copy,Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Err }
+
 #[derive(Debug,Copy,Clone)]
 pub enum AB { A, B }
+
 #[derive(Debug,Copy,Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum Port { End, ContA, ContB, Left, Right, Trunk, Err }
+
 #[derive(Debug,Copy,Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum Side { Left, Right }
+
 impl Side {
     pub fn opposite(&self) -> Side {
         match self {
@@ -35,6 +44,7 @@ impl Side {
 }
 
 #[derive(Debug,Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Railway {
     pub locations: Vec<(Pt, NDType, Vc)>,
     pub tracks: Vec<((usize,Port),(usize,Port), f64)>,
@@ -121,12 +131,16 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
                     }
                     else { found = true; }
 
+                    println!("SWITCH {} {} {}", 
+                             angle[pm[0]], 
+                             angle[pm[1]], 
+                             angle[pm[2]]);
                     // TODO the side is not correct?
                     let side = if angle_diff == 1 { Side::Left } else { Side::Right };
                     settr(track_idxs[pm[0]],Some((l_i, Port::Trunk)));
-                    settr(track_idxs[pm[1]],Some((l_i, side.to_port())));
-                    settr(track_idxs[pm[2]],Some((l_i, side.opposite().to_port())));
-                    locx.push((p, NDType::Sw(side), qs[pm[1]]));
+                    settr(track_idxs[pm[1]],Some((l_i, side.opposite().to_port())));
+                    settr(track_idxs[pm[2]],Some((l_i, side.to_port())));
+                    locx.push((p, NDType::Sw(side), pt_sub(qs[pm[1]], p)));
                     break;
                 }
                 if !found { panic!("switch didn't work"); } // TODO add err values?
@@ -145,14 +159,20 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
 }
 
 
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct SchematicCanvas {
     pieces :SymSet<Pt>,
     // TODO symbols, node types, etc.
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
+
+    #[serde(skip)]
+    scale: Option<usize>,
+    #[serde(skip)]
+    translate :Option<ImVec2>,
+    #[serde(skip)]
     adding_line :Option<Pt>,
-    scale: usize,
-    translate :ImVec2,
 }
 
 impl SchematicCanvas {
@@ -161,29 +181,33 @@ impl SchematicCanvas {
             pieces: SymSet::new(),
             railway: None,
             adding_line: None,
-            scale: 35,
-            translate :ImVec2{ x:0.0, y:0.0 },
+            scale: None,
+            translate :None,//ImVec2{ x:0.0, y:0.0 },
         }
     }
         /// Converts and rounds a screen coordinate to the nearest point on the integer grid
     pub fn screen_to_world(&self, pt :ImVec2) -> Pt {
-        let x = (self.translate.x + pt.x) / self.scale as f32;
-        let y = (self.translate.y + pt.y) / self.scale as f32;
+        let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
+        let s = self.scale.unwrap_or(35);
+        let x =  (t.x + pt.x) / s as f32;
+        let y = -(t.y + pt.y) / s as f32;
         Pt { x: x.round() as _ , y: y.round() as _ }
     }
 
     /// Convert a point on the integer grid into screen coordinates
     pub fn world_to_screen(&self, pt :Pt) -> ImVec2 {
-        let x = ((self.scale as i32 * pt.x) as f32) - self.translate.x;
-        let y = ((self.scale as i32 * pt.y) as f32) - self.translate.y;
+        let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
+        let s = self.scale.unwrap_or(35);
+        let x = ((s as i32 * pt.x) as f32)  - t.x;
+        let y = ((s as i32 * -pt.y) as f32) - t.y;
 
         ImVec2 { x, y }
     }
 
     /// Return the rect of grid points within the current view.
     pub fn points_in_view(&self, size :ImVec2) -> (Pt,Pt) {
-        let lo = self.screen_to_world(ImVec2 { x: 0.0, y: 0.0 });
-        let hi = self.screen_to_world(size);
+        let lo = self.screen_to_world(ImVec2 { x: 0.0, y: size.y });
+        let hi = self.screen_to_world(ImVec2 { x: size.x, y: 0.0 });
         (lo,hi)
     }
 
@@ -213,11 +237,33 @@ pub fn unit_step_diag_line(p1 :Pt, p2 :Pt) -> impl Iterator<Item = Pt> {
     let dx = p2.x - p1.x;
     let dy = p2.y - p1.y;
     (0..=(dx.abs().max(dy.abs()))).map(move |d| Pt { x: p1.x + d * dx.signum(),
-                                                y: p1.y + d * dy.signum() } )
+                                                     y: p1.y + d * dy.signum() } )
+}
+
+pub fn schematic_hotkeys(c :&mut SchematicCanvas) {
+    use std::fs::File;
+    use std::path::Path;
+    let json_file_path = Path::new("doc.json");
+
+    unsafe {
+        let io = igGetIO();
+        if (*io).KeyCtrl && igIsKeyPressed('S' as _, false) {
+            let json_file = File::create(json_file_path).expect("could not create file");
+            serde_json::to_writer(json_file, c).expect("could not write to file");
+            println!("Saved.{}",serde_json::to_string(c).expect("could not serialize"));
+        }
+        if (*io).KeyCtrl && igIsKeyPressed('L' as _, false) {
+            let json_file = File::open(json_file_path).expect("file not found");
+            *c = serde_json::from_reader(json_file).expect("error while reading json");
+            println!("Loaded.\n{:?}",c);
+        }
+    }
 }
 
 pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
     unsafe {
+        schematic_hotkeys(model);
+
         let io = igGetIO();
         let draw_list = igGetWindowDrawList();
         let pos = igGetCursorScreenPos_nonUDT2();

@@ -1,9 +1,50 @@
+use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
+use serde::de::{Deserialize, Deserializer, Visitor};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash,PartialOrd,Ord)]
 pub struct Pt {
     pub x: i32,
     pub y: i32,
 }
+
+impl Serialize for Pt {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> 
+        where S : Serializer
+    {
+        serializer.serialize_str(&format!("{};{}", self.x,self.y))
+    }
+}
+
+impl<'de> Deserialize<'de> for Pt {
+    fn deserialize<D>(deserializer: D) -> Result<Pt, D::Error>
+        where D: Deserializer<'de>
+    {
+        deserializer.deserialize_str(PtDeser)
+    }
+}
+
+struct PtDeser;
+
+impl<'de> Visitor<'de> for PtDeser {
+    type Value = Pt;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "Expecting a point x;y, e.g. \"4;-5\".")
+    }
+
+    fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+        where E: serde::de::Error
+    {
+        let components = s.split(";").collect::<Vec<_>>();
+        match &components[..] {
+            [x,y] => Ok(Pt { x: x.parse().map_err(|_| E::custom("int parse error"))?,
+                             y: y.parse().map_err(|_| E::custom("int parse error"))? }),
+            _ => panic!(),
+        }
+    }
+}
+
+
 
 
 pub type Vc = Pt;

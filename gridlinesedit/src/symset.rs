@@ -1,7 +1,9 @@
 use std::collections::{BTreeSet, BTreeMap};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug,Clone)]
-pub struct SymSet<T> {
+#[derive(Serialize,Deserialize)]
+pub struct SymSet<T:Ord+Copy> {
     pub map :BTreeMap<T, BTreeSet<T>>,
 }
 
