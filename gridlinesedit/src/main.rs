@@ -4,6 +4,7 @@ use const_cstr::const_cstr;
 mod pt;
 mod symset;
 mod grid_canvas;
+mod renderrotated;
 
 fn main() {
     let mut grid_canvas_obj = grid_canvas::SchematicCanvas::new();

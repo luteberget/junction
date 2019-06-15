@@ -68,3 +68,23 @@ pub fn v_angle(v :Vc) -> i8 {
     }
 }
 
+pub fn angle_v(a :i8) -> Vc {
+    match a {
+        0 => Pt { x:  1, y:  0 },
+        1 => Pt { x:  1, y:  1 },
+        2 => Pt { x:  0, y:  1 },
+        3 => Pt { x: -1, y:  1 },
+        4 => Pt { x: -1, y:  0 },
+        5 => Pt { x: -1, y: -1 },
+        6 => Pt { x:  0, y: -1 },
+        7 => Pt { x:  1, y: -1 },
+        _ => panic!()
+    }
+}
+
+pub fn rotate(v :Vc, a :i8) -> Vc {
+    angle_v(modu(v_angle(v) + a, 8))
+}
+
+pub fn modu(a :i8, b:i8) -> i8 { (a % b + b ) % b }
+

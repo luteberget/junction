@@ -41,6 +41,13 @@ impl Side {
             Side::Right => Port::Right,
         }
     }
+
+    pub fn to_rotation(&self) -> i8 {
+        match self {
+            Side::Left => 1,
+            Side::Right => -1,
+        }
+    }
 }
 
 #[derive(Debug,Clone)]
@@ -64,10 +71,10 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
         let mut length = def_len;
         let (mut a, mut b) = ((p1,p2),(p2,p1));
         drop(p1); drop(p2);
-        let mut extend = |p :&mut (Pt,Pt)| {
+        let mut extend = |p :&mut (Pt,Pt), other :Pt| {
             loop {
                 println!("Extending from {:?}", p.0);
-                if locs.contains_key(&p.0) { break; /* Node exists. */ }
+                if locs.contains_key(&p.0) || p.0 == other  { break; /* Node exists. */ }
                 if let Some(n) = pieces.remove_single(p.0) {
                     *p = (n,p.0);
                     length += def_len;
@@ -78,8 +85,8 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
             }
         };
 
-        extend(&mut a); println!("Done extending {:?}", a); 
-        extend(&mut b); println!("Done extending {:?}", b); 
+        extend(&mut a,b.0); println!("Done extending {:?}", a); 
+        extend(&mut b,a.0); println!("Done extending {:?}", b); 
         let track_idx = tracks.len();
         tracks.push((a.0,b.0,length));
         locs.entry(a.0).or_insert(Vec::new()).push(((track_idx, AB::A), a.1));
@@ -122,7 +129,6 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
                 let permutations = &[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
                 let mut found = false;
                 for pm in permutations {
-                    fn modu(a :i8, b:i8) -> i8 { (a % b + b ) % b }
                     let angle_diff = modu((angle[pm[2]]-angle[pm[1]]),8);
                     // p.0 is trunk, p.1 is straight, and p.2 is branch.
                     if !(angle[pm[0]] % 4 == angle[pm[1]] % 4 &&
@@ -273,6 +279,8 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         let c2 = igGetColorU32Vec4(ImVec4 { x: 0.2, y: 0.5, z: 0.95, w: 1.0 } );
         let c3 = igGetColorU32Vec4(ImVec4 { x: 1.0, y: 0.0, z: 1.0, w: 1.0 } );
         let c4 = igGetColorU32Vec4(ImVec4 { x: 0.8, y: 0.8, z: 0.8, w: 1.0 } );
+        let c5 = igGetColorU32Vec4(ImVec4 { x: 0.0, y: 0.4, z: 0.8, w: 1.0 } );
+        let c6 = igGetColorU32Vec4(ImVec4 { x: 0.6, y: 0.3, z: 0.33, w: 1.0 } );
 
         ImDrawList_AddRectFilled(draw_list,
                         pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y },
@@ -333,6 +341,43 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                 let pt = model.world_to_screen(Pt { x, y });
                 ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + pt.x, y: pos.y + pt.y },
                                            3.0, c4, 4);
+            }
+        }
+
+        // Draw nodes
+        if let Some(r) = &model.railway {
+            for (pt,typ,vc) in &r.locations {
+                let p1 = model.world_to_screen(*pt);
+                //let p2 = model.world_to_screen(Pt { x: pt.x + vc.x,
+                //                                    y: pt.y + vc.y });
+                match typ {
+                    NDType::OpenEnd => {
+                        ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
+                            y: pos.y + p1.y }, 6.0, c3, 8);
+                    },
+                    NDType::BufferStop => {},
+                    NDType::Cont => {
+                        ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
+                            y: pos.y + p1.y }, 6.0, c5, 8);
+                        //let p2 = model.world_to_screen(Pt { x: pt.x + vc.x,
+                        //                                    y: pt.y + vc.y });
+                    },
+                    NDType::Sw(side) => {
+                        //let scale = model.scale.unwrap_or(35);
+                        let scale = 15.0;
+                        let p1 = ImVec2 { x: pos.x + p1.x, y: pos.y + p1.y };
+                        let p2 = ImVec2 { x: p1.x + scale*(vc.x as f32), y: p1.y + scale*(-vc.y as f32) };
+                        let p3 = rotate(*vc, side.to_rotation());
+                        let p3 = ImVec2 { x: p1.x + scale*(p3.x as f32), y: p1.y + scale*(-p3.y as f32) };
+                       // ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
+                       //     y: pos.y + p1.y }, 6.0, c6, 4);
+                        ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3,
+                                               c6);
+                        
+                    },
+                    NDType::Err => {
+                    },
+                }
             }
         }
 
