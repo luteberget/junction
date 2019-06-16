@@ -17,22 +17,28 @@ pub struct SchematicCanvas {
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
 
+    objects :Vec<(Pt,f64,Object)>,
+
     #[serde(skip)]
     scale: Option<usize>,
     #[serde(skip)]
     translate :Option<ImVec2>,
     #[serde(skip)]
     adding_line :Option<Pt>,
+    #[serde(skip)]
+    adding_object: Option<(f64,f64)>,  // Pt-continuous
 }
 
 impl SchematicCanvas {
     pub fn new() -> Self {
         SchematicCanvas {
             pieces: SymSet::new(),
+            objects: Vec::new(),
             railway: None,
             adding_line: None,
             scale: None,
             translate :None,//ImVec2{ x:0.0, y:0.0 },
+            adding_object: None,
         }
     }
         /// Converts and rounds a screen coordinate to the nearest point on the integer grid

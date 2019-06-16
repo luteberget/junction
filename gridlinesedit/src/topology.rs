@@ -13,6 +13,7 @@ use crate::symset::*;
 pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Err }
 
 #[derive(Debug,Copy,Clone)]
+#[derive(Serialize,Deserialize)]
 pub enum AB { A, B }
 
 #[derive(Debug,Copy,Clone)]
@@ -51,6 +52,19 @@ impl Side {
 pub struct Railway {
     pub locations: Vec<(Pt, NDType, Vc)>,
     pub tracks: Vec<((usize,Port),(usize,Port), f64)>,
+}
+
+#[derive(Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct Objects { // TODO rename Railway->Topology and make Railway a container for topo and objs.
+
+    // A=up/B=down here refers to the Railway.track orientation
+    pub objects: Vec<(usize, f64, AB, Object)>, // track, offset, dir, objdata
+}
+
+#[derive(Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct Object {
 }
 
 pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
