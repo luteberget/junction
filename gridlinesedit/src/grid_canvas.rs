@@ -2,6 +2,7 @@ use imgui_sys_bindgen::sys::*;
 use const_cstr::const_cstr;
 use std::collections::{HashSet, HashMap};
 use serde::{Deserialize, Serialize};
+use matches::matches;
 
 
 use crate::pt::*;
@@ -123,9 +124,42 @@ pub fn schematic_hotkeys(c :&mut SchematicCanvas) {
     }
 }
 
+
+pub fn tool_button(name :*const i8, selected: bool) -> bool {
+    unsafe {
+        if selected {
+
+            let c1 = ImVec4 { x: 0.4, y: 0.65,  z: 0.4, w: 1.0 };
+            let c2 = ImVec4 { x: 0.5, y: 0.85, z: 0.5, w: 1.0 };
+            let c3 = ImVec4 { x: 0.6, y: 0.9,  z: 0.6, w: 1.0 };
+            igPushStyleColor(ImGuiCol__ImGuiCol_Button as _, c1);
+            igPushStyleColor(ImGuiCol__ImGuiCol_ButtonHovered as _, c1);
+            igPushStyleColor(ImGuiCol__ImGuiCol_ButtonActive as _, c1);
+        } 
+        let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
+        if selected {
+            igPopStyleColor(3);
+        } 
+        clicked
+    }
+}
+
 pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
     unsafe {
         schematic_hotkeys(model);
+
+        if tool_button(const_cstr!("Mod").as_ptr(), matches!(&model.tool, Tool::Modify)) {
+            model.tool = Tool::Modify;
+        }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("Scr").as_ptr(), matches!(&model.tool, Tool::Scroll)) {
+            model.tool = Tool::Scroll;
+        }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("Drw").as_ptr(), matches!(&model.tool, Tool::Draw)) {
+            model.tool = Tool::Draw;
+        }
+
 
         let io = igGetIO();
         let draw_list = igGetWindowDrawList();
@@ -137,12 +171,11 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         let c3 = igGetColorU32Vec4(ImVec4 { x: 1.0, y: 0.0, z: 1.0, w: 1.0 } );
         let c4 = igGetColorU32Vec4(ImVec4 { x: 0.8, y: 0.8, z: 0.8, w: 1.0 } );
         let c5 = igGetColorU32Vec4(ImVec4 { x: 0.0, y: 0.4, z: 0.8, w: 1.0 } );
-        let c6 = igGetColorU32Vec4(ImVec4 { x: 0.6, y: 0.3, z: 0.33, w: 1.0 } );
 
         ImDrawList_AddRectFilled(draw_list,
                         pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y },
                         c1, 0.0, 0);
-        igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), *size);
+        let clicked = igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), *size);
         ImDrawList_PushClipRect(draw_list, pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y}, true);
 
         let special_key = (*io).KeyCtrl | (*io).KeyAlt | (*io).KeySuper;
@@ -195,6 +228,39 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             };
         }
 
+        if let Tool::Scroll = &model.tool {
+            if igIsMouseDown(0) {
+                if model.translate.is_none() { model.translate = Some(ImVec2 { x: 0.0, y: 0.0}); }
+                let t = model.translate.as_mut().unwrap();
+                t.x -= (*io).MouseDelta.x;
+                t.y -= (*io).MouseDelta.y;
+
+            }
+        }
+
+        if let Tool::Modify = &model.tool {
+            // TODO just sketching
+            //
+            //
+            // 1. start selection capture window
+            // 2. select (single/add/remove) object
+            // (  3. selection context menu   )
+            // 4. move things by dragging already selected object.
+
+            //let hov = igIsItemHovered(0);
+            //let dn  = igIsMouseDown(0);
+
+            //if clicked && let obj = near() {
+            //    model.selection = std::iter::once(obj).collect();
+            //} else if dragged {
+            //    if near_any(model.selection) {
+            //        move_objs(model.selection, (*io).MouseDelta);
+            //    } else {
+            //        start_selection_window();
+            //    }
+            //}
+        }
+
         // Draw permanent lines
         for (p,set) in &model.document.pieces.map {
             for q in set {
@@ -211,13 +277,19 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             }
         }
 
+        let gridc = if let Tool::Draw  = &model.tool {
+            igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 0.5, w: 0.90 } )
+        }  else {
+            igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 0.5, w: 0.45 } )
+        };
+
         // Draw grid + highlight on closest point if hovering?
         let (lo,hi) = model.points_in_view(*size);
         for x in lo.x..=hi.x {
             for y in lo.y..=hi.y {
                 let pt = model.world_to_screen(Pt { x, y });
                 ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + pt.x, y: pos.y + pt.y },
-                                           3.0, c4, 4);
+                                           3.0, gridc, 4);
             }
         }
 
@@ -248,8 +320,9 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                         let p3 = ImVec2 { x: p1.x + scale*(p3.x as f32), y: p1.y + scale*(-p3.y as f32) };
                        // ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
                        //     y: pos.y + p1.y }, 6.0, c6, 4);
+        let c6 = igGetColorU32Vec4(ImVec4 { x: 0.8, y: 0.8, z: 0.5, w: 0.25 } );
                         ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3,
-                                               c6);
+                                               c2);
                         
                     },
                     NDType::Err => {
