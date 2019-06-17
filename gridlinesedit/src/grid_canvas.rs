@@ -8,33 +8,40 @@ use crate::pt::*;
 use crate::symset::*;
 use crate::topology::*;
 
-
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
-pub struct SchematicCanvas {
+pub struct Document {
     pieces :SymSet<Pt>,
     // TODO symbols, node types, etc.
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
-
     objects :Vec<(Pt,f64,Object)>,
+}
 
-    #[serde(skip)]
+#[derive(Debug)]
+pub struct SchematicCanvas {
+    document :Document,
+    tool: Tool,
+    selected_pieces :HashSet<(Pt,Pt)>,
     scale: Option<usize>,
-    #[serde(skip)]
     translate :Option<ImVec2>,
-    #[serde(skip)]
     adding_line :Option<Pt>,
-    #[serde(skip)]
     adding_object: Option<(f64,f64)>,  // Pt-continuous
 }
+
+#[derive(Debug)]
+pub enum Tool { Scroll, Draw, Modify }
 
 impl SchematicCanvas {
     pub fn new() -> Self {
         SchematicCanvas {
-            pieces: SymSet::new(),
-            objects: Vec::new(),
-            railway: None,
+            document: Document {
+                pieces: SymSet::new(),
+                objects: Vec::new(),
+                railway: None,
+            },
+            selected_pieces: HashSet::new(),
+            tool: Tool::Scroll,
             adding_line: None,
             scale: None,
             translate :None,//ImVec2{ x:0.0, y:0.0 },
@@ -105,12 +112,12 @@ pub fn schematic_hotkeys(c :&mut SchematicCanvas) {
         let io = igGetIO();
         if (*io).KeyCtrl && igIsKeyPressed('S' as _, false) {
             let json_file = File::create(json_file_path).expect("could not create file");
-            serde_json::to_writer(json_file, c).expect("could not write to file");
-            println!("Saved.{}",serde_json::to_string(c).expect("could not serialize"));
+            serde_json::to_writer(json_file, &c.document).expect("could not write to file");
+            println!("Saved.{}",serde_json::to_string(&c.document).expect("could not serialize"));
         }
         if (*io).KeyCtrl && igIsKeyPressed('L' as _, false) {
             let json_file = File::open(json_file_path).expect("file not found");
-            *c = serde_json::from_reader(json_file).expect("error while reading json");
+            c.document = serde_json::from_reader(json_file).expect("error while reading json");
             println!("Loaded.\n{:?}",c);
         }
     }
@@ -138,6 +145,23 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), *size);
         ImDrawList_PushClipRect(draw_list, pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y}, true);
 
+        let special_key = (*io).KeyCtrl | (*io).KeyAlt | (*io).KeySuper;
+        if (igIsItemActive() || !igIsAnyItemActive()) && !special_key {
+            // Handle keys
+            if igIsKeyPressed('A' as _, false) { 
+                model.tool = Tool::Modify; 
+                println!("tool {:?}", model.tool);
+            }
+            if igIsKeyPressed('S' as _, false) {
+                model.tool = Tool::Scroll; 
+                println!("tool {:?}", model.tool);
+            }
+            if igIsKeyPressed('D' as _, false) {
+                model.tool = Tool::Draw; 
+                println!("tool {:?}", model.tool);
+            }
+        }
+
         let pointer = (*io).MousePos;
         let pointer_incanvas = ImVec2 { x: pointer.x - pos.x, y: pointer.y - pos.y };
         let pointer_grid = model.screen_to_world(pointer_incanvas);
@@ -149,27 +173,30 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                    c, 2.0);
         };
 
-        // Drawing or adding line
-        match (igIsItemHovered(0), igIsMouseDown(0), &mut model.adding_line) {
-            (true, true, None)   => { model.adding_line = Some(pointer_grid); },
-            (_, false, Some(pt)) => {
-                for (p1,p2) in SchematicCanvas::route_line(*pt, pointer_grid) {
-                    for (p1,p2) in unit_step_diag_line(p1, p2).zip(
-                            unit_step_diag_line(p1, p2).skip(1)) {
-                        println!("ADdding {:?} {:?}", p1,p2);
-                        model.pieces.insert((p1,p2));
+
+        if let Tool::Draw = &model.tool {
+            // Drawing or adding line
+            match (igIsItemHovered(0), igIsMouseDown(0), &mut model.adding_line) {
+                (true, true, None)   => { model.adding_line = Some(pointer_grid); },
+                (_, false, Some(pt)) => {
+                    for (p1,p2) in SchematicCanvas::route_line(*pt, pointer_grid) {
+                        for (p1,p2) in unit_step_diag_line(p1, p2).zip(
+                                unit_step_diag_line(p1, p2).skip(1)) {
+                            println!("ADdding {:?} {:?}", p1,p2);
+                            model.document.pieces.insert((p1,p2));
+                        }
                     }
-                }
-                model.railway = to_railway(model.pieces.clone(), 50.0).ok();
-                println!("Got new railway:");
-                println!("{:#?}", &model.railway);
-                model.adding_line = None;
-            },
-            _ => {},
-        };
+                    model.document.railway = to_railway(model.document.pieces.clone(), 50.0).ok();
+                    println!("Got new railway:");
+                    println!("{:#?}", &model.document.railway);
+                    model.adding_line = None;
+                },
+                _ => {},
+            };
+        }
 
         // Draw permanent lines
-        for (p,set) in &model.pieces.map {
+        for (p,set) in &model.document.pieces.map {
             for q in set {
                 if p < q {
                     line(c2, &model.world_to_screen(*p), &model.world_to_screen(*q));
@@ -195,7 +222,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         }
 
         // Draw nodes
-        if let Some(r) = &model.railway {
+        if let Some(r) = &model.document.railway {
             for (pt,typ,vc) in &r.locations {
                 let p1 = model.world_to_screen(*pt);
                 //let p2 = model.world_to_screen(Pt { x: pt.x + vc.x,
