@@ -1,4 +1,5 @@
 use imgui_sys_bindgen::sys::*;
+use imgui_sys_bindgen::text::*;
 use const_cstr::const_cstr;
 use std::collections::{HashSet, HashMap};
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ pub struct SchematicCanvas {
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
 
-    objects :Vec<(Pt,f64,Object)>,
+    objects :Vec<(usize,f32,Object)>,
 
     #[serde(skip)]
     scale: Option<usize>,
@@ -26,7 +27,29 @@ pub struct SchematicCanvas {
     #[serde(skip)]
     adding_line :Option<Pt>,
     #[serde(skip)]
-    adding_object: Option<(f64,f64)>,  // Pt-continuous
+    adding_object: Option<((f32,f32),(Pt,Pt))>,  // Pt-continuous
+}
+
+
+pub fn lsqr(a :(f32,f32), b :(f32,f32)) -> f32 {
+    let dx = b.0-a.0;
+    let dy = b.1-a.1;
+    dx*dx+dy*dy
+}
+
+pub fn dot(a :(f32,f32), b :(f32,f32)) -> f32 {
+    a.0*b.0 + a.1*b.1
+}
+
+// TODO use a library
+pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
+    let p1 = (p1.x as f32, p1.y as f32);
+    let p2 = (p2.x as f32, p2.y as f32);
+    let l2 = lsqr(p1,p2);
+    let t = (dot( (x - p1.0, y - p1.1), (p2.0 - p1.0, p2.1 - p1.1 )) / l2 ). min(1.0).max(0.0);
+    let proj = ( p1.0 + t * (p2.0-p1.0),
+                 p1.1 + t * (p2.1-p1.1));
+    lsqr((x,y), proj)
 }
 
 impl SchematicCanvas {
@@ -41,19 +64,51 @@ impl SchematicCanvas {
             adding_object: None,
         }
     }
-        /// Converts and rounds a screen coordinate to the nearest point on the integer grid
-    pub fn screen_to_world(&self, pt :ImVec2) -> Pt {
+
+    pub fn closest_edge(&self, (x,y) :(f32,f32)) -> Option<(Pt,Pt)> {
+        let (xl,xh) = ((x-0.0) as i32, ((x+x.signum()*1.0) as i32));
+        let (yl,yh) = ((y-0.0) as i32, ((y+y.signum()*1.0) as i32));
+        let candidates = [
+            ((xl,yl),(xh,yl)),
+            ((xl,yh),(xh,yh)),
+            ((xl,yl),(xl,yh)),
+            ((xh,yl),(xh,yh)),
+            ((xl,yl),(xh,yh)),
+            ((xl,yh),(xh,yl)) ];
+        let (mut d, mut l) = (5.0, None);
+        for (p1,p2) in candidates.iter() {
+            let p1 = Pt { x: p1.0, y: p1.1};
+            let p2 = Pt { x: p2.0, y: p2.1};
+            println!("TRying {:?}->{:?}", p1,p2);
+            if !self.pieces.contains((p1,p2)) { continue; }
+            let d2 = dist_to_line_sqr((x,y),(p1,p2));
+            println!("dist {:?}", d2);
+            if d2 < d {
+                d = d2;
+                l = Some((p1,p2))
+            }
+        }
+        l
+    }
+
+    pub fn screen_to_world_cont(&self, pt :ImVec2) -> (f32,f32) {
         let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
-        let s = self.scale.unwrap_or(35);
+        let s = self.scale.unwrap_or(100);
         let x =  (t.x + pt.x) / s as f32;
         let y = -(t.y + pt.y) / s as f32;
+        (x,y)
+    }
+
+    /// Converts and rounds a screen coordinate to the nearest point on the integer grid
+    pub fn screen_to_world(&self, pt :ImVec2) -> Pt {
+        let (x,y) = self.screen_to_world_cont(pt);
         Pt { x: x.round() as _ , y: y.round() as _ }
     }
 
     /// Convert a point on the integer grid into screen coordinates
     pub fn world_to_screen(&self, pt :Pt) -> ImVec2 {
         let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
-        let s = self.scale.unwrap_or(35);
+        let s = self.scale.unwrap_or(100);
         let x = ((s as i32 * pt.x) as f32)  - t.x;
         let y = ((s as i32 * -pt.y) as f32) - t.y;
 
@@ -67,7 +122,7 @@ impl SchematicCanvas {
         (lo,hi)
     }
 
-        pub fn route_line(from :Pt, to :Pt) -> Vec<(Pt,Pt)> {
+    pub fn route_line(from :Pt, to :Pt) -> Vec<(Pt,Pt)> {
         // diag
         let mut vec = Vec::new();
         let (dx,dy) = (to.x - from.x, to.y - from.y);
@@ -149,6 +204,29 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                    c, 2.0);
         };
 
+        // context menu at point
+        if igIsItemHovered(0) && igIsMouseReleased(1) {
+            // NOTE some duplicate state here, model contains the point clicked
+            // and imgui popup state contains the location of the popup window?
+            let loc = model.screen_to_world_cont(pointer_incanvas);
+            if let Some(edge) = model.closest_edge(loc) {
+                model.adding_object = Some((loc,edge));
+            }
+            igOpenPopup(const_cstr!("ctx").as_ptr());
+        } else if !igIsPopupOpen(const_cstr!("ctx").as_ptr()) {
+            model.adding_object = None; // Cancelled by GUI
+        }
+
+        if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
+            if igSelectable(const_cstr!("signal").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
+                println!("Add signal at {:?}", model.adding_object.unwrap());
+            }
+            if igSelectable(const_cstr!("detector").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
+                println!("Add detector at {:?}", model.adding_object.unwrap());
+            }
+            igEndPopup();
+        }
+
         // Drawing or adding line
         match (igIsItemHovered(0), igIsMouseDown(0), &mut model.adding_line) {
             (true, true, None)   => { model.adding_line = Some(pointer_grid); },
@@ -229,6 +307,11 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                     },
                 }
             }
+        }
+
+        // Highlight edge
+        if let Some((_,(p1,p2))) = &model.adding_object {
+                line(c6, &model.world_to_screen(*p1), &model.world_to_screen(*p2));
         }
 
         ImDrawList_PopClipRect(draw_list);
