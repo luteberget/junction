@@ -3,30 +3,32 @@ use imgui_sys_bindgen::text::*;
 use const_cstr::const_cstr;
 use std::collections::{HashSet, HashMap};
 use serde::{Deserialize, Serialize};
+use matches::matches;
 
 
 use crate::pt::*;
 use crate::symset::*;
 use crate::topology::*;
 
-
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
-pub struct SchematicCanvas {
+pub struct Document {
     pieces :SymSet<Pt>,
     // TODO symbols, node types, etc.
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
 
     objects :Vec<(usize,f32,Object)>,
+}
 
-    #[serde(skip)]
+#[derive(Debug)]
+pub struct SchematicCanvas {
+    document :Document,
+    tool: Tool,
+    selected_pieces :HashSet<(Pt,Pt)>,
     scale: Option<usize>,
-    #[serde(skip)]
     translate :Option<ImVec2>,
-    #[serde(skip)]
     adding_line :Option<Pt>,
-    #[serde(skip)]
     adding_object: Option<((f32,f32),(Pt,Pt))>,  // Pt-continuous
 }
 
@@ -52,12 +54,19 @@ pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
     lsqr((x,y), proj)
 }
 
+#[derive(Debug)]
+pub enum Tool { Scroll, Draw, Modify }
+
 impl SchematicCanvas {
     pub fn new() -> Self {
         SchematicCanvas {
-            pieces: SymSet::new(),
-            objects: Vec::new(),
-            railway: None,
+            document: Document {
+                pieces: SymSet::new(),
+                objects: Vec::new(),
+                railway: None,
+            },
+            selected_pieces: HashSet::new(),
+            tool: Tool::Scroll,
             adding_line: None,
             scale: None,
             translate :None,//ImVec2{ x:0.0, y:0.0 },
@@ -80,7 +89,7 @@ impl SchematicCanvas {
             let p1 = Pt { x: p1.0, y: p1.1};
             let p2 = Pt { x: p2.0, y: p2.1};
             println!("TRying {:?}->{:?}", p1,p2);
-            if !self.pieces.contains((p1,p2)) { continue; }
+            if !self.document.pieces.contains((p1,p2)) { continue; }
             let d2 = dist_to_line_sqr((x,y),(p1,p2));
             println!("dist {:?}", d2);
             if d2 < d {
@@ -93,7 +102,7 @@ impl SchematicCanvas {
 
     pub fn screen_to_world_cont(&self, pt :ImVec2) -> (f32,f32) {
         let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
-        let s = self.scale.unwrap_or(100);
+        let s = self.scale.unwrap_or(35);
         let x =  (t.x + pt.x) / s as f32;
         let y = -(t.y + pt.y) / s as f32;
         (x,y)
@@ -108,7 +117,7 @@ impl SchematicCanvas {
     /// Convert a point on the integer grid into screen coordinates
     pub fn world_to_screen(&self, pt :Pt) -> ImVec2 {
         let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
-        let s = self.scale.unwrap_or(100);
+        let s = self.scale.unwrap_or(35);
         let x = ((s as i32 * pt.x) as f32)  - t.x;
         let y = ((s as i32 * -pt.y) as f32) - t.y;
 
@@ -160,20 +169,53 @@ pub fn schematic_hotkeys(c :&mut SchematicCanvas) {
         let io = igGetIO();
         if (*io).KeyCtrl && igIsKeyPressed('S' as _, false) {
             let json_file = File::create(json_file_path).expect("could not create file");
-            serde_json::to_writer(json_file, c).expect("could not write to file");
-            println!("Saved.{}",serde_json::to_string(c).expect("could not serialize"));
+            serde_json::to_writer(json_file, &c.document).expect("could not write to file");
+            println!("Saved.{}",serde_json::to_string(&c.document).expect("could not serialize"));
         }
         if (*io).KeyCtrl && igIsKeyPressed('L' as _, false) {
             let json_file = File::open(json_file_path).expect("file not found");
-            *c = serde_json::from_reader(json_file).expect("error while reading json");
+            c.document = serde_json::from_reader(json_file).expect("error while reading json");
             println!("Loaded.\n{:?}",c);
         }
+    }
+}
+
+
+pub fn tool_button(name :*const i8, selected: bool) -> bool {
+    unsafe {
+        if selected {
+
+            let c1 = ImVec4 { x: 0.4, y: 0.65,  z: 0.4, w: 1.0 };
+            let c2 = ImVec4 { x: 0.5, y: 0.85, z: 0.5, w: 1.0 };
+            let c3 = ImVec4 { x: 0.6, y: 0.9,  z: 0.6, w: 1.0 };
+            igPushStyleColor(ImGuiCol__ImGuiCol_Button as _, c1);
+            igPushStyleColor(ImGuiCol__ImGuiCol_ButtonHovered as _, c1);
+            igPushStyleColor(ImGuiCol__ImGuiCol_ButtonActive as _, c1);
+        } 
+        let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
+        if selected {
+            igPopStyleColor(3);
+        } 
+        clicked
     }
 }
 
 pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
     unsafe {
         schematic_hotkeys(model);
+
+        if tool_button(const_cstr!("Mod").as_ptr(), matches!(&model.tool, Tool::Modify)) {
+            model.tool = Tool::Modify;
+        }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("Scr").as_ptr(), matches!(&model.tool, Tool::Scroll)) {
+            model.tool = Tool::Scroll;
+        }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("Drw").as_ptr(), matches!(&model.tool, Tool::Draw)) {
+            model.tool = Tool::Draw;
+        }
+
 
         let io = igGetIO();
         let draw_list = igGetWindowDrawList();
@@ -185,13 +227,30 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         let c3 = igGetColorU32Vec4(ImVec4 { x: 1.0, y: 0.0, z: 1.0, w: 1.0 } );
         let c4 = igGetColorU32Vec4(ImVec4 { x: 0.8, y: 0.8, z: 0.8, w: 1.0 } );
         let c5 = igGetColorU32Vec4(ImVec4 { x: 0.0, y: 0.4, z: 0.8, w: 1.0 } );
-        let c6 = igGetColorU32Vec4(ImVec4 { x: 0.6, y: 0.3, z: 0.33, w: 1.0 } );
+        let c6 = igGetColorU32Vec4(ImVec4 { x: 0.8, y: 0.8, z: 0.5, w: 0.25 } );
 
         ImDrawList_AddRectFilled(draw_list,
                         pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y },
                         c1, 0.0, 0);
-        igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), *size);
+        let clicked = igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), *size);
         ImDrawList_PushClipRect(draw_list, pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y}, true);
+
+        let special_key = (*io).KeyCtrl | (*io).KeyAlt | (*io).KeySuper;
+        if (igIsItemActive() || !igIsAnyItemActive()) && !special_key {
+            // Handle keys
+            if igIsKeyPressed('A' as _, false) { 
+                model.tool = Tool::Modify; 
+                println!("tool {:?}", model.tool);
+            }
+            if igIsKeyPressed('S' as _, false) {
+                model.tool = Tool::Scroll; 
+                println!("tool {:?}", model.tool);
+            }
+            if igIsKeyPressed('D' as _, false) {
+                model.tool = Tool::Draw; 
+                println!("tool {:?}", model.tool);
+            }
+        }
 
         let pointer = (*io).MousePos;
         let pointer_incanvas = ImVec2 { x: pointer.x - pos.x, y: pointer.y - pos.y };
@@ -227,27 +286,62 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             igEndPopup();
         }
 
-        // Drawing or adding line
-        match (igIsItemHovered(0), igIsMouseDown(0), &mut model.adding_line) {
-            (true, true, None)   => { model.adding_line = Some(pointer_grid); },
-            (_, false, Some(pt)) => {
-                for (p1,p2) in SchematicCanvas::route_line(*pt, pointer_grid) {
-                    for (p1,p2) in unit_step_diag_line(p1, p2).zip(
-                            unit_step_diag_line(p1, p2).skip(1)) {
-                        println!("ADdding {:?} {:?}", p1,p2);
-                        model.pieces.insert((p1,p2));
+        if let Tool::Draw = &model.tool {
+            // Drawing or adding line
+            match (igIsItemHovered(0), igIsMouseDown(0), &mut model.adding_line) {
+                (true, true, None)   => { model.adding_line = Some(pointer_grid); },
+                (_, false, Some(pt)) => {
+                    for (p1,p2) in SchematicCanvas::route_line(*pt, pointer_grid) {
+                        for (p1,p2) in unit_step_diag_line(p1, p2).zip(
+                                unit_step_diag_line(p1, p2).skip(1)) {
+                            println!("ADdding {:?} {:?}", p1,p2);
+                            model.document.pieces.insert((p1,p2));
+                        }
                     }
-                }
-                model.railway = to_railway(model.pieces.clone(), 50.0).ok();
-                println!("Got new railway:");
-                println!("{:#?}", &model.railway);
-                model.adding_line = None;
-            },
-            _ => {},
-        };
+                    model.document.railway = to_railway(model.document.pieces.clone(), 50.0).ok();
+                    println!("Got new railway:");
+                    println!("{:#?}", &model.document.railway);
+                    model.adding_line = None;
+                },
+                _ => {},
+            };
+        }
+
+        if let Tool::Scroll = &model.tool {
+            if igIsMouseDown(0) {
+                if model.translate.is_none() { model.translate = Some(ImVec2 { x: 0.0, y: 0.0}); }
+                let t = model.translate.as_mut().unwrap();
+                t.x -= (*io).MouseDelta.x;
+                t.y -= (*io).MouseDelta.y;
+
+            }
+        }
+
+        if let Tool::Modify = &model.tool {
+            // TODO just sketching
+            //
+            //
+            // 1. start selection capture window
+            // 2. select (single/add/remove) object
+            // (  3. selection context menu   )
+            // 4. move things by dragging already selected object.
+
+            //let hov = igIsItemHovered(0);
+            //let dn  = igIsMouseDown(0);
+
+            //if clicked && let obj = near() {
+            //    model.selection = std::iter::once(obj).collect();
+            //} else if dragged {
+            //    if near_any(model.selection) {
+            //        move_objs(model.selection, (*io).MouseDelta);
+            //    } else {
+            //        start_selection_window();
+            //    }
+            //}
+        }
 
         // Draw permanent lines
-        for (p,set) in &model.pieces.map {
+        for (p,set) in &model.document.pieces.map {
             for q in set {
                 if p < q {
                     line(c2, &model.world_to_screen(*p), &model.world_to_screen(*q));
@@ -262,26 +356,44 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             }
         }
 
+        let gridc = if let Tool::Draw  = &model.tool {
+            igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 0.5, w: 0.90 } )
+        }  else {
+            igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 0.5, w: 0.45 } )
+        };
+
         // Draw grid + highlight on closest point if hovering?
         let (lo,hi) = model.points_in_view(*size);
         for x in lo.x..=hi.x {
             for y in lo.y..=hi.y {
                 let pt = model.world_to_screen(Pt { x, y });
                 ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + pt.x, y: pos.y + pt.y },
-                                           3.0, c4, 4);
+                                           3.0, gridc, 4);
             }
         }
 
         // Draw nodes
-        if let Some(r) = &model.railway {
+        if let Some(r) = &model.document.railway {
             for (pt,typ,vc) in &r.locations {
                 let p1 = model.world_to_screen(*pt);
                 //let p2 = model.world_to_screen(Pt { x: pt.x + vc.x,
                 //                                    y: pt.y + vc.y });
                 match typ {
                     NDType::OpenEnd => {
-                        ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
-                            y: pos.y + p1.y }, 6.0, c3, 8);
+                        //ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
+                            //y: pos.y + p1.y }, 6.0, c3, 8);
+                        let tangent = vc;
+                        let normal = Pt { x: -vc.y, y: vc.x };
+                        let tl = ((tangent.x.abs() + tangent.y.abs()) as f32).sqrt();
+                        let scale=5.0/tl;
+                        let pt = ImVec2 { x: pos.x + p1.x, y: pos.y + p1.y };
+                        let pa = ImVec2 { x: pt.x + scale*(tangent.x as f32 + normal.x as f32),
+                                          y: pt.y + scale*((-tangent.y) as f32 + (-normal.y  as f32)) };
+                        let pb = ImVec2 { x: pt.x + scale*(tangent.x as f32 - normal.x as f32),
+                                          y: pt.y + scale*((-tangent.y) as f32 + (-(-normal.y) as f32)) };
+                        ImDrawList_AddLine(draw_list, pt,pa, c3, 2.0);
+                        ImDrawList_AddLine(draw_list, pt,pb, c3, 2.0);
+
                     },
                     NDType::BufferStop => {},
                     NDType::Cont => {
@@ -300,7 +412,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                        // ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
                        //     y: pos.y + p1.y }, 6.0, c6, 4);
                         ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3,
-                                               c6);
+                                               c2);
                         
                     },
                     NDType::Err => {
