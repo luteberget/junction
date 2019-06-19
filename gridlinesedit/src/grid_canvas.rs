@@ -265,6 +265,10 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         let clicked = igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), *size);
         ImDrawList_PushClipRect(draw_list, pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y}, true);
 
+        // Handle mouse wheel
+        model.scale = Some( (model.scale.unwrap_or(35) as f32 + (*io).MouseWheel).max(5.0).min(100.0).round() as _ );
+
+        // Handle normal keys
         let special_key = (*io).KeyCtrl | (*io).KeyAlt | (*io).KeySuper;
         if (igIsItemActive() || !igIsAnyItemActive()) && !special_key {
             // Handle keys
