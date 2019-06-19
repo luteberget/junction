@@ -44,13 +44,19 @@ pub fn dot(a :(f32,f32), b :(f32,f32)) -> f32 {
 }
 
 // TODO use a library
-pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
+
+pub fn project_to_line((x,y) :(f32,f32), (p1,p2) :(Pt,Pt)) -> (f32,f32) {
     let p1 = (p1.x as f32, p1.y as f32);
     let p2 = (p2.x as f32, p2.y as f32);
     let l2 = lsqr(p1,p2);
     let t = (dot( (x - p1.0, y - p1.1), (p2.0 - p1.0, p2.1 - p1.1 )) / l2 ). min(1.0).max(0.0);
     let proj = ( p1.0 + t * (p2.0-p1.0),
                  p1.1 + t * (p2.1-p1.1));
+    proj
+}
+
+pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
+    let proj = project_to_line((x,y),(p1,p2));
     lsqr((x,y), proj)
 }
 
@@ -112,6 +118,16 @@ impl SchematicCanvas {
     pub fn screen_to_world(&self, pt :ImVec2) -> Pt {
         let (x,y) = self.screen_to_world_cont(pt);
         Pt { x: x.round() as _ , y: y.round() as _ }
+    }
+
+
+    pub fn world_to_screen_cont(&self, pt :(f32,f32)) -> ImVec2 {
+        let t = self.translate.unwrap_or(ImVec2{x:0.0,y:0.0});
+        let s = self.scale.unwrap_or(35);
+        let x = ((s as f32 * pt.0) as f32)  - t.x;
+        let y = ((s as f32 * -pt.1) as f32) - t.y;
+
+        ImVec2 { x, y }
     }
 
     /// Convert a point on the integer grid into screen coordinates
@@ -269,6 +285,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             // and imgui popup state contains the location of the popup window?
             let loc = model.screen_to_world_cont(pointer_incanvas);
             if let Some(edge) = model.closest_edge(loc) {
+                println!("OBJ {:?}", (loc,edge));
                 model.adding_object = Some((loc,edge));
             }
             igOpenPopup(const_cstr!("ctx").as_ptr());
@@ -422,8 +439,30 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         }
 
         // Highlight edge
-        if let Some((_,(p1,p2))) = &model.adding_object {
-                line(c6, &model.world_to_screen(*p1), &model.world_to_screen(*p2));
+        if let Some(((c1,c2),(p1,p2))) = &model.adding_object {
+            let tangent = Pt { x: p2.x - p1.x, y: p2.y -p1.y };
+            let normal = Pt { x: -tangent.y, y: tangent.x };
+
+            let scale = 5.0;
+            let p = project_to_line((*c1,*c2),(*p1,*p2)); // world coords
+            let p = model.world_to_screen_cont(p); 
+            let pa = ImVec2 { x: p.x + scale*(normal.x as f32), 
+                              y: p.y + scale*(-normal.y as f32) };
+            let pb = ImVec2 { x: p.x + scale*(-normal.x as f32),
+                              y: p.y + scale*(-(-normal.y) as f32) };
+
+            let p1 = model.world_to_screen(*p1); 
+            let p2 = model.world_to_screen(*p2);
+
+            ImDrawList_AddLine(draw_list,
+                   ImVec2 { x: pos.x + p1.x, y: pos.y + p1.y },
+                   ImVec2 { x: pos.x + p2.x, y: pos.y + p2.y },
+                   c3, 4.0);
+
+            ImDrawList_AddLine(draw_list,
+                   ImVec2 { x: pos.x + pa.x, y: pos.y + pa.y },
+                   ImVec2 { x: pos.x + pb.x, y: pos.y + pb.y },
+                   c4, 2.0);
         }
 
         ImDrawList_PopClipRect(draw_list);
