@@ -67,7 +67,9 @@ pub struct Objects { // TODO rename Railway->Topology and make Railway a contain
 pub struct Object {
 }
 
-pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
+pub fn to_railway(mut pieces :SymSet<Pt>, 
+                  node_overrides :&HashMap<Pt,NDType>, 
+                  def_len :f64) -> Result<Railway, ()>{
     // while edges:
     // 1. pick any edge from bi-indexed set
     // 2. follow edge to nodes, removing nodes from set
@@ -103,6 +105,8 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
         locs.entry(b.0).or_insert(Vec::new()).push(((track_idx, AB::B), b.1));
         println!("after iter PIECES {:?}", pieces);
     }
+
+
         // Now we have tracks from node locations A/B
     // and locations with each track's incoming angles
     // We want to transform into 
@@ -162,6 +166,13 @@ pub fn to_railway(mut pieces :SymSet<Pt>, def_len :f64) -> Result<Railway, ()>{
                 if !found { panic!("switch didn't work"); } // TODO add err values?
             },
             _ => unimplemented!(), // TODO
+        };
+
+        // Override node type
+        if let Some(nd) = node_overrides.get(&p) {
+            println!("OVERRIDE {:?}", locx.last());
+            locx.last_mut().unwrap().1 = *nd;
+            println!("OVERRIDE {:?}", locx.last());
         }
     }
 

@@ -17,8 +17,8 @@ pub struct Document {
     // TODO symbols, node types, etc.
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
-
     objects :Vec<(usize,f32,Object)>,
+    node_data :HashMap<Pt, NDType>, // copied into railway when topology has changed
 }
 
 #[derive(Debug)]
@@ -30,6 +30,7 @@ pub struct SchematicCanvas {
     translate :Option<ImVec2>,
     adding_line :Option<Pt>,
     adding_object: Option<((f32,f32),(Pt,Pt))>,  // Pt-continuous
+    editing_node: Option<Pt>,
 }
 
 
@@ -64,11 +65,21 @@ pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
 pub enum Tool { Scroll, Draw, Modify }
 
 impl SchematicCanvas {
+
+
+    pub fn refresh(&mut self) {
+        self.document.railway = to_railway(self.document.pieces.clone(), 
+                                           &self.document.node_data,
+                                           50.0).ok();
+    }
+
     pub fn new() -> Self {
+
         SchematicCanvas {
             document: Document {
                 pieces: SymSet::new(),
                 objects: Vec::new(),
+                node_data: HashMap::new(),
                 railway: None,
             },
             selected_pieces: HashSet::new(),
@@ -77,6 +88,7 @@ impl SchematicCanvas {
             scale: None,
             translate :None,//ImVec2{ x:0.0, y:0.0 },
             adding_object: None,
+            editing_node: None,
         }
     }
 
@@ -279,31 +291,21 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                    c, 2.0);
         };
 
-        // context menu at point
-        if igIsItemHovered(0) && igIsMouseReleased(1) {
-            // NOTE some duplicate state here, model contains the point clicked
-            // and imgui popup state contains the location of the popup window?
-            let loc = model.screen_to_world_cont(pointer_incanvas);
-            if let Some(edge) = model.closest_edge(loc) {
-                println!("OBJ {:?}", (loc,edge));
-                model.adding_object = Some((loc,edge));
-            }
-            igOpenPopup(const_cstr!("ctx").as_ptr());
-        } else if !igIsPopupOpen(const_cstr!("ctx").as_ptr()) {
-            model.adding_object = None; // Cancelled by GUI
-        }
-
-        if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-            if igSelectable(const_cstr!("signal").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
-                println!("Add signal at {:?}", model.adding_object.unwrap());
-            }
-            if igSelectable(const_cstr!("detector").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
-                println!("Add detector at {:?}", model.adding_object.unwrap());
-            }
-            igEndPopup();
-        }
 
         if let Tool::Draw = &model.tool {
+            // context menu at edge for adding objects
+            if igIsItemHovered(0) && igIsMouseReleased(1) {
+                // NOTE some duplicate state here, model contains the point clicked
+                // and imgui popup state contains the location of the popup window?
+                let loc = model.screen_to_world_cont(pointer_incanvas);
+                if let Some(edge) = model.closest_edge(loc) {
+                    println!("OBJ {:?}", (loc,edge));
+                    model.adding_object = Some((loc,edge));
+                }
+                igOpenPopup(const_cstr!("ctx").as_ptr());
+            } 
+                
+
             // Drawing or adding line
             match (igIsItemHovered(0), igIsMouseDown(0), &mut model.adding_line) {
                 (true, true, None)   => { model.adding_line = Some(pointer_grid); },
@@ -315,7 +317,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                             model.document.pieces.insert((p1,p2));
                         }
                     }
-                    model.document.railway = to_railway(model.document.pieces.clone(), 50.0).ok();
+                    model.refresh();
                     println!("Got new railway:");
                     println!("{:#?}", &model.document.railway);
                     model.adding_line = None;
@@ -335,6 +337,22 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         }
 
         if let Tool::Modify = &model.tool {
+
+            if igIsItemHovered(0) && igIsMouseReleased(1) {
+                // right click opens context menu on node
+                let loc = model.screen_to_world(pointer_incanvas);
+                // find node
+                if let Some(r) = &model.document.railway {
+                    for (p,_,_) in &r.locations {
+                        if *p == loc {
+                            model.editing_node = Some(*p);
+                            igOpenPopup(const_cstr!("ctx").as_ptr());
+                        }
+                    }
+                }
+            }
+
+
             // TODO just sketching
             //
             //
@@ -412,7 +430,19 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                         ImDrawList_AddLine(draw_list, pt,pb, c3, 2.0);
 
                     },
-                    NDType::BufferStop => {},
+                    NDType::BufferStop => {
+                        let tangent = vc;
+                        let normal = Pt { x: -vc.y, y: vc.x };
+                        let tl = ((tangent.x.abs() + tangent.y.abs()) as f32).sqrt();
+                        let scale=5.0/tl;
+                        let pt = ImVec2 { x: pos.x + p1.x, y: pos.y + p1.y };
+                        let pa = ImVec2 { x: pt.x + scale*( normal.x as f32),
+                                          y: pt.y + scale*((-normal.y  as f32)) };
+                        let pb = ImVec2 { x: pt.x + scale*(- normal.x as f32),
+                                          y: pt.y + scale*((-(-normal.y) as f32)) };
+                        ImDrawList_AddLine(draw_list, pt,pa, c4, 2.0);
+                        ImDrawList_AddLine(draw_list, pt,pb, c4, 2.0);
+                    },
                     NDType::Cont => {
                         ImDrawList_AddCircleFilled(draw_list, ImVec2 { x: pos.x + p1.x, 
                             y: pos.y + p1.y }, 6.0, c5, 8);
@@ -463,6 +493,40 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                    ImVec2 { x: pos.x + pa.x, y: pos.y + pa.y },
                    ImVec2 { x: pos.x + pb.x, y: pos.y + pb.y },
                    c4, 2.0);
+        }
+
+        if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
+            if let Some(o) = &model.adding_object {
+                if igSelectable(const_cstr!("signal").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
+                    println!("Add signal at {:?}", model.adding_object.unwrap());
+                }
+                if igSelectable(const_cstr!("detector").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
+                    println!("Add detector at {:?}", model.adding_object.unwrap());
+                }
+            }
+            if let Some(pt) = &model.editing_node {
+                let pt = *pt;
+
+                if igSelectable(const_cstr!("Nodetype OpenEnd").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
+                    model.document.node_data.insert(pt,NDType::OpenEnd);
+                    println!("NODE DATA {:?}", model.document.node_data);
+                    model.editing_node = None;
+                    model.refresh();
+                }
+                if igSelectable(const_cstr!("Nodetype BufferStop").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
+                    model.document.node_data.insert(pt,NDType::BufferStop);
+                    println!("NODE DATA {:?}", model.document.node_data);
+                    model.editing_node = None;
+                    model.refresh();
+                }
+            }
+
+            igEndPopup();
+        }
+
+        if !igIsPopupOpen(const_cstr!("ctx").as_ptr()) {
+            model.adding_object = None; // Cancelled by GUI
+            model.editing_node = None; // Cancelled by GUI
         }
 
         ImDrawList_PopClipRect(draw_list);
