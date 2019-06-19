@@ -10,6 +10,8 @@ use crate::pt::*;
 use crate::symset::*;
 use crate::topology::*;
 
+pub type PtC = (f32,f32);
+
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 pub struct Document {
@@ -17,7 +19,7 @@ pub struct Document {
     // TODO symbols, node types, etc.
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
-    objects :Vec<(usize,f32,Object)>,
+    objects :Vec<(PtC,Object)>,
     node_data :HashMap<Pt, NDType>, // copied into railway when topology has changed
 }
 
@@ -468,6 +470,25 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             }
         }
 
+        // Draw objects
+        for (p,o) in &model.document.objects {
+            let p = model.world_to_screen_cont(*p);
+            match o {
+                Object::Signal(_dir) => {
+                    ImDrawList_AddCircleFilled(draw_list,
+                                               ImVec2 { x: pos.x + p.x,
+                                                        y: pos.y + p.y },
+                                               5.0, c6, 8);
+                },
+                Object::Detector => {
+                    ImDrawList_AddCircleFilled(draw_list,
+                                               ImVec2 { x: pos.x + p.x,
+                                                        y: pos.y + p.y },
+                                               5.0, c5, 8);
+                },
+            }
+        }
+
         // Highlight edge
         if let Some(((c1,c2),(p1,p2))) = &model.adding_object {
             let tangent = Pt { x: p2.x - p1.x, y: p2.y -p1.y };
@@ -498,10 +519,12 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
             if let Some(o) = &model.adding_object {
                 if igSelectable(const_cstr!("signal").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
-                    println!("Add signal at {:?}", model.adding_object.unwrap());
+                    println!("Add signal at {:?}", o);
+                    model.document.objects.push((o.0, Object::Signal(AB::A)));
                 }
                 if igSelectable(const_cstr!("detector").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
-                    println!("Add detector at {:?}", model.adding_object.unwrap());
+                    println!("Add detector at {:?}", o);
+                    model.document.objects.push((o.0, Object::Detector));
                 }
             }
             if let Some(pt) = &model.editing_node {

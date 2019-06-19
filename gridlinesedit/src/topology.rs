@@ -64,7 +64,9 @@ pub struct Objects { // TODO rename Railway->Topology and make Railway a contain
 
 #[derive(Debug)]
 #[derive(Serialize,Deserialize)]
-pub struct Object {
+pub enum Object {
+    Signal(AB),
+    Detector,
 }
 
 pub fn to_railway(mut pieces :SymSet<Pt>, 
