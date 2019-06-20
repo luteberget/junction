@@ -19,6 +19,9 @@ pub struct Document {
     // TODO symbols, node types, etc.
     // TODO how to do naming etc in dispatches / movements.
     railway :Option<Railway>,
+
+    // Objects are stored by their position. 
+    // The rest of the information is derived
     objects :Vec<(PtC,Object)>,
     node_data :HashMap<Pt, NDType>, // copied into railway when topology has changed
 }
@@ -64,14 +67,54 @@ pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
 }
 
 #[derive(Debug)]
-pub enum Tool { Scroll, Draw, Modify }
+pub enum Tool { Scroll, Draw, Modify, Erase }
 
 impl SchematicCanvas {
 
+    pub fn add_signal(&mut self, pt :PtC) {
+
+        if let Some((p1,p2)) = self.closest_edge(pt) {
+            let pt_on_edge = project_to_line(pt,(p1,p2));
+            let normal = (pt.0 - pt_on_edge.0, pt.1 - pt_on_edge.1);
+            if normal.0.abs() + normal.1.abs() > 0.0 {
+                let normal_len = (normal.0 * normal.0 + normal.1 * normal.1).sqrt();
+                let normal_normal = (normal.0 / normal_len, normal.1 / normal_len);
+                let new_pt = (pt_on_edge.0 + normal_normal.0 * 0.25, 
+                              pt_on_edge.1 + normal_normal.1 * 0.25);
+                let angle = modu((normal.1.atan2(normal.0) / (2.0 * std::f32::consts::PI) * 8.0).round() as i8 + 2, 8);
+                println!("signal at {:?}, tangent {:?}", pt, angle_v(angle));
+                self.document.objects.push((new_pt, Object {
+                    data: ObjectData::Signal,
+                    tangent: angle_v(angle),
+                    mileage: None,
+                    distance: None,
+                }));
+            } else {
+                eprintln!("Cannot add signal here?");
+            }
+        } else {
+            eprintln!("Cannot add signal here?");
+        }
+    }
+
+    pub fn add_detector(&mut self, pt :PtC) {
+        // project it to the nearest point on th eline
+        if let Some((p1,p2)) = self.closest_edge(pt) {
+            let tangent = Pt { x: p2.x - p1.x, y: p2.y - p1.y };
+            let pt = project_to_line(pt,(p1,p2)); // world coords
+            println!("detector at {:?}, tangent {:?}", pt, tangent);
+            self.document.objects.push((pt, Object {
+                data: ObjectData::Detector,
+                tangent: tangent,
+                mileage: None,
+                distance: None,
+            }));
+        }
+    }
 
     pub fn refresh(&mut self) {
         self.document.railway = to_railway(self.document.pieces.clone(), 
-                                           &self.document.node_data,
+                                           &mut self.document.node_data,
                                            50.0).ok();
     }
 
@@ -245,6 +288,10 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         if tool_button(const_cstr!("Drw").as_ptr(), matches!(&model.tool, Tool::Draw)) {
             model.tool = Tool::Draw;
         }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("Ers").as_ptr(), matches!(&model.tool, Tool::Erase)) {
+            model.tool = Tool::Erase;
+        }
 
 
         let io = igGetIO();
@@ -282,6 +329,10 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             }
             if igIsKeyPressed('D' as _, false) {
                 model.tool = Tool::Draw; 
+                println!("tool {:?}", model.tool);
+            }
+            if igIsKeyPressed('F' as _, false) {
+                model.tool = Tool::Erase; 
                 println!("tool {:?}", model.tool);
             }
         }
@@ -339,6 +390,18 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                 t.x -= (*io).MouseDelta.x;
                 t.y -= (*io).MouseDelta.y;
 
+            }
+        }
+
+        if let Tool::Erase = &model.tool {
+            if igIsItemHovered(0) && igIsMouseDown(0) {
+                // find nearest edge and erase it
+                let loc = model.screen_to_world_cont(pointer_incanvas);
+                if let Some(edge) = model.closest_edge(loc) {
+                    println!("ERASE {:?}", edge);
+                    model.document.pieces.remove(edge);
+                    model.refresh();
+                }
             }
         }
 
@@ -477,18 +540,48 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         // Draw objects
         for (p,o) in &model.document.objects {
             let p = model.world_to_screen_cont(*p);
-            match o {
-                Object::Signal(_dir) => {
-                    ImDrawList_AddCircleFilled(draw_list,
-                                               ImVec2 { x: pos.x + p.x,
-                                                        y: pos.y + p.y },
-                                               5.0, c6, 8);
+            match o.data {
+                ObjectData::Signal => {
+                    let scale = 5.0;
+                    let tangent = o.tangent;
+                    let normal = Vc { x: -tangent.y, y: tangent.x };
+
+                    let p2 = ImVec2 { x: p.x + scale*(tangent.x as f32),
+                                      y: p.y + scale*(-tangent.y as f32) };
+                    let p3 = ImVec2 { x: p2.x + scale*(tangent.x as f32),
+                                      y: p2.y + scale*(-tangent.y as f32) };
+
+                    let pa = ImVec2 { x: p.x + scale*(normal.x as f32),
+                                      y: p.y + scale*(-normal.y as f32) };
+                    let pb = ImVec2 { x: p.x + scale*(-normal.x as f32),
+                                      y: p.y + scale*(normal.y as f32) };
+
+                    ImDrawList_AddLine(draw_list,
+                           ImVec2 { x: pos.x + p.x, y: pos.y + p.y },
+                           ImVec2 { x: pos.x + p2.x, y: pos.y + p2.y },
+                           c4, 2.0);
+                    ImDrawList_AddLine(draw_list,
+                           ImVec2 { x: pos.x + pa.x, y: pos.y + pa.y },
+                           ImVec2 { x: pos.x + pb.x, y: pos.y + pb.y },
+                           c4, 2.0);
+                    ImDrawList_AddCircle(draw_list,
+                           ImVec2 { x: pos.x + p3.x, y: pos.y + p3.y },
+                           scale, c4, 8, 2.0);
+
                 },
-                Object::Detector => {
-                    ImDrawList_AddCircleFilled(draw_list,
-                                               ImVec2 { x: pos.x + p.x,
-                                                        y: pos.y + p.y },
-                                               5.0, c5, 8);
+                ObjectData::Detector => {
+                    let scale = 5.0;
+                    let tangent = o.tangent;
+                    let normal = Vc { x: -tangent.y, y: tangent.x };
+                    let pa = ImVec2 { x: p.x + scale*(normal.x as f32), 
+                                      y: p.y + scale*(-normal.y as f32) };
+                    let pb = ImVec2 { x: p.x + scale*(-normal.x as f32),
+                                      y: p.y + scale*(-(-normal.y) as f32) };
+
+                    ImDrawList_AddLine(draw_list,
+                           ImVec2 { x: pos.x + pa.x, y: pos.y + pa.y },
+                           ImVec2 { x: pos.x + pb.x, y: pos.y + pb.y },
+                           c4, 2.0);
                 },
             }
         }
@@ -521,14 +614,16 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         }
 
         if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-            if let Some(o) = &model.adding_object {
+            if let Some((o,_)) = &model.adding_object {
+                let o = *o;
                 if igSelectable(const_cstr!("signal").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
                     println!("Add signal at {:?}", o);
-                    model.document.objects.push((o.0, Object::Signal(AB::A)));
+                    //model.document.objects.push((o.0, Object::Signal(AB::A)));
+                    model.add_signal(o);
                 }
                 if igSelectable(const_cstr!("detector").as_ptr(), false, 0 as _, ImVec2 { x: 0.0, y: 0.0 }) {
                     println!("Add detector at {:?}", o);
-                    model.document.objects.push((o.0, Object::Detector));
+                    model.add_detector(o);
                 }
             }
             if let Some(pt) = &model.editing_node {

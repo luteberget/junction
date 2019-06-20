@@ -56,21 +56,39 @@ pub struct Railway {
 
 #[derive(Debug)]
 #[derive(Serialize,Deserialize)]
-pub struct Objects { // TODO rename Railway->Topology and make Railway a container for topo and objs.
-
-    // A=up/B=down here refers to the Railway.track orientation
-    pub objects: Vec<(usize, f64, AB, Object)>, // track, offset, dir, objdata
+pub enum ObjectData {
+    Signal,
+    Detector,
 }
 
 #[derive(Debug)]
 #[derive(Serialize,Deserialize)]
-pub enum Object {
-    Signal(AB),
+pub enum Function {
+    MainSignal,
+    DistantSignal,
+    ShuntingSignal,
     Detector,
 }
 
+#[derive(Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct Object {
+    pub data :ObjectData,
+    // TODO pub functions: SmallVec<[Function; 4]>,
+
+    // Three levels of detail for placing objects:
+    //  1. proportional to visual distance along edge
+    //  2. by mileage (within mileage range of track ends)
+    //  3. position (driven distance) from *what?*
+    //
+
+    pub tangent : Vc,
+    pub mileage : Option<f32>,
+    pub distance: Option<()>, // TODO what model
+}
+
 pub fn to_railway(mut pieces :SymSet<Pt>, 
-                  node_overrides :&HashMap<Pt,NDType>, 
+                  node_overrides :&mut HashMap<Pt,NDType>, 
                   def_len :f64) -> Result<Railway, ()>{
     // while edges:
     // 1. pick any edge from bi-indexed set
@@ -127,16 +145,16 @@ pub fn to_railway(mut pieces :SymSet<Pt>,
         AB::A => tp[i].0 = val,
         AB::B => tp[i].1 = val,
     };
-    let mut locx :Vec<(Pt, NDType, Vc)> = Vec::new();
+    let mut locx :HashMap<Pt, (NDType, Vc)> = HashMap::new();
     for (l_i,(p,conns)) in locs.into_iter().enumerate() {
         match conns.as_slice() {
             [(t,q)] => {
                 settr(*t,Some((l_i, Port::End)));
-                locx.push((p, NDType::OpenEnd, pt_sub(*q,p)));
+                locx.insert(p, (NDType::OpenEnd, pt_sub(*q,p)));
             },
             [(t1,q1),(t2,q2)] => {
                 settr(*t1,Some((l_i,Port::ContA))); settr(*t2,Some((l_i,Port::ContB)));
-                locx.push((p, NDType::Cont, pt_sub(*q1,p)));
+                locx.insert(p, (NDType::Cont, pt_sub(*q1,p)));
             },
             [(t1,q1),(t2,q2),(t3,q3)] => {
                 let track_idxs = [*t1,*t2,*t3];
@@ -162,27 +180,28 @@ pub fn to_railway(mut pieces :SymSet<Pt>,
                     settr(track_idxs[pm[0]],Some((l_i, Port::Trunk)));
                     settr(track_idxs[pm[1]],Some((l_i, side.opposite().to_port())));
                     settr(track_idxs[pm[2]],Some((l_i, side.to_port())));
-                    locx.push((p, NDType::Sw(side), pt_sub(qs[pm[1]], p)));
+                    locx.insert(p, (NDType::Sw(side), pt_sub(qs[pm[1]], p)));
                     break;
                 }
                 if !found { panic!("switch didn't work"); } // TODO add err values?
             },
             _ => unimplemented!(), // TODO
         };
-
-        // Override node type
-        if let Some(nd) = node_overrides.get(&p) {
-            println!("OVERRIDE {:?}", locx.last());
-            locx.last_mut().unwrap().1 = *nd;
-            println!("OVERRIDE {:?}", locx.last());
-        }
     }
+
+    node_overrides.retain(|k,ndtype| {
+        if let Some((n,vc)) = locx.get_mut(k) {
+            *n = *ndtype;
+            true
+        } else { println!("node_overrides: removeing {:?}", k); false }
+    });
+    
 
     let tp :Vec<((usize,Port),(usize,Port),f64)> = tp.into_iter()
         .map(|(a,b,l)| (a.unwrap(),b.unwrap(),l)).collect();
 
         Ok(Railway {
-        locations: locx,
+        locations: locx.into_iter().map(|(p,(n,v))| (p,n,v)).collect(),
         tracks: tp,
     })
 }
