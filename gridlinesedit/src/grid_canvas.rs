@@ -12,33 +12,6 @@ use crate::topology::*;
 
 pub type PtC = (f32,f32);
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug)]
-pub struct Document {
-    pieces :SymSet<Pt>,
-    // TODO symbols, node types, etc.
-    // TODO how to do naming etc in dispatches / movements.
-    railway :Option<Railway>,
-
-    // Objects are stored by their position. 
-    // The rest of the information is derived
-    objects :Vec<(PtC,Object)>,
-    node_data :HashMap<Pt, NDType>, // copied into railway when topology has changed
-}
-
-#[derive(Debug)]
-pub struct SchematicCanvas {
-    document :Document,
-    tool: Tool,
-    selected_pieces :HashSet<(Pt,Pt)>,
-    scale: Option<usize>,
-    translate :Option<ImVec2>,
-    adding_line :Option<Pt>,
-    adding_object: Option<((f32,f32),(Pt,Pt))>,  // Pt-continuous
-    editing_node: Option<Pt>,
-}
-
-
 pub fn lsqr(a :(f32,f32), b :(f32,f32)) -> f32 {
     let dx = b.0-a.0;
     let dy = b.1-a.1;
@@ -69,7 +42,68 @@ pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
 #[derive(Debug)]
 pub enum Tool { Scroll, Draw, Modify, Erase }
 
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+pub struct Document {
+    pieces :SymSet<Pt>,
+    // TODO symbols, node types, etc.
+    // TODO how to do naming etc in dispatches / movements.
+    railway :Option<Railway>,
+
+    // Objects are stored by their position. 
+    // The rest of the information is derived
+    objects :Vec<(PtC,Object)>,
+    node_data :HashMap<Pt, NDType>, // copied into railway when topology has changed
+}
+
+#[derive(Debug)]
+pub struct SchematicCanvas {
+    document :Document,
+    tool: Tool,
+    selection : (HashSet<(Pt,Pt)>, HashSet<usize>),
+    scale: Option<usize>,
+    translate :Option<ImVec2>,
+    adding_line :Option<Pt>,
+    adding_object: Option<((f32,f32),(Pt,Pt))>,  // Pt-continuous
+    editing_node: Option<Pt>,
+    selecting_rectangle: Option<ImVec4>,
+    dragging_objects :Option<PtC>,
+}
+
+// TODO model editor state like this
+enum CurrentAction {
+    None,
+    DrawingLine(Pt),
+    SelectObjectType(()),
+    PlacingObject(PtC, (Pt,Pt)),
+    EditingNode(Pt),
+    EditingObject(usize),
+    SelectingRectangle(ImVec4),
+    DraggingObjectsDiscretely(PtC),
+}
+
 impl SchematicCanvas {
+
+    pub fn new() -> Self {
+
+        SchematicCanvas {
+            document: Document {
+                pieces: SymSet::new(),
+                objects: Vec::new(),
+                node_data: HashMap::new(),
+                railway: None,
+            },
+            selection: (HashSet::new(), HashSet::new()),
+            tool: Tool::Scroll,
+            adding_line: None,
+            scale: None,
+            translate :None,//ImVec2{ x:0.0, y:0.0 },
+            adding_object: None,
+            editing_node: None,
+            selecting_rectangle: None,
+            dragging_objects: None,
+        }
+    }
 
     pub fn add_signal(&mut self, pt :PtC) {
 
@@ -118,24 +152,6 @@ impl SchematicCanvas {
                                            50.0).ok();
     }
 
-    pub fn new() -> Self {
-
-        SchematicCanvas {
-            document: Document {
-                pieces: SymSet::new(),
-                objects: Vec::new(),
-                node_data: HashMap::new(),
-                railway: None,
-            },
-            selected_pieces: HashSet::new(),
-            tool: Tool::Scroll,
-            adding_line: None,
-            scale: None,
-            translate :None,//ImVec2{ x:0.0, y:0.0 },
-            adding_object: None,
-            editing_node: None,
-        }
-    }
 
     pub fn closest_edge(&self, (x,y) :(f32,f32)) -> Option<(Pt,Pt)> {
         let (xl,xh) = ((x-0.0) as i32, ((x+x.signum()*1.0) as i32));
@@ -202,6 +218,109 @@ impl SchematicCanvas {
         let lo = self.screen_to_world(ImVec2 { x: 0.0, y: size.y });
         let hi = self.screen_to_world(ImVec2 { x: size.x, y: 0.0 });
         (lo,hi)
+    }
+
+    pub fn set_selection_rect(&mut self, a_in :PtC, b_in :PtC) {
+        let a = (a_in.0.min(b_in.0), a_in.1.min(b_in.1));
+        let b = (a_in.0.max(b_in.0), a_in.1.max(b_in.1));
+        println!("Selecting {:?} {:?}", a, b);
+        self.selection.0.clear();
+        self.selection.1.clear();
+        // select edges
+        let doc = &mut self.document;
+        let set = &mut self.selection.0;
+        doc.pieces.iter(|p1,p2| {
+            for e in &[p1,p2] {
+                let p = (e.x as f32, e.y as f32);
+                if a.0 <= p.0 && p.0 <= b.0 && a.1 <= p.1 && p.1 <= b.1 {
+                    set.insert((*p1,*p2));
+                }
+            }
+        });
+        for (i,(p,_)) in self.document.objects.iter().enumerate() {
+            if a.0 <= p.0 && p.0 <= b.0 && a.1 <= p.1 && p.1 <= b.1 {
+                self.selection.1.insert(i);
+            }
+        }
+
+        println!("Selected pieces {:?} ",self.selection.0);
+    }
+
+    pub fn set_selection_closest(&mut self, pt :PtC, threshold :f32) {
+        let t2 = threshold*threshold;
+        let mut near = Vec::new();
+        pub enum Thing { Object(usize), Edge(Pt,Pt) }
+        self.document.pieces.iter(|p1,p2| {
+            let dist = dist_to_line_sqr(pt,(*p1,*p2));
+            if dist < t2 { near.push((dist,Thing::Edge(*p1,*p2))); }
+        });
+        for (i,(q,_)) in self.document.objects.iter().enumerate() {
+            let dist = lsqr(pt,*q);
+            if dist < t2 { near.push((dist,Thing::Object(i))); }
+        }
+        let sel = near.into_iter().fold(None, |min, x| match min {
+            None => Some(x),
+            Some(y) => Some(if x.0 < y.0 { x } else { y }),
+        });
+        self.selection.0.clear();
+        self.selection.1.clear();
+        match sel {
+            Some((_,Thing::Edge(p1,p2))) => { self.selection.0.insert((p1,p2)); },
+            Some((_,Thing::Object(i))) => { self.selection.1.insert(i); },
+            _ => {},
+        }
+    }
+
+    pub fn realize_discrete_drag(&mut self) -> bool {
+        let vx = self.dragging_objects.unwrap().0;
+        let mut changed = false;
+        if vx.abs() >= 1.0 {
+            self.move_selected_pieces(Pt { x: vx.signum() as i32, y: 0 });
+            self.move_selected_objects((vx.signum(), 0.0));
+            self.dragging_objects.as_mut().unwrap().0 -= vx.signum()*1.0;
+            changed = true;
+        }
+        let vy = self.dragging_objects.unwrap().1;
+        if vy.abs() >= 1.0 {
+            self.move_selected_pieces(Pt { x: 0, y: vy.signum() as i32 });
+            self.move_selected_objects((0.0, vy.signum()));
+            self.dragging_objects.as_mut().unwrap().1 -= vy.signum()*1.0;
+            changed = true;
+        }
+        changed
+    }
+
+    pub fn move_selected_pieces(&mut self, d: Pt) {
+        println!(" MOVE by {:?} \n\n\n",d);
+        // Edges
+        let mut new_selection = HashSet::new();
+        for (p1,p2) in self.selection.0.drain() {
+            self.document.pieces.remove((p1,p2));
+            let p1 = Pt { x: p1.x + d.x, y: p1.y + d.y };
+            let p2 = Pt { x: p2.x + d.x, y: p2.y + d.y };
+            new_selection.insert((p1,p2));
+        }
+
+        for e in &new_selection { self.document.pieces.insert(*e); }
+
+        let node_data = self.document.node_data.clone();
+        let node_data = node_data.into_iter()
+            .map(|(pt,x)| (Pt { x: pt.x + d.x, y: pt.y + d.y }, x)).collect();
+        self.document.node_data = node_data;
+
+        self.selection.0 = new_selection;
+        println!(" MOVE DONE \n\n\n");
+    }
+
+    pub fn move_selected_objects(&mut self, d :PtC) {
+
+        // Objects
+        for i in self.selection.1.iter() {
+            let i = *i;
+            let old = self.document.objects[i].0;
+            let new = (old.0+d.0,old.1+d.1);
+            self.document.objects[i].0 = new;
+        }
     }
 
     pub fn route_line(from :Pt, to :Pt) -> Vec<(Pt,Pt)> {
@@ -313,7 +432,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         ImDrawList_PushClipRect(draw_list, pos, ImVec2 { x: pos.x + size.x, y: pos.y + size.y}, true);
 
         // Handle mouse wheel
-        model.scale = Some( (model.scale.unwrap_or(35) as f32 + (*io).MouseWheel).max(5.0).min(100.0).round() as _ );
+        model.scale = Some( (model.scale.unwrap_or(35) as f32 + 3.0*(*io).MouseWheel).max(20.0).min(150.0).round() as _ );
 
         // Handle normal keys
         let special_key = (*io).KeyCtrl | (*io).KeyAlt | (*io).KeySuper;
@@ -422,6 +541,72 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
             }
 
 
+            let special_key = (*io).KeyCtrl | (*io).KeyAlt | (*io).KeySuper;
+            if (igIsItemActive() || !igIsAnyItemActive()) && !special_key {
+                if igIsKeyPressed('X' as _, false) { 
+                    println!("delete {:?}", model.selection);
+                    for e in model.selection.0.drain() {
+                        model.document.pieces.remove(e);
+                    }
+                    let mut objs = model.selection.1.drain().collect::<Vec<_>>();
+                    objs.sort_by_key(|i| -(*i as isize));
+                    for i in objs {
+                        model.document.objects.remove(i);
+                    }
+                    model.refresh();
+                }
+            }
+            //
+            // MOVE THINGS
+            if igIsMouseDragging(1,-1.0) {
+                // MOVE THINGS
+                let discrete = !model.selection.0.is_empty();
+                let w1 = model.screen_to_world_cont(ImVec2 { x: 0.0, y: 0.0 });
+                let w2 = model.screen_to_world_cont((*io).MouseDelta);
+                let d = (w2.0 - w1.0, w2.1 - w1.1);
+                if discrete {
+                    if model.dragging_objects.is_none() { 
+                        model.dragging_objects = Some((0.0,0.0));
+                    }
+
+                    let v = model.dragging_objects.as_mut().unwrap();
+                    *v = (v.0 + d.0, v.1 + d.1);
+                    if model.realize_discrete_drag() { model.refresh(); }
+
+                } else {
+                    model.move_selected_objects(d);
+                }
+            } else {
+                model.dragging_objects = None;
+            }
+
+            if igIsMouseDragging(0,-1.0) {
+                let a = (*io).MouseClickedPos[0];
+                let a = ImVec2 { x: a.x - pos.x, y: a.y - pos.y };
+                let delta = igGetMouseDragDelta_nonUDT2(0,-1.0);
+                let b = ImVec2 { x: a.x + delta.x, y: a.y + delta.y };
+                //println!("dragging {:?} {:?}", (*io).MouseClickedPos, delta);
+                ImDrawList_AddRect(draw_list,
+                                   ImVec2 { x: pos.x + a.x, y: pos.y + a.y },
+                                   ImVec2 { x: pos.x + b.x, y: pos.y + b.y },
+                                   c2,0.0,0,1.0);
+                model.selecting_rectangle = Some(ImVec4 { x: a.x, y: a.y, z: b.x, w: b.y });
+            } else {
+                if let Some(rect) = &model.selecting_rectangle {
+                    println!("SELECTING {:?}", rect); 
+                    let a = model.screen_to_world_cont(ImVec2 { x: rect.x, y: rect.y });
+                    let b = model.screen_to_world_cont(ImVec2 { x: rect.z, y: rect.w });
+                    model.set_selection_rect(a,b);
+                    model.selecting_rectangle = None;
+                }
+            }
+
+            if igIsItemHovered(0) && igIsMouseClicked(0,false) {
+                model.set_selection_closest(model.screen_to_world_cont(pointer_incanvas), 
+                                            5.0 / model.scale.unwrap_or(35) as f32);
+            }
+
+
             // TODO just sketching
             //
             //
@@ -448,7 +633,8 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         for (p,set) in &model.document.pieces.map {
             for q in set {
                 if p < q {
-                    line(c2, &model.world_to_screen(*p), &model.world_to_screen(*q));
+                    let col = if model.selection.0.contains(&(*p,*q)) { c3 } else { c2 };
+                    line(col, &model.world_to_screen(*p), &model.world_to_screen(*q));
                 }
             }
         }
@@ -538,12 +724,14 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         }
 
         // Draw objects
-        for (p,o) in &model.document.objects {
+        for (obj_i,(p,o)) in model.document.objects.iter().enumerate() {
             let p = model.world_to_screen_cont(*p);
+            let selected = model.selection.1.contains(&obj_i);
             match o.data {
                 ObjectData::Signal => {
                     let scale = 5.0;
                     let tangent = o.tangent;
+                    let c = if selected { c5 } else { c4 };
                     let normal = Vc { x: -tangent.y, y: tangent.x };
 
                     let p2 = ImVec2 { x: p.x + scale*(tangent.x as f32),
@@ -559,17 +747,18 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                     ImDrawList_AddLine(draw_list,
                            ImVec2 { x: pos.x + p.x, y: pos.y + p.y },
                            ImVec2 { x: pos.x + p2.x, y: pos.y + p2.y },
-                           c4, 2.0);
+                           c, 2.0);
                     ImDrawList_AddLine(draw_list,
                            ImVec2 { x: pos.x + pa.x, y: pos.y + pa.y },
                            ImVec2 { x: pos.x + pb.x, y: pos.y + pb.y },
-                           c4, 2.0);
+                           c, 2.0);
                     ImDrawList_AddCircle(draw_list,
                            ImVec2 { x: pos.x + p3.x, y: pos.y + p3.y },
-                           scale, c4, 8, 2.0);
+                           scale, c, 8, 2.0);
 
                 },
                 ObjectData::Detector => {
+                    let c = if selected { c5 } else { c4 };
                     let scale = 5.0;
                     let tangent = o.tangent;
                     let normal = Vc { x: -tangent.y, y: tangent.x };
@@ -581,7 +770,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
                     ImDrawList_AddLine(draw_list,
                            ImVec2 { x: pos.x + pa.x, y: pos.y + pa.y },
                            ImVec2 { x: pos.x + pb.x, y: pos.y + pb.y },
-                           c4, 2.0);
+                           c, 2.0);
                 },
             }
         }

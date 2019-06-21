@@ -10,6 +10,16 @@ pub struct SymSet<T:Ord+Copy> {
 impl<T:Ord+Copy> SymSet<T> {
     pub fn new() -> Self { SymSet { map: BTreeMap::new() } }
 
+    pub fn iter(&self, mut f :impl FnMut(&T,&T)) {
+        for (a,set) in self.map.iter() {
+            for b in set {
+                if !( a > b) {
+                    f(a,b);
+                }
+            }
+        }
+    }
+
     pub fn insert(&mut self, pt :(T,T)) -> bool {
         let r1 = self.map.entry(pt.0).or_insert(BTreeSet::new()).insert(pt.1);
         let r2 = self.map.entry(pt.1).or_insert(BTreeSet::new()).insert(pt.0);
