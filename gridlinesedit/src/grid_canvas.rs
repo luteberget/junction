@@ -272,41 +272,51 @@ impl SchematicCanvas {
     }
 
     pub fn realize_discrete_drag(&mut self) -> bool {
-        let vx = self.dragging_objects.unwrap().0;
+        let mut vx = self.dragging_objects.unwrap().0;
         let mut changed = false;
-        if vx.abs() >= 1.0 {
+        while vx.abs() >= 1.0 {
             self.move_selected_pieces(Pt { x: vx.signum() as i32, y: 0 });
             self.move_selected_objects((vx.signum(), 0.0));
-            self.dragging_objects.as_mut().unwrap().0 -= vx.signum()*1.0;
             changed = true;
+             vx -= vx.signum()*1.0;
         }
-        let vy = self.dragging_objects.unwrap().1;
-        if vy.abs() >= 1.0 {
+        self.dragging_objects.as_mut().unwrap().0 = vx;
+
+        let mut vy = self.dragging_objects.unwrap().1;
+        while vy.abs() >= 1.0 {
             self.move_selected_pieces(Pt { x: 0, y: vy.signum() as i32 });
             self.move_selected_objects((0.0, vy.signum()));
-            self.dragging_objects.as_mut().unwrap().1 -= vy.signum()*1.0;
+            vy -= vy.signum()*1.0;
             changed = true;
         }
+        self.dragging_objects.as_mut().unwrap().1 = vy;
+
         changed
     }
 
     pub fn move_selected_pieces(&mut self, d: Pt) {
         println!(" MOVE by {:?} \n\n\n",d);
+
         // Edges
         let mut new_selection = HashSet::new();
+        let mut affected_nodes = HashSet::new();
         for (p1,p2) in self.selection.0.drain() {
             self.document.pieces.remove((p1,p2));
             let p1 = Pt { x: p1.x + d.x, y: p1.y + d.y };
             let p2 = Pt { x: p2.x + d.x, y: p2.y + d.y };
             new_selection.insert((p1,p2));
+            affected_nodes.insert(p1);
+            affected_nodes.insert(p2);
+        }
+
+        for n in affected_nodes {
+            if let Some(v) = self.document.node_data.remove(&n) {
+                self.document.node_data.insert(Pt { x: n.x + d.x, y: n.y + d.y }, v);
+            }
         }
 
         for e in &new_selection { self.document.pieces.insert(*e); }
 
-        let node_data = self.document.node_data.clone();
-        let node_data = node_data.into_iter()
-            .map(|(pt,x)| (Pt { x: pt.x + d.x, y: pt.y + d.y }, x)).collect();
-        self.document.node_data = node_data;
 
         self.selection.0 = new_selection;
         println!(" MOVE DONE \n\n\n");
@@ -571,6 +581,8 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
 
                     let v = model.dragging_objects.as_mut().unwrap();
                     *v = (v.0 + d.0, v.1 + d.1);
+                    // TODO run this only when finished dragging, or else we are
+                    // erasing stuff while dragging.
                     if model.realize_discrete_drag() { model.refresh(); }
 
                 } else {
