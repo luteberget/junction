@@ -3,6 +3,27 @@ pub mod imgui {
 	#![allow(non_camel_case_types)]
 	#![allow(non_snake_case)]
 	include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+    impl From<ImVec2_Simple> for ImVec2 {
+        fn from(v :ImVec2_Simple) -> ImVec2 {
+            ImVec2 { x: v.x, y: v.y }
+        }
+    }
+
+    impl std::ops::Add for ImVec2 {
+        type Output=Self;
+        fn add(self, other :Self) -> Self {
+            Self { x: self.x + other.x, y: self.y + other.y }
+        }
+    }
+
+    impl std::ops::Sub for ImVec2 {
+        type Output=Self;
+        fn sub(self, other :Self) -> Self {
+            Self { x: self.x - other.x, y: self.y - other.y }
+        }
+    }
+
 }
 
 pub enum SystemAction {
