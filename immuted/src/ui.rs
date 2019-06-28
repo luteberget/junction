@@ -24,7 +24,7 @@ pub fn in_root_window(f :impl FnOnce()) {
     unsafe{
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         let io = igGetIO();
-        igSetNextWindowPos(zero, ImGuiCond__ImGuiCond_Always, zero);
+        igSetNextWindowPos(zero, ImGuiCond__ImGuiCond_Always as _ , zero);
         igSetNextWindowSize((*io).DisplaySize, ImGuiCond__ImGuiCond_Always as _);
         let win_flags = ImGuiWindowFlags__ImGuiWindowFlags_NoTitleBar
             | ImGuiWindowFlags__ImGuiWindowFlags_NoCollapse

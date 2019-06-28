@@ -87,3 +87,15 @@ pub struct Model {
     pub dispatches :im::Vector<Vec<(f32,Command)>>,
 }
 
+#[derive(Hash,PartialEq,Eq)]
+pub enum Ref {
+    Node(Pt),
+    Track(Pt,Pt),
+    Object(PtA),
+}
+
+impl Model {
+    pub fn get_closest(&self, pt :PtC) -> Option<Ref> {
+        unimplemented!()
+    }
+}

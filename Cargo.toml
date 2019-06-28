@@ -8,6 +8,7 @@ members = [
 	"lib/route_finder", 
 	"synthesis_tests",
 	"gridlinesedit",
+	"immuted",
 	"lib/numerical_optimization",
 ]
 

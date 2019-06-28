@@ -6,11 +6,11 @@ use crate::ui::col;
 use crate::ui::ImVec2;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
+use const_cstr::const_cstr;
 
 pub struct Canvas {
-    state :Action,
-    selection :Selection,
-    //dispatch :Option<(usize,f32)>,
+    action :Action,
+    selection :HashSet<Ref>,
     scale :usize,
     translation :ImVec2,
 }
@@ -19,41 +19,23 @@ pub enum Action {
     None,
     DrawingLine(Option<Pt>),
     DrawObjectType(Option<usize>),
-    ContextMenu(ContextMenu),
-}
-
-pub enum ContextMenu {
-    Node(Pt),
-    Track(Pt,Pt),
-    Object(PtA),
-}
-
-pub struct Selection {
-    tracks :HashSet<(Pt,Pt)>,
-    objects :HashSet<PtA>,
-}
-
-impl Selection {
-    pub fn empty() -> Self {
-        Self {
-            tracks: HashSet::new(),
-            objects: HashSet::new(),
-        }
-    }
+    ContextMenu,
+    MoveSelection,
+    SelectWindow,
 }
 
 impl Canvas {
     pub fn new() -> Self {
         Self {
-            state :Action::None,
-            selection :Selection::empty(),
-            //dispatch : None,
+            action :Action::None,
+            selection :HashSet::new(),
             scale: 35,
             translation: ImVec2 { x: 0.0, y: 0.0 },
         }
     }
 
     pub fn draw(&mut self, doc :&mut Undoable<Model>, size :ImVec2) {
+        let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;
         ui::canvas(size, |draw_list, pos| { unsafe {
 
@@ -69,59 +51,86 @@ impl Canvas {
             self.scroll();
 
             let io = igGetIO();
-            let pointer_ongrid = self.screen_to_world_pt((*io).MousePos);
+            let pointer = (*io).MousePos - pos;
+            let pointer_ongrid = self.screen_to_world_pt(pointer);
+            let pointer_ingrid = self.screen_to_world_ptc(pointer);
 
-            // Edit actions 
-            match self.state {
-                Action::None =>  {
-                    // leftclick nowhere = unselect
-                    // leftclick single = select single
-                    // leftdrag outside selection = select window
-                    // leftdrag single = drag selection (or single if no selection)
-                    // rightclick = contextmenu
-                    // delete button
-                    self.state = Action::DrawingLine(None);
+            // Context menu 
+            if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
+                igText(const_cstr!("Selection").as_ptr());
+                igSelectable(const_cstr!("Some action").as_ptr(), false, 0 as _, zero);
+                igSeparator();
+                igText(const_cstr!("Draw mode").as_ptr());
+                if igSelectable(const_cstr!("Draw track").as_ptr(), false, 0 as _, zero) {
+                    self.action = Action::DrawingLine(None);
                 }
-                Action::DrawingLine(from) => {
+                igSelectable(const_cstr!("Draw signal").as_ptr(), false, 0 as _, zero);
+                igSelectable(const_cstr!("Draw detector").as_ptr(), false, 0 as _, zero);
+                igSeparator();
+                //igText(const_cstr!("Selection").as_ptr());
+                //igSeparator();
 
-                    // Draw preview
-                    if let Some(pt) = from {
-                        for (p1,p2) in util::route_line(pt, pointer_ongrid) {
-                            ImDrawList_AddLine(draw_list, pos + self.world_pt_to_screen(p1),
-                                                          pos + self.world_pt_to_screen(p2), 
-                                                          col::selected(), 2.0);
-                        }
-
-                        if !igIsMouseDown(0) {
-                            let mut new_model = doc.get().clone();
-                            for (p1,p2) in util::route_line(pt,pointer_ongrid) {
-                                let unit = util::unit_step_diag_line(p1,p2);
-                                for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
-                                    new_model.linesegs.insert(util::order_ivec(*pa,*pb));
-                                }
-                            }
-                            doc.set(new_model);
-                            self.state = Action::DrawingLine(None);
-                        }
-                    }
-
-                    if from.is_none() && igIsItemHovered(0) && igIsMouseDown(0) {
-                        self.state = Action::DrawingLine(Some(pointer_ongrid));
-                    }
-
-                    if igIsMouseClicked(1,false) { self.state = Action::None; }
-
-                },
-                Action::DrawObjectType(d) => {
-                },
-                Action::ContextMenu(ContextMenu::Node(pt)) => {
-                },
-                Action::ContextMenu(ContextMenu::Track(pa,pb)) => {
-                },
-                Action::ContextMenu(ContextMenu::Object(p)) => {
-                },
+                igEndPopup();
             }
 
+            // Edit actions 
+            if let Action::None = &self.action {
+                if igIsMouseDragging(0,-1.0) {
+                    if !self.selection.is_empty() {
+                        self.action = Action::MoveSelection;
+                    } else {
+                        if let Some(r) = doc.get().get_closest(pointer_ingrid) {
+                            // TODO instead of pointer_ingrid, use clicked point
+                            self.selection = std::iter::once(r).collect();
+                            self.action = Action::MoveSelection;
+                        } else {
+                            self.action = Action::SelectWindow;
+                        }
+                    }
+                } else {
+                    if igIsMouseReleased(0) {
+                        if !(*io).KeyShift { self.selection.clear(); }
+                        if let Some(r) = doc.get().get_closest(pointer_ingrid) {
+                            self.selection.insert(r);
+                        } 
+                    }
+                    if igIsMouseClicked(1,false) {
+                        // TODO right drag?
+                        //self.action = Action::ContextMenu;
+                        igOpenPopup(const_cstr!("ctx").as_ptr());
+                    }
+                }
+            }
+
+            if let Action::DrawingLine(from) = &self.action {
+                // Draw preview
+                if let Some(pt) = from {
+                    for (p1,p2) in util::route_line(*pt, pointer_ongrid) {
+                        ImDrawList_AddLine(draw_list, pos + self.world_pt_to_screen(p1),
+                                                      pos + self.world_pt_to_screen(p2), 
+                                                      col::selected(), 2.0);
+                    }
+
+                    if !igIsMouseDown(0) {
+                        let mut new_model = doc.get().clone();
+                        for (p1,p2) in util::route_line(*pt,pointer_ongrid) {
+                            let unit = util::unit_step_diag_line(p1,p2);
+                            for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
+                                new_model.linesegs.insert(util::order_ivec(*pa,*pb));
+                            }
+                        }
+                        doc.set(new_model);
+                        self.action = Action::DrawingLine(None);
+                    }
+                } else {
+                    if igIsItemHovered(0) && igIsMouseDown(0) {
+                        self.action = Action::DrawingLine(Some(pointer_ongrid));
+                    }
+                }
+
+                // TODO how to exit
+                if igIsMouseClicked(1,false) { self.action = Action::None; }
+            }
         }});
     }
 
@@ -155,7 +164,7 @@ impl Canvas {
     pub fn draw_background(&self, m :&Model, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
         unsafe {
             for l in &m.linesegs {
-                let col = if self.selection.tracks.contains(l) { col::selected() } else { col::unselected() };
+                let col = if self.selection.contains(&Ref::Track(l.0,l.1)) { col::selected() } else { col::unselected() };
                 ImDrawList_AddLine(draw_list, pos + self.world_pt_to_screen(l.0), 
                                               pos + self.world_pt_to_screen(l.1), col, 2.0);
             }
@@ -170,16 +179,16 @@ impl Canvas {
         }
     }
 
-    pub fn screen_to_world_ptc(&self, pt :ImVec2) -> (f32,f32) {
+    pub fn screen_to_world_ptc(&self, pt :ImVec2) -> PtC {
         let x =  (self.translation.x + pt.x) / self.scale as f32;
         let y = -(self.translation.y + pt.y) / self.scale as f32;
-        (x,y)
+        glm::vec2(x,y)
     }
 
     /// Converts and rounds a screen coordinate to the nearest point on the integer grid
     pub fn screen_to_world_pt(&self, pt :ImVec2) -> Pt {
-        let (x,y) = self.screen_to_world_ptc(pt);
-        glm::vec2(x.round() as _, y.round() as _)
+        let p = self.screen_to_world_ptc(pt);
+        glm::vec2(p.x.round() as _, p.y.round() as _)
     }
 
 
