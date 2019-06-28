@@ -38,11 +38,18 @@ impl Canvas {
         }
     }
 
-    pub fn toolbar(&mut self, doc :&mut Undoable<Model>) {
+    //pub fn toolbar(&mut self, doc :&mut Undoable<Model>) {
+    pub fn toolbar(&mut self) {
+        if tool_button(const_cstr!("select (A)").as_ptr(),
+            'A' as _, matches!(&self.action, Action::Normal(_))) {
 
+            self.action = Action::Normal(Normal::Default);
+        }
     }
 
     pub fn draw(&mut self, doc :&mut Undoable<Model>, size :ImVec2) {
+        self.toolbar();
+
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;
         ui::canvas(size, |draw_list, pos| { unsafe {
@@ -241,3 +248,21 @@ impl Canvas {
     } }
 }
 
+
+fn tool_button(name :*const i8, selected :bool) -> bool {
+        unsafe {
+        if selected {
+            let c1 = ImVec4 { x: 0.4, y: 0.65,  z: 0.4, w: 1.0 };
+            let c2 = ImVec4 { x: 0.5, y: 0.85, z: 0.5, w: 1.0 };
+            let c3 = ImVec4 { x: 0.6, y: 0.9,  z: 0.6, w: 1.0 };
+            igPushStyleColor(ImGuiCol__ImGuiCol_Button as _, c1);
+            igPushStyleColor(ImGuiCol__ImGuiCol_ButtonHovered as _, c1);
+            igPushStyleColor(ImGuiCol__ImGuiCol_ButtonActive as _, c1);
+        }
+        let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
+        if selected {
+            igPopStyleColor(3);
+        }
+        clicked
+    }
+}
