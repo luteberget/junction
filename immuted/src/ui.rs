@@ -16,7 +16,7 @@ pub mod col {
         unsafe { igGetColorU32Vec4(ImVec4 { x: 0.95, y: 0.95, z: 1.0, w: 1.0  }) }
     }
     pub fn gridpoint() -> u32 {
-        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 0.5, w: 1.0  }) }
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 1.0, y: 1.0, z: 1.0, w: 0.25  }) }
     }
 }
 

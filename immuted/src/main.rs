@@ -6,6 +6,7 @@ mod model;
 mod canvas;
 mod ui;
 mod util;
+mod view;
 
 fn main() {
     use crate::model::*;

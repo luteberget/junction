@@ -1,4 +1,5 @@
 use crate::model::Pt;
+use crate::ui::ImVec2;
 use nalgebra_glm as glm;
 use glm::I32Vec2;
 
@@ -33,4 +34,12 @@ pub fn route_line(from :Pt, to :Pt) -> Vec<(Pt,Pt)> {
 		}
 	}
 	vec
+}
+
+pub fn point_in_rect(p :ImVec2, a :ImVec2, b :ImVec2) -> bool {
+    let xl = a.x.min(b.x);
+    let xh = a.x.max(b.x);
+    let yl = a.y.min(b.y);
+    let yh = a.y.max(b.y);
+    xl <= p.x && p.x <= xh && yl <= p.y && p.y <= yh
 }

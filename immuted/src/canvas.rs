@@ -2,6 +2,7 @@ use crate::model::*;
 use std::collections::HashSet;
 use crate::ui;
 use crate::util;
+use crate::view::*;
 use crate::ui::col;
 use crate::ui::ImVec2;
 use backend_glfw::imgui::*;
@@ -11,27 +12,34 @@ use const_cstr::const_cstr;
 pub struct Canvas {
     action :Action,
     selection :HashSet<Ref>,
-    scale :usize,
-    translation :ImVec2,
+    view :View,
 }
 
+#[derive(Debug)]
 pub enum Action {
-    None,
+    Normal(NormalState),
     DrawingLine(Option<Pt>),
     DrawObjectType(Option<usize>),
-    ContextMenu,
-    MoveSelection,
-    SelectWindow,
+}
+
+#[derive(Debug,Copy,Clone)]
+pub enum NormalState {
+    Default,
+    SelectWindow(ImVec2),
+    DragMove,
 }
 
 impl Canvas {
     pub fn new() -> Self {
         Self {
-            action :Action::None,
+            action :Action::Normal(NormalState::Default),
             selection :HashSet::new(),
-            scale: 35,
-            translation: ImVec2 { x: 0.0, y: 0.0 },
+            view :View::default(),
         }
+    }
+
+    pub fn toolbar(&mut self, doc :&mut Undoable<Model>) {
+
     }
 
     pub fn draw(&mut self, doc :&mut Undoable<Model>, size :ImVec2) {
@@ -44,48 +52,147 @@ impl Canvas {
             let handle_keys = igIsItemActive() || !igIsAnyItemActive();
             if handle_keys { self.handle_keys(); }
 
-            // Draw background
-            self.draw_background(doc.get(), draw_list, pos, size);
-
             // Scroll action (wheel or ctrl-drag)
             self.scroll();
 
             let io = igGetIO();
             let pointer = (*io).MousePos - pos;
-            let pointer_ongrid = self.screen_to_world_pt(pointer);
-            let pointer_ingrid = self.screen_to_world_ptc(pointer);
+            let pointer_ongrid = self.view.screen_to_world_pt(pointer);
+            let pointer_ingrid = self.view.screen_to_world_ptc(pointer);
 
             // Context menu 
             if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-                igText(const_cstr!("Selection").as_ptr());
-                igSelectable(const_cstr!("Some action").as_ptr(), false, 0 as _, zero);
-                igSeparator();
-                igText(const_cstr!("Draw mode").as_ptr());
-                if igSelectable(const_cstr!("Draw track").as_ptr(), false, 0 as _, zero) {
-                    self.action = Action::DrawingLine(None);
-                }
-                igSelectable(const_cstr!("Draw signal").as_ptr(), false, 0 as _, zero);
-                igSelectable(const_cstr!("Draw detector").as_ptr(), false, 0 as _, zero);
-                igSeparator();
-                //igText(const_cstr!("Selection").as_ptr());
-                //igSeparator();
+                igText(const_cstr!("Selection?").as_ptr());
 
                 igEndPopup();
             }
 
             // Edit actions 
-            if let Action::None = &self.action {
+            match &self.action {
+                Action::Normal(normal) => {
+                    let normal = *normal;
+                    self.normalstate(normal, doc, draw_list, pointer_ingrid, pos);
+                }
+                Action::DrawingLine(from) => {
+                    let from = *from;
+                    self.drawingline(doc,from,pos,pointer_ongrid,draw_list);
+                }
+                _ => panic!(), // TODO
+            };
+
+            // Draw background
+            self.draw_background(doc.get(), draw_list, pos, size);
+
+
+        }});
+    }
+
+    pub fn handle_keys(&mut self) {
+        unsafe {
+        if igIsKeyPressed('A' as _, false) {
+            self.action = Action::Normal(NormalState::Default);
+        }
+        if igIsKeyPressed('D' as _, false) {
+            self.action = Action::DrawingLine(None);
+        }
+        if igIsKeyPressed('S' as _, false) {
+            self.action = Action::DrawObjectType(None);
+        }
+        }
+    }
+
+    pub fn handle_global_keys(&mut self, doc :&mut Undoable<Model>) { unsafe {
+        let io = igGetIO();
+        if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Z' as _, false) {
+            doc.undo();
+        }
+        if (*io).KeyCtrl && (*io).KeyShift && igIsKeyPressed('Z' as _, false) {
+            doc.redo();
+        }
+        if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Y' as _, false) {
+            doc.redo();
+        }
+    } }
+
+    pub fn scroll(&mut self) {
+        unsafe {
+            let io = igGetIO();
+            let wheel = (*io).MouseWheel;
+            if wheel != 0.0 {
+                self.view.zoom(wheel);
+            }
+            if ((*io).KeyCtrl && igIsMouseDragging(0,-1.0)) || igIsMouseDragging(2,-1.0) {
+                self.view.translate((*io).MouseDelta);
+            }
+        }
+    }
+
+    pub fn draw_background(&self, m :&Model, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
+        unsafe {
+
+            let sel_window = if let Action::Normal(NormalState::SelectWindow(a)) = &self.action {
+                Some((*a, *a + igGetMouseDragDelta_nonUDT2(0,-1.0).into()))
+            } else { None };
+
+            for l in &m.linesegs {
+                let p1 = self.view.world_pt_to_screen(l.0);
+                let p2 = self.view.world_pt_to_screen(l.1);
+                let selected = self.selection.contains(&Ref::Track(l.0,l.1));
+                let preview = sel_window
+                    .map(|(a,b)| util::point_in_rect(p1,a,b) || util::point_in_rect(p2,a,b))
+                    .unwrap_or(false) ;
+                let col = if selected || preview { col::selected() } else { col::unselected() };
+                ImDrawList_AddLine(draw_list, pos + p1, pos + p2, col, 2.0);
+            }
+
+            let (lo,hi) = self.view.points_in_view(size);
+            for x in lo.x..=hi.x {
+                for y in lo.y..=hi.y {
+                    let pt = self.view.world_pt_to_screen(glm::vec2(x,y));
+                    ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, col::gridpoint(), 4);
+                }
+            }
+        }
+    }
+
+    pub fn set_selection_window(&mut self, a :ImVec2, b :ImVec2) {
+        // 
+    }
+
+    pub fn normalstate(&mut self, state: NormalState, doc :&Undoable<Model>,
+                       draw_list :*mut ImDrawList, pointer_ingrid :PtC, pos :ImVec2) {
+        unsafe {
+        let io = igGetIO();
+        match state {
+            NormalState::SelectWindow(a) => {
+                let b = a + igGetMouseDragDelta_nonUDT2(0,-1.0).into();
                 if igIsMouseDragging(0,-1.0) {
-                    if !self.selection.is_empty() {
-                        self.action = Action::MoveSelection;
-                    } else {
-                        if let Some(r) = doc.get().get_closest(pointer_ingrid) {
-                            // TODO instead of pointer_ingrid, use clicked point
+                    ImDrawList_AddRect(draw_list, pos + a, pos + b,
+                                       col::selected(),0.0, 0, 1.0);
+                } else {
+                    self.set_selection_window(a,b);
+                    self.action = Action::Normal(NormalState::Default);
+                }
+            },
+            NormalState::DragMove => {
+                if igIsMouseDragging(0,-1.0) {
+                    println!("Dragging {:?}", self.selection);
+                    // TODO 
+                } else {
+                    self.action = Action::Normal(NormalState::Default);
+                }
+            }
+            NormalState::Default => {
+                if igIsMouseDragging(0,-1.0) {
+                    if let Some(r) = doc.get().get_closest(pointer_ingrid) {
+                        if !self.selection.contains(&r) {
                             self.selection = std::iter::once(r).collect();
-                            self.action = Action::MoveSelection;
-                        } else {
-                            self.action = Action::SelectWindow;
                         }
+                        self.action = Action::Normal(NormalState::DragMove);
+                    } else {
+                        let a = (*io).MouseClickedPos[0] - pos;
+                        //let b = a + igGetMouseDragDelta_nonUDT2(0,-1.0).into();
+                        self.action = Action::Normal(NormalState::SelectWindow(a));
                     }
                 } else {
                     if igIsMouseReleased(0) {
@@ -95,123 +202,42 @@ impl Canvas {
                         } 
                     }
                     if igIsMouseClicked(1,false) {
-                        // TODO right drag?
-                        //self.action = Action::ContextMenu;
                         igOpenPopup(const_cstr!("ctx").as_ptr());
                     }
                 }
+            },
+        }
+        }
+    }
+
+    pub fn drawingline(&mut self,  doc :&mut Undoable<Model>,from :Option<Pt>,
+                       pos :ImVec2, pointer_ongrid :Pt, draw_list :*mut ImDrawList
+                       ) {
+        unsafe {
+        // Draw preview
+        if let Some(pt) = from {
+            for (p1,p2) in util::route_line(pt, pointer_ongrid) {
+                ImDrawList_AddLine(draw_list, pos + self.view.world_pt_to_screen(p1),
+                                              pos + self.view.world_pt_to_screen(p2), 
+                                              col::selected(), 2.0);
             }
 
-            if let Action::DrawingLine(from) = &self.action {
-                // Draw preview
-                if let Some(pt) = from {
-                    for (p1,p2) in util::route_line(*pt, pointer_ongrid) {
-                        ImDrawList_AddLine(draw_list, pos + self.world_pt_to_screen(p1),
-                                                      pos + self.world_pt_to_screen(p2), 
-                                                      col::selected(), 2.0);
-                    }
-
-                    if !igIsMouseDown(0) {
-                        let mut new_model = doc.get().clone();
-                        for (p1,p2) in util::route_line(*pt,pointer_ongrid) {
-                            let unit = util::unit_step_diag_line(p1,p2);
-                            for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
-                                new_model.linesegs.insert(util::order_ivec(*pa,*pb));
-                            }
-                        }
-                        doc.set(new_model);
-                        self.action = Action::DrawingLine(None);
-                    }
-                } else {
-                    if igIsItemHovered(0) && igIsMouseDown(0) {
-                        self.action = Action::DrawingLine(Some(pointer_ongrid));
+            if !igIsMouseDown(0) {
+                let mut new_model = doc.get().clone();
+                for (p1,p2) in util::route_line(pt,pointer_ongrid) {
+                    let unit = util::unit_step_diag_line(p1,p2);
+                    for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
+                        new_model.linesegs.insert(util::order_ivec(*pa,*pb));
                     }
                 }
-
-                // TODO how to exit
-                if igIsMouseClicked(1,false) { self.action = Action::None; }
+                doc.set(new_model);
+                self.action = Action::DrawingLine(None);
             }
-        }});
-    }
-
-    pub fn handle_keys(&mut self) {
-    }
-
-    pub fn handle_global_keys(&mut self, doc :&mut Undoable<Model>) { unsafe {
-        let io = igGetIO();
-        if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Z' as _, false) {
-            println!("undo {:?}", doc.undo());
-        }
-        if (*io).KeyCtrl && (*io).KeyShift && igIsKeyPressed('Z' as _, false) {
-            println!("redo {:?}", doc.redo());
+        } else {
+            if igIsItemHovered(0) && igIsMouseDown(0) {
+                self.action = Action::DrawingLine(Some(pointer_ongrid));
+            }
         }
     } }
-
-    pub fn scroll(&mut self) {
-        unsafe {
-            let io = igGetIO();
-            let wheel = (*io).MouseWheel;
-            if wheel != 0.0 {
-                self.scale = (self.scale as f32 + 3.0*wheel).max(20.0).min(150.0).round() as _;
-            }
-            if (*io).KeyCtrl && igIsMouseDragging(0,-1.0) {
-                self.translation.x -= (*io).MouseDelta.x;
-                self.translation.y -= (*io).MouseDelta.y;
-            }
-        }
-    }
-
-    pub fn draw_background(&self, m :&Model, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
-        unsafe {
-            for l in &m.linesegs {
-                let col = if self.selection.contains(&Ref::Track(l.0,l.1)) { col::selected() } else { col::unselected() };
-                ImDrawList_AddLine(draw_list, pos + self.world_pt_to_screen(l.0), 
-                                              pos + self.world_pt_to_screen(l.1), col, 2.0);
-            }
-
-            let (lo,hi) = self.points_in_view(size);
-            for x in lo.x..=hi.x {
-                for y in lo.y..=hi.y {
-                    let pt = self.world_pt_to_screen(glm::vec2(x,y));
-                    ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, col::gridpoint(), 4);
-                }
-            }
-        }
-    }
-
-    pub fn screen_to_world_ptc(&self, pt :ImVec2) -> PtC {
-        let x =  (self.translation.x + pt.x) / self.scale as f32;
-        let y = -(self.translation.y + pt.y) / self.scale as f32;
-        glm::vec2(x,y)
-    }
-
-    /// Converts and rounds a screen coordinate to the nearest point on the integer grid
-    pub fn screen_to_world_pt(&self, pt :ImVec2) -> Pt {
-        let p = self.screen_to_world_ptc(pt);
-        glm::vec2(p.x.round() as _, p.y.round() as _)
-    }
-
-
-    pub fn world_ptc_to_screen(&self, pt :(f32,f32)) -> ImVec2 {
-        let x = ((self.scale as f32 * pt.0) as f32)  - self.translation.x;
-        let y = ((self.scale as f32 * -pt.1) as f32) - self.translation.y;
-
-        ImVec2 { x, y }
-    }
-
-    /// Convert a point on the integer grid into screen coordinates
-    pub fn world_pt_to_screen(&self, pt :Pt) -> ImVec2 {
-        let x = ((self.scale as i32 * pt.x) as f32)  - self.translation.x;
-        let y = ((self.scale as i32 * -pt.y) as f32) - self.translation.y;
-
-        ImVec2 { x, y }
-    }
-
-    /// Return the rect of grid points within the current view.
-    pub fn points_in_view(&self, size :ImVec2) -> (Pt,Pt) {
-        let lo = self.screen_to_world_pt(ImVec2 { x: 0.0, y: size.y });
-        let hi = self.screen_to_world_pt(ImVec2 { x: size.x, y: 0.0 });
-        (lo,hi)
-    }
-
 }
+
