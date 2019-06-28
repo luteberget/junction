@@ -18,22 +18,52 @@ TODO: (1) polygon areas? (2) delimited areas? (3) track properties
 
 ## Infrastructure editor
 
- * Draw tracks
- * Place objects
- * Select lines / objects
-   - Erase lines / objects
-   - Move lines+nodes / objects
-   - Context menu on selection
-     a. Modify nodes (node data)
-     b. Modify objects (object menu)
-     c. Lengths on tracks
- * Scroll (wheel and CTRL-drag)
+ *  x  Draw tracks
+ * (?) Place objects
+ *  x  Select lines / objects
+   -  x  Erase lines / objects
+   -  x  Move lines+nodes / objects
+   -  x Context menu on selection
+     a.  x  Modify nodes (node data)
+     b. ( ) Modify objects (object menu)
+     c. ( ) Lengths on tracks
+ *  x  Scroll (wheel and CTRL-drag)
  * Copy/paste (copy=relative to cursor posision?)
 
 
 ## Static interlocking model
 
-Derived from 
+
+language: 
+ - assignment/equality
+ - objects of type, objects in sets
+   types are a fixed set, uppercase. 
+   entities, path, area, and sets 
+ - set builder, builds Lua-tables-like obj
+    1. base set, can 
+    2. "nested" product of bindings and filters
+ - filters (membership, equality)
+ - operations (of many arities) 
+ - tuples (ordered, and/or maps?)
+
+types are enumerable and  non-enumerable types.
+sets are enumerable types.
+
+toplevel sets/types: Location (track+pos) (not enumerable)
+		     Entity contains all entities (enumerable)
+                     Path (not enumerable)
+		     Area (not enumerable)
+
+predefined sets: each feature ("type") of entities, s.a. MainSig, AxleCounter, etc.
+
+end = MainSig \union BufferStop
+detectionSections = delimitedAreas AxleCounter
+routePaths = { (start=s, end=e, path=p) | MainSig s <- Entity,
+				          Path p, Entity e <- directedNeighbors s end }
+routes = { *routePath*, 
+	    sections = { a <- detectionSections | intersects a routePath.path }
+         | routePath <- routePaths }
+
 
 ## Static interlocking editor
 
