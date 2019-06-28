@@ -4,15 +4,20 @@ use const_cstr::const_cstr;
 use std::ptr;
 
 
-pub fn background() -> u32 {
-    unsafe { igGetColorU32Vec4(ImVec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0  }) }
-}
-
-pub fn selected() -> u32 {
-    unsafe { igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 1.0, w: 1.0  }) }
-}
-pub fn unselected() -> u32 {
-    unsafe { igGetColorU32Vec4(ImVec4 { x: 0.95, y: 0.95, z: 1.0, w: 1.0  }) }
+pub mod col {
+    use super::*;
+    pub fn background() -> u32 {
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0  }) }
+    }
+    pub fn selected() -> u32 {
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 1.0, w: 1.0  }) }
+    }
+    pub fn unselected() -> u32 {
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.95, y: 0.95, z: 1.0, w: 1.0  }) }
+    }
+    pub fn gridpoint() -> u32 {
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.5, y: 0.5, z: 0.5, w: 1.0  }) }
+    }
 }
 
 pub fn in_root_window(f :impl FnOnce()) {
@@ -37,7 +42,7 @@ pub fn canvas(size :ImVec2, f :impl FnOnce(*mut ImDrawList,ImVec2)) {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();
-        ImDrawList_AddRectFilled(draw_list, pos, pos + size, background(), 0.0, 0);
+        ImDrawList_AddRectFilled(draw_list, pos, pos + size, col::background(), 0.0, 0);
         let clicked = igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), size);
         ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
         f(draw_list, pos);

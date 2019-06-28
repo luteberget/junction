@@ -33,7 +33,7 @@ impl<T : Clone + Default> Undoable<T> {
     }
 
     pub fn can_redo(&self) -> bool {
-        self.pointer < self.stack.len()
+        self.pointer + 1 < self.stack.len()
     }
 
     pub fn undo(&mut self) -> bool {
@@ -46,7 +46,7 @@ impl<T : Clone + Default> Undoable<T> {
     }
 
     pub fn redo(&mut self) -> bool {
-        if self.pointer < self.stack.len() {
+        if self.pointer + 1 < self.stack.len() {
             self.pointer += 1;
             true
         } else {
