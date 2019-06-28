@@ -1,0 +1,12 @@
+[package]
+name = "immuted"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <bjlut@railcomplete.no>"]
+edition = "2018"
+
+[dependencies]
+im = "13.0"
+nalgebra-glm = "*"
+
+backend_glfw = { path = "../lib/backend_glfw" }
+const-cstr = "*"
