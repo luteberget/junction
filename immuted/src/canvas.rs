@@ -58,11 +58,12 @@ impl Canvas {
         }
     } }
 
-    pub fn draw(&mut self, doc :&mut Undoable<Model>, size :ImVec2) {
+    pub fn draw(&mut self, doc :&mut Undoable<Model>) {
         self.toolbar();
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;
+        let size = unsafe { igGetContentRegionAvail_nonUDT2().into() };
         ui::canvas(size, |draw_list, pos| { unsafe {
 
             // Hotkeys
