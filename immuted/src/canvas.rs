@@ -1,6 +1,7 @@
 use crate::model::*;
 use std::collections::HashSet;
 use crate::ui;
+use crate::Derived;
 use crate::objects::*;
 use crate::util;
 use crate::view::*;
@@ -58,7 +59,7 @@ impl Canvas {
         }
     } }
 
-    pub fn draw(&mut self, doc :&mut Undoable<Model>) {
+    pub fn draw(&mut self, doc :&mut Undoable<Model>, derived :&mut Derived) {
         self.toolbar();
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
@@ -68,6 +69,7 @@ impl Canvas {
 
             // Hotkeys
             self.handle_global_keys(doc);
+            //hotkey!(CTRL+Z, { doc.undo(); });
             let handle_keys = igIsItemActive() || !igIsAnyItemActive();
             if handle_keys { self.handle_keys(); }
 
