@@ -8,6 +8,7 @@ use crate::ui::ImVec2;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
 use const_cstr::const_cstr;
+use matches::matches;
 
 pub struct Canvas {
     action :Action,
@@ -39,13 +40,22 @@ impl Canvas {
     }
 
     //pub fn toolbar(&mut self, doc :&mut Undoable<Model>) {
-    pub fn toolbar(&mut self) {
+    pub fn toolbar(&mut self) { unsafe {
         if tool_button(const_cstr!("select (A)").as_ptr(),
             'A' as _, matches!(&self.action, Action::Normal(_))) {
-
-            self.action = Action::Normal(Normal::Default);
+            self.action = Action::Normal(NormalState::Default);
         }
-    }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("insert object (S)").as_ptr(),
+            'S' as _, matches!(&self.action, Action::DrawObjectType(_))) {
+            self.action = Action::DrawObjectType(None);
+        }
+        igSameLine(0.0,-1.0);
+        if tool_button(const_cstr!("draw track (D)").as_ptr(),
+            'D' as _, matches!(&self.action, Action::DrawingLine(_))) {
+            self.action = Action::DrawingLine(None);
+        }
+    } }
 
     pub fn draw(&mut self, doc :&mut Undoable<Model>, size :ImVec2) {
         self.toolbar();
@@ -69,8 +79,11 @@ impl Canvas {
 
             // Context menu 
             if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-                igText(const_cstr!("Selection?").as_ptr());
-
+                if !self.selection.is_empty() {
+                    if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, zero) {
+                        self.delete_selection(doc);
+                    }
+                }
                 igEndPopup();
             }
 
@@ -162,8 +175,10 @@ impl Canvas {
         }
     }
 
-    pub fn set_selection_window(&mut self, a :ImVec2, b :ImVec2) {
-        // 
+    pub fn set_selection_window(&mut self, doc :&Undoable<Model>, a :ImVec2, b :ImVec2) {
+        self.selection = doc.get().get_rect(self.view.screen_to_world_ptc(a),
+                                            self.view.screen_to_world_ptc(b))
+                        .into_iter().collect();
     }
 
     pub fn normalstate(&mut self, state: NormalState, doc :&Undoable<Model>,
@@ -177,13 +192,12 @@ impl Canvas {
                     ImDrawList_AddRect(draw_list, pos + a, pos + b,
                                        col::selected(),0.0, 0, 1.0);
                 } else {
-                    self.set_selection_window(a,b);
+                    self.set_selection_window(doc, a,b);
                     self.action = Action::Normal(NormalState::Default);
                 }
             },
             NormalState::DragMove => {
                 if igIsMouseDragging(0,-1.0) {
-                    println!("Dragging {:?}", self.selection);
                     // TODO 
                 } else {
                     self.action = Action::Normal(NormalState::Default);
@@ -246,10 +260,18 @@ impl Canvas {
             }
         }
     } }
+
+    pub fn delete_selection(&mut self, doc :&mut Undoable<Model>) {
+        let mut new_model = doc.get().clone();
+        for x in self.selection.drain() {
+            new_model.delete(x);
+        }
+        doc.set(new_model);
+    }
 }
 
 
-fn tool_button(name :*const i8, selected :bool) -> bool {
+fn tool_button(name :*const i8, char :i8, selected :bool) -> bool {
         unsafe {
         if selected {
             let c1 = ImVec4 { x: 0.4, y: 0.65,  z: 0.4, w: 1.0 };
