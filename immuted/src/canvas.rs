@@ -99,11 +99,6 @@ impl Canvas {
                     self.drawingline(doc,from,pos,pointer_ongrid,draw_list);
                 }
                 Action::InsertObject(None) => {
-                    self.action = Action::InsertObject(Some(
-                            Object { symbol: Symbol { 
-                                loc: glm::vec2(0.0,0.0), 
-                                tangent :glm::vec2(1,0),
-                                shape: Shape::Detector } } ));
                 },
                 Action::InsertObject(Some(obj)) => {
                     let moved = obj.symbol.move_to(doc.get(),pointer_ingrid);
@@ -138,7 +133,20 @@ impl Canvas {
             self.action = Action::DrawingLine(None);
         }
         if igIsKeyPressed('S' as _, false) {
-            self.action = Action::InsertObject(None);
+            if let Action::InsertObject(Some(Object { symbol: Symbol { shape: Shape::Detector, .. } } )) = &self.action {
+                    self.action = Action::InsertObject(Some(
+                            Object { symbol: Symbol { 
+                                loc: glm::vec2(0.0,0.0), 
+                                tangent :glm::vec2(1,0),
+                                shape: Shape::Signal } } ));
+
+            } else {
+                    self.action = Action::InsertObject(Some(
+                            Object { symbol: Symbol { 
+                                loc: glm::vec2(0.0,0.0), 
+                                tangent :glm::vec2(1,0),
+                                shape: Shape::Detector } } ));
+            }
         }
         }
     }
@@ -242,7 +250,7 @@ impl Canvas {
                         self.action = Action::Normal(NormalState::SelectWindow(a));
                     }
                 } else {
-                    if igIsMouseReleased(0) {
+                    if igIsItemActive() && igIsMouseReleased(0) {
                         if !(*io).KeyShift { self.selection.clear(); }
                         if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
                             self.selection.insert(r);

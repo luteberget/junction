@@ -22,7 +22,21 @@ impl Symbol {
         if let Some((l,(d1,d2))) = model.get_closest_lineseg(pt) {
             let pt_on_line = project_to_line(pt, glm::vec2(l.0.x as _ ,l.0.y as _ ),
                                                  glm::vec2(l.1.x as _ ,l.1.y as _ ));
-            self.loc = pt_on_line;
+            let tangent : PtC = glm::vec2(l.1.x as f32 -l.0.x as f32 ,l.1.y as f32 -l.0.y as f32);
+            let normal : PtC   = glm::vec2(-tangent.y,tangent.x);
+            self.tangent = glm::vec2(tangent.x.round() as _, tangent.y.round() as _);
+            match self.shape {
+                Shape::Detector => { self.loc = pt_on_line; },
+                Shape::Signal => { 
+                    let factor = if glm::angle(&(pt_on_line - pt), &normal) > glm::half_pi() {
+                        1.0 } else { -1.0 };
+                    let offset = 0.25*normal*factor;
+                    dbg!(offset);
+
+                    if factor > 0.0 { self.tangent *= -1; }
+                    self.loc = pt_on_line + offset;
+                },
+            }
             None
         } else {
             self.loc = pt;
