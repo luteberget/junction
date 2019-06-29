@@ -121,11 +121,12 @@ impl Model {
     pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),(f32,f32))> {
         // TODO performance
         let (mut thing,mut dist_sqr,mut next_dist) = (None, std::f32::INFINITY, std::f32::INFINITY);
-        for x1 in &[pt.x.floor() as i32, pt.x.ceil() as i32] {
-        for y1 in &[pt.y.floor() as i32, pt.y.ceil() as i32] {
-        for x2 in &[pt.x.floor() as i32, pt.x.ceil() as i32] {
-        for y2 in &[pt.y.floor() as i32, pt.y.ceil() as i32] {
-            let l = (glm::vec2(*x1,*y1),glm::vec2(*x2,*y2));
+        println!("get closest from {:?}", pt);
+        for x1 in [pt.x.floor() as i32, (pt.x + 1.0).floor() as i32].iter().cloned() {
+        for y1 in [pt.y.floor() as i32, (pt.y + 1.0).floor() as i32].iter().cloned() {
+        for x2 in [pt.x.floor() as i32, (pt.x + 1.0).floor() as i32].iter().cloned() {
+        for y2 in [pt.y.floor() as i32, (pt.y + 1.0).floor() as i32].iter().cloned() {
+            let l = (glm::vec2(x1,y1),glm::vec2(x2,y2));
             if self.linesegs.contains(&l) {
                 let d = dist_to_line_sqr(pt, 
                                          glm::vec2(l.0.x as _ ,l.0.y as _ ), 

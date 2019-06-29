@@ -249,6 +249,11 @@ impl Canvas {
                         } 
                     }
                     if igIsMouseClicked(1,false) {
+                        if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
+                            if !self.selection.contains(&r) {
+                                self.selection = std::iter::once(r).collect();
+                            }
+                        }
                         igOpenPopup(const_cstr!("ctx").as_ptr());
                     }
                 }
@@ -317,6 +322,6 @@ fn tool_button(name :*const i8, char :i8, selected :bool) -> bool {
 
 //fn unround_coord
 fn round_coord(p :PtC) -> PtA {
-    let coeff = 10000.0;
+    let coeff = 10.0;
     glm::vec2((p.x * coeff) as _, (p.y * coeff) as _)
 }
