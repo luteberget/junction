@@ -36,9 +36,9 @@ impl View {
     }
 
 
-    pub fn world_ptc_to_screen(&self, pt :(f32,f32)) -> ImVec2 {
-        let x = ((self.scale as f32 * pt.0) as f32)  - self.translation.x;
-        let y = ((self.scale as f32 * -pt.1) as f32) - self.translation.y;
+    pub fn world_ptc_to_screen(&self, pt :PtC) -> ImVec2 {
+        let x = ((self.scale as f32 * pt.x) as f32)  - self.translation.x;
+        let y = ((self.scale as f32 * -pt.y) as f32) - self.translation.y;
 
         ImVec2 { x, y }
     }

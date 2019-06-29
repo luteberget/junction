@@ -1,8 +1,11 @@
 use nalgebra_glm as glm;
+use crate::objects::*;
+use crate::util::*;
 
 pub type Pt = glm::I32Vec2;
 pub type PtA = glm::I32Vec2;
 pub type PtC = glm::Vec2;
+pub type Vc = Pt;
 
 pub struct Undoable<T> {
     stack :Vec<T>,
@@ -58,6 +61,8 @@ impl<T : Clone + Default> Undoable<T> {
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Object {
+    pub symbol :Symbol,
+    // TODO "semantics" (list of functions? main, distant, detector, etc.)
 }
 
 #[derive(Copy, Clone)]
@@ -81,7 +86,7 @@ pub enum Command {
 #[derive(Debug)]
 pub struct Model {
     pub linesegs: im::HashSet<(Pt,Pt)>,
-    pub objects: im::HashMap<PtA, (PtC, Object)>,
+    pub objects: im::HashMap<PtA, Object>,
     pub node_data: im::HashMap<Pt, NDType>,
     pub vehicles :im::Vector<Vehicle>,
     pub dispatches :im::Vector<Vec<(f32,Command)>>,
@@ -109,9 +114,13 @@ fn closest_pts(pt :PtC) -> [(Pt,Pt);2] {
 }
 
 impl Model {
-    pub fn get_closest(&self, pt :PtC) -> Option<Ref> {
+    pub fn get_closest(&self, pt :PtC) -> Option<(Ref,(f32,f32))> {
+        self.get_closest_lineseg(pt).map(|(a,b)| (Ref::Track(a.0,a.1),b))
+    }
+
+    pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),(f32,f32))> {
         // TODO performance
-        let (mut thing,mut dist_sqr) = (None, std::f32::INFINITY);
+        let (mut thing,mut dist_sqr,mut next_dist) = (None, std::f32::INFINITY, std::f32::INFINITY);
         for x1 in &[pt.x.floor() as i32, pt.x.ceil() as i32] {
         for y1 in &[pt.y.floor() as i32, pt.y.ceil() as i32] {
         for x2 in &[pt.x.floor() as i32, pt.x.ceil() as i32] {
@@ -122,15 +131,18 @@ impl Model {
                                          glm::vec2(l.0.x as _ ,l.0.y as _ ), 
                                          glm::vec2(l.1.x as _ ,l.1.y as _ ));
                 if d < dist_sqr {
+                    next_dist = dist_sqr;
                     dist_sqr = d;
-                    thing = Some(Ref::Track(l.0,l.1));
+                    thing = Some(l);
+                } else if d < next_dist {
+                    next_dist = d;
                 }
             }
         }
         }
         }
         }
-        thing
+        thing.map(|t| (t,(dist_sqr,next_dist)))
     }
 
     pub fn get_rect(&self, a :PtC, b :PtC) -> Vec<Ref> {
@@ -156,15 +168,6 @@ impl Model {
             Ref::Object(p) => { self.objects.remove(&p); },
         }
     }
-}
-
-pub fn project_to_line(p :PtC, a :PtC, b :PtC) -> PtC {
-    let t = glm::clamp_scalar(glm::dot(&(p-a),&(b-a)) / glm::distance2(&a,&b), 0.0, 1.0);
-    glm::lerp(&a,&b,t)
-}
-
-pub fn dist_to_line_sqr(p :PtC, a :PtC, b :PtC) -> f32 {
-    glm::length2(&(project_to_line(p,a,b) - p))
 }
 
 

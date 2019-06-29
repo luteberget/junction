@@ -1,4 +1,4 @@
-use crate::model::Pt;
+use crate::model::{Pt,PtC};
 use crate::ui::ImVec2;
 use nalgebra_glm as glm;
 use glm::I32Vec2;
@@ -43,3 +43,13 @@ pub fn point_in_rect(p :ImVec2, a :ImVec2, b :ImVec2) -> bool {
     let yh = a.y.max(b.y);
     xl <= p.x && p.x <= xh && yl <= p.y && p.y <= yh
 }
+
+pub fn project_to_line(p :PtC, a :PtC, b :PtC) -> PtC {
+    let t = glm::clamp_scalar(glm::dot(&(p-a),&(b-a)) / glm::distance2(&a,&b), 0.0, 1.0);
+    glm::lerp(&a,&b,t)
+}
+
+pub fn dist_to_line_sqr(p :PtC, a :PtC, b :PtC) -> f32 {
+    glm::length2(&(project_to_line(p,a,b) - p))
+}
+

@@ -1,6 +1,7 @@
 use crate::model::*;
 use std::collections::HashSet;
 use crate::ui;
+use crate::objects::*;
 use crate::util;
 use crate::view::*;
 use crate::ui::col;
@@ -20,7 +21,7 @@ pub struct Canvas {
 pub enum Action {
     Normal(NormalState),
     DrawingLine(Option<Pt>),
-    DrawObjectType(Option<usize>),
+    InsertObject(Option<Object>),
 }
 
 #[derive(Debug,Copy,Clone)]
@@ -47,8 +48,8 @@ impl Canvas {
         }
         igSameLine(0.0,-1.0);
         if tool_button(const_cstr!("insert object (S)").as_ptr(),
-            'S' as _, matches!(&self.action, Action::DrawObjectType(_))) {
-            self.action = Action::DrawObjectType(None);
+            'S' as _, matches!(&self.action, Action::InsertObject(_))) {
+            self.action = Action::InsertObject(None);
         }
         igSameLine(0.0,-1.0);
         if tool_button(const_cstr!("draw track (D)").as_ptr(),
@@ -88,7 +89,7 @@ impl Canvas {
             }
 
             // Edit actions 
-            match &self.action {
+            match &mut self.action {
                 Action::Normal(normal) => {
                     let normal = *normal;
                     self.normalstate(normal, doc, draw_list, pointer_ingrid, pos);
@@ -97,7 +98,28 @@ impl Canvas {
                     let from = *from;
                     self.drawingline(doc,from,pos,pointer_ongrid,draw_list);
                 }
-                _ => panic!(), // TODO
+                Action::InsertObject(None) => {
+                    self.action = Action::InsertObject(Some(
+                            Object { symbol: Symbol { 
+                                loc: glm::vec2(0.0,0.0), 
+                                tangent :glm::vec2(1,0),
+                                shape: Shape::Detector } } ));
+                },
+                Action::InsertObject(Some(obj)) => {
+                    let moved = obj.symbol.move_to(doc.get(),pointer_ingrid);
+                    obj.symbol.draw(pos,&self.view,draw_list);
+                    if let Some(err) = moved {
+                        let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
+                        let window = ImVec2 { x: 4.0, y: 4.0 };
+                        ImDrawList_AddRect(draw_list, p - window, p + window, col::error(), 0.0,0,4.0);
+                    } else  {
+                        if igIsMouseReleased(0) {
+                            let mut m = doc.get().clone();
+                            m.objects.insert(round_coord(obj.symbol.loc), obj.clone());
+                            doc.set(m);
+                        }
+                    }
+                },
             };
 
             // Draw background
@@ -116,7 +138,7 @@ impl Canvas {
             self.action = Action::DrawingLine(None);
         }
         if igIsKeyPressed('S' as _, false) {
-            self.action = Action::DrawObjectType(None);
+            self.action = Action::InsertObject(None);
         }
         }
     }
@@ -172,6 +194,10 @@ impl Canvas {
                     ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, col::gridpoint(), 4);
                 }
             }
+
+            for (_pta,obj) in &m.objects {
+                obj.symbol.draw(pos, &self.view, draw_list);
+            }
         }
     }
 
@@ -205,7 +231,7 @@ impl Canvas {
             }
             NormalState::Default => {
                 if igIsMouseDragging(0,-1.0) {
-                    if let Some(r) = doc.get().get_closest(pointer_ingrid) {
+                    if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
                         if !self.selection.contains(&r) {
                             self.selection = std::iter::once(r).collect();
                         }
@@ -218,7 +244,7 @@ impl Canvas {
                 } else {
                     if igIsMouseReleased(0) {
                         if !(*io).KeyShift { self.selection.clear(); }
-                        if let Some(r) = doc.get().get_closest(pointer_ingrid) {
+                        if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
                             self.selection.insert(r);
                         } 
                     }
@@ -287,4 +313,10 @@ fn tool_button(name :*const i8, char :i8, selected :bool) -> bool {
         }
         clicked
     }
+}
+
+//fn unround_coord
+fn round_coord(p :PtC) -> PtA {
+    let coeff = 10000.0;
+    glm::vec2((p.x * coeff) as _, (p.y * coeff) as _)
 }
