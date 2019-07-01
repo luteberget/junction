@@ -65,6 +65,20 @@ pub struct Object {
     // TODO "semantics" (list of functions? main, distant, detector, etc.)
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Function { MainSignal, Detector }
+
+impl Object {
+    pub fn has_function(&self, f: &Function) -> bool {
+        // TODO replace with function list outside symbol/shape
+        match (f, self.symbol.shape) {
+            (Function::MainSignal, Shape::Signal) => true,
+            (Function::Detector, Shape::Detector) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub struct Vehicle {
