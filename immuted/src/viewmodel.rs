@@ -77,7 +77,7 @@ impl ViewModel {
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
             let dgraph = DGraph {};
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
-            if !send_ok.is_ok() { return; }
+            if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
             // if tx fails (channel is closed), we don't need 
             // to proceed to next step. Also, there is no harm
             // in *trying* to send the data from an obsolete thread,
@@ -89,13 +89,13 @@ impl ViewModel {
             let interlocking = Interlocking {};
                 // calc interlocking from dgraph
             let send_ok = tx.send(SetData::Interlocking(interlocking.clone()));
-            if !send_ok.is_ok() { return; }
+            if !send_ok.is_ok() { println!("job canceled after interlocking"); return; }
 
             for (i,dispatch) in model.dispatches.iter().enumerate() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
                 let history = History {};
                 let send_ok = tx.send(SetData::History(i, history));
-                if !send_ok.is_ok() { return; }
+                if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
 
         });

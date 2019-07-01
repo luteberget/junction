@@ -309,6 +309,12 @@ impl Canvas {
             new_model.delete(x);
         }
         doc.set_model(new_model);
+        // TODO remove (doing it twice to check canceling behavior for background jobs) 
+        let mut new_model = doc.get_undoable().get().clone();
+        for x in self.selection.drain() {
+            new_model.delete(x);
+        }
+        doc.set_model(new_model);
     }
 }
 
