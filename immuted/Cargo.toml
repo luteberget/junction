@@ -11,3 +11,4 @@ nalgebra-glm = "*"
 backend_glfw = { path = "../lib/backend_glfw" }
 const-cstr = "*"
 matches = "*"
+threadpool = "*"

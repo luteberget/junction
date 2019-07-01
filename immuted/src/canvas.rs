@@ -1,10 +1,10 @@
 use crate::model::*;
 use std::collections::HashSet;
 use crate::ui;
-use crate::Derived;
 use crate::objects::*;
 use crate::util;
 use crate::view::*;
+use crate::viewmodel::*;
 use crate::ui::col;
 use crate::ui::ImVec2;
 use backend_glfw::imgui::*;
@@ -59,7 +59,7 @@ impl Canvas {
         }
     } }
 
-    pub fn draw(&mut self, doc :&mut Undoable<Model>, derived :&mut Derived) {
+    pub fn draw(&mut self, doc :&mut ViewModel) {
         self.toolbar();
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
@@ -95,7 +95,7 @@ impl Canvas {
             match &mut self.action {
                 Action::Normal(normal) => {
                     let normal = *normal;
-                    self.normalstate(normal, doc, draw_list, pointer_ingrid, pos);
+                    self.normalstate(normal, doc.get_undoable(), draw_list, pointer_ingrid, pos);
                 }
                 Action::DrawingLine(from) => {
                     let from = *from;
@@ -104,7 +104,7 @@ impl Canvas {
                 Action::InsertObject(None) => {
                 },
                 Action::InsertObject(Some(obj)) => {
-                    let moved = obj.symbol.move_to(doc.get(),pointer_ingrid);
+                    let moved = obj.symbol.move_to(doc.get_undoable().get(),pointer_ingrid);
                     obj.symbol.draw(pos,&self.view,draw_list);
                     if let Some(err) = moved {
                         let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
@@ -112,16 +112,16 @@ impl Canvas {
                         ImDrawList_AddRect(draw_list, p - window, p + window, col::error(), 0.0,0,4.0);
                     } else  {
                         if igIsMouseReleased(0) {
-                            let mut m = doc.get().clone();
+                            let mut m = doc.get_undoable().get().clone();
                             m.objects.insert(round_coord(obj.symbol.loc), obj.clone());
-                            doc.set(m);
+                            doc.set_model(m);
                         }
                     }
                 },
             };
 
             // Draw background
-            self.draw_background(doc.get(), draw_list, pos, size);
+            self.draw_background(doc.get_undoable().get(), draw_list, pos, size);
 
 
         }});
@@ -154,7 +154,7 @@ impl Canvas {
         }
     }
 
-    pub fn handle_global_keys(&mut self, doc :&mut Undoable<Model>) { unsafe {
+    pub fn handle_global_keys(&mut self, doc :&mut ViewModel) { unsafe {
         let io = igGetIO();
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Z' as _, false) {
             doc.undo();
@@ -273,7 +273,7 @@ impl Canvas {
         }
     }
 
-    pub fn drawingline(&mut self,  doc :&mut Undoable<Model>,from :Option<Pt>,
+    pub fn drawingline(&mut self,  doc :&mut ViewModel, from :Option<Pt>,
                        pos :ImVec2, pointer_ongrid :Pt, draw_list :*mut ImDrawList
                        ) {
         unsafe {
@@ -286,14 +286,14 @@ impl Canvas {
             }
 
             if !igIsMouseDown(0) {
-                let mut new_model = doc.get().clone();
+                let mut new_model = doc.get_undoable().get().clone();
                 for (p1,p2) in util::route_line(pt,pointer_ongrid) {
                     let unit = util::unit_step_diag_line(p1,p2);
                     for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
                         new_model.linesegs.insert(util::order_ivec(*pa,*pb));
                     }
                 }
-                doc.set(new_model);
+                doc.set_model(new_model);
                 self.action = Action::DrawingLine(None);
             }
         } else {
@@ -303,12 +303,12 @@ impl Canvas {
         }
     } }
 
-    pub fn delete_selection(&mut self, doc :&mut Undoable<Model>) {
-        let mut new_model = doc.get().clone();
+    pub fn delete_selection(&mut self, doc :&mut ViewModel) {
+        let mut new_model = doc.get_undoable().get().clone();
         for x in self.selection.drain() {
             new_model.delete(x);
         }
-        doc.set(new_model);
+        doc.set_model(new_model);
     }
 }
 
