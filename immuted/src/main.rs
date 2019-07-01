@@ -10,6 +10,8 @@ mod view;
 mod objects;
 mod viewmodel;
 
+use matches::matches;
+
 fn main() {
     use crate::model::*;
 
@@ -26,11 +28,18 @@ fn main() {
     // Edits doc (and calls undo/redo).
     let mut canvas = canvas::Canvas::new();
 
-    backend_glfw::backend(|_| {
+    // Main loop GUI
+    backend_glfw::backend("glrail", |action| {
+
+        // Check for updates in background thread
         doc.receive();
+
+        // Draw canvas in the whole window
         ui::in_root_window(|| {
             canvas.draw(&mut doc);
         });
-        true
+
+        // Continue running.
+        !matches!(action, backend_glfw::SystemAction::Close)
     }).unwrap();
 }

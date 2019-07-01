@@ -1,3 +1,5 @@
+// Modified version of Dear ImGUI glfw/gl3 example main loop for use in a pure ImGUI application.
+//
 // dear imgui: standalone example application for GLFW + OpenGL 3, using programmable pipeline
 // If you are new to dear imgui, see examples/README.txt and documentation at the top of imgui.cpp.
 // (GLFW is a cross-platform general purpose library for handling windows, inputs, OpenGL/Vulkan graphics context creation, etc.)
@@ -39,7 +41,11 @@ static void glfw_error_callback(int error, const char* description)
 static GLFWwindow* window;
 extern "C" {
 
-void glfw_opengl3_Init() {
+void glfw_opengl3_SetWindowTitle(const char* win_name) {
+	glfwSetWindowTitle(window, win_name);
+}
+
+void glfw_opengl3_Init(const char* win_name) {
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -63,7 +69,7 @@ void glfw_opengl3_Init() {
 #endif
 
     // Create window with graphics context
-    window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+OpenGL3 example", NULL, NULL);
+    window = glfwCreateWindow(1280, 720, win_name, NULL, NULL);
     if (window == NULL)
         return;
     glfwMakeContextCurrent(window);
@@ -93,7 +99,7 @@ void glfw_opengl3_Init() {
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
 
     // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
+    ImGui::StyleColorsLight();
     //ImGui::StyleColorsClassic();
 
     // Setup Platform/Renderer bindings
@@ -117,7 +123,12 @@ void glfw_opengl3_Init() {
 
 }
 
-void glfw_opengl3_HandleEvents() {
+void glfw_opengl3_HandleEvents(bool* close = nullptr) {
+
+	if (glfwWindowShouldClose(window) && close != nullptr) {
+	    *close = true;
+	    glfwSetWindowShouldClose(window, false);
+	}
 
 //     bool show_demo_window = true;
 //     bool show_another_window = false;

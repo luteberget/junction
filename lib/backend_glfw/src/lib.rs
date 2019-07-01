@@ -28,22 +28,30 @@ pub mod imgui {
 
 pub enum SystemAction {
     Draw,
+    Close,
 }
 
 extern "C" { 
-    fn glfw_opengl3_Init();  
+    fn glfw_opengl3_Init(window_name :*const i8);  
     fn glfw_opengl3_StartFrame();  
     fn glfw_opengl3_EndFrame(); 
-    fn glfw_opengl3_HandleEvents(); 
+    fn glfw_opengl3_HandleEvents(close :*mut bool); 
     fn glfw_opengl3_Destroy(); 
 }
 
-pub fn backend(mut handle :impl FnMut(SystemAction) -> bool) -> Result<(), String> {
-    unsafe { glfw_opengl3_Init(); } // Extern call to modified imgui example code.
+pub fn backend(window_name :&str, 
+               mut handle :impl FnMut(SystemAction) -> bool) -> Result<(), String> {
+    let window_name = std::ffi::CString::new(window_name).map_err(|e| format!("{:?}", e))?;
+    unsafe { glfw_opengl3_Init(window_name.as_ptr()); } // Extern call to modified imgui example code.
     loop {
-        unsafe { glfw_opengl3_HandleEvents(); }
+        let mut close = false;
+        unsafe { glfw_opengl3_HandleEvents(&mut close as *mut _); }
         unsafe { glfw_opengl3_StartFrame(); }
-            if !handle(SystemAction::Draw) { break; }
+        let action = match close {
+            false => SystemAction::Draw,
+            true => SystemAction::Close,
+        };
+        if !handle(action) { break; }
         unsafe { glfw_opengl3_EndFrame(); }
     }
     unsafe { glfw_opengl3_Destroy(); } // Extern call to modified imgui example code.
@@ -55,9 +63,9 @@ mod tests {
     #[test]
     fn it_works() {
         use crate::*;
-        backend(|_| { 
+        backend("imgui test", |a| { 
             unsafe { imgui::igShowDemoWindow(std::ptr::null_mut()); }
-            true 
+            if let SystemAction::Close = a { false } else { true }
         });
     }
 }
