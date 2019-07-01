@@ -1,11 +1,9 @@
 use threadpool::ThreadPool;
 use std::sync::mpsc::*;
 use crate::model::*;
+use crate::dgraph::*;
 
 // TODO data
-#[derive(Clone)]
-#[derive(Debug)]
-pub struct DGraph {}
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct Interlocking {}
@@ -50,8 +48,7 @@ impl ViewModel {
 
     pub fn receive(&mut self) {
         while let Some(Ok(data)) = self.get_data.as_mut().map(|r| r.try_recv()) {
-            println!("Received data from background thread {:?}", 
-                     data);
+            println!("Received data from background thread {:?}", data);
             match data {
                 SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
                 _ => {},
@@ -75,7 +72,7 @@ impl ViewModel {
             let tx = tx;        // move sender into thread
 
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
-            let dgraph = DGraph {};
+            let dgraph = DGraphBuilder::convert(&model).expect("dgraph conversion failed");
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
             if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
             // if tx fails (channel is closed), we don't need 

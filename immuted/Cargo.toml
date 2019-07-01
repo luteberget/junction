@@ -12,3 +12,7 @@ backend_glfw = { path = "../lib/backend_glfw" }
 const-cstr = "*"
 matches = "*"
 threadpool = "*"
+
+rolling = { path = "../../trainspotting/rolling" }
+bimap = "*"
+ordered-float = "*"

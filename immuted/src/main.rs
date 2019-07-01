@@ -9,6 +9,7 @@ mod util;
 mod view;
 mod objects;
 mod viewmodel;
+mod dgraph;
 
 use matches::matches;
 

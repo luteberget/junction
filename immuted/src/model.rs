@@ -135,7 +135,6 @@ impl Model {
     pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),(f32,f32))> {
         // TODO performance
         let (mut thing,mut dist_sqr,mut next_dist) = (None, std::f32::INFINITY, std::f32::INFINITY);
-        println!("get closest from {:?}", pt);
         for x1 in [pt.x.floor() as i32, (pt.x + 1.0).floor() as i32].iter().cloned() {
         for y1 in [pt.y.floor() as i32, (pt.y + 1.0).floor() as i32].iter().cloned() {
         for x2 in [pt.x.floor() as i32, (pt.x + 1.0).floor() as i32].iter().cloned() {
