@@ -86,11 +86,11 @@ impl Object {
 pub struct Vehicle {
 }
 
-#[derive(Debug)]
-#[derive(Copy, Clone)]
-pub enum NDType {
-    End, Boundary, Switch(Side), Crossing(()),
-}
+#[derive(Debug,Copy,Clone)]
+pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Err }
+
+#[derive(Debug,Copy,Clone)]
+pub enum Port { End, ContA, ContB, Left, Right, Trunk, Err }
 
 #[derive(Copy, Clone)]
 #[derive(Debug)]

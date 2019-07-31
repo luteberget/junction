@@ -15,6 +15,9 @@ pub struct Derived {
     pub dgraph :Option<DGraph>,
     pub interlocking :Option<Interlocking>,
     pub history :Vec<Option<History>>,
+
+    pub locations :Vec<(Pt,NDType,Vc)>,
+    pub tracks :Vec<(f64, (usize,Port),(usize,Port))>,
 }
 
 pub struct ViewModel {
@@ -40,6 +43,8 @@ impl ViewModel {
                 dgraph: None, 
                 interlocking: None, 
                 history: Vec::new(), 
+                locations :Vec::new(),
+                tracks :Vec::new(),
             },
             thread_pool: thread_pool,
             get_data: None,
@@ -64,9 +69,15 @@ impl ViewModel {
     }
 
     fn update(&mut self) {
+
+        let model = self.model.get().clone(); // persistent structs
+
+        let (tracks,locs,node_data) = crate::topology::convert(&model.linesegs, &model.node_data, 50.0).unwrap();
+        self.derived.tracks = dbg!(tracks);
+        self.derived.locations = dbg!(locs);
+
         let (tx,rx) = channel();
         self.get_data = Some(rx);
-        let model = self.model.get().clone(); // persistent structs
         self.thread_pool.execute(move || {
             let model = model;  // move model into thread
             let tx = tx;        // move sender into thread
