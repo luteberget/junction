@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"glrail", 
+	"dgraphbuilder", 
 	"lib/imgui-sys-bindgen", 
 	"lib/backend_directx9",
 	"lib/backend_glfw",

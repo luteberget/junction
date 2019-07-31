@@ -2,6 +2,8 @@ use nalgebra_glm as glm;
 use crate::objects::*;
 use crate::util::*;
 
+pub use rolling::input::staticinfrastructure::SwitchPosition as Side;
+
 pub type Pt = glm::I32Vec2;
 pub type PtA = glm::I32Vec2;
 pub type PtC = glm::Vec2;
@@ -87,6 +89,7 @@ pub struct Vehicle {
 #[derive(Debug)]
 #[derive(Copy, Clone)]
 pub enum NDType {
+    End, Boundary, Switch(Side), Crossing(()),
 }
 
 #[derive(Copy, Clone)]
