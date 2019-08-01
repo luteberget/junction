@@ -121,7 +121,7 @@ impl Canvas {
             };
 
             // Draw background
-            self.draw_background(doc.get_undoable().get(), draw_list, pos, size);
+            self.draw_background(&doc, draw_list, pos, size);
 
 
         }});
@@ -180,12 +180,23 @@ impl Canvas {
         }
     }
 
-    pub fn draw_background(&self, m :&Model, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
+    pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
+        let m = vm.get_undoable().get();
+        let d = vm.get_data();
+
         unsafe {
 
             let sel_window = if let Action::Normal(NormalState::SelectWindow(a)) = &self.action {
                 Some((*a, *a + igGetMouseDragDelta_nonUDT2(0,-1.0).into()))
             } else { None };
+
+            let (lo,hi) = self.view.points_in_view(size);
+            for x in lo.x..=hi.x {
+                for y in lo.y..=hi.y {
+                    let pt = self.view.world_pt_to_screen(glm::vec2(x,y));
+                    ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, col::gridpoint(), 4);
+                }
+            }
 
             for l in &m.linesegs {
                 let p1 = self.view.world_pt_to_screen(l.0);
@@ -198,13 +209,24 @@ impl Canvas {
                 ImDrawList_AddLine(draw_list, pos + p1, pos + p2, col, 2.0);
             }
 
-            let (lo,hi) = self.view.points_in_view(size);
-            for x in lo.x..=hi.x {
-                for y in lo.y..=hi.y {
-                    let pt = self.view.world_pt_to_screen(glm::vec2(x,y));
-                    ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, col::gridpoint(), 4);
+            for (pt,t,vc) in &d.locations {
+                use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
+                let pt :PtC = vec2(pt.x as _ ,pt.y as _ );
+                let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
+                match t {
+                    NDType::OpenEnd => {
+                        let col = col::error();
+                        for angle in &[-45.0,45.0] {
+                            ImDrawList_AddLine(draw_list,
+                               pos + self.view.world_ptc_to_screen(pt),
+                               pos + self.view.world_ptc_to_screen(pt) 
+                                + util::to_imvec(8.0*rotate_vec2(&normalize(&tangent),radians(&vec1(*angle)).x)), col, 2.0);
+                        }
+                    },
+                    _ =>{},
                 }
             }
+
 
             for (_pta,obj) in &m.objects {
                 obj.symbol.draw(pos, &self.view, draw_list);

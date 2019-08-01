@@ -53,3 +53,7 @@ pub fn dist_to_line_sqr(p :PtC, a :PtC, b :PtC) -> f32 {
     glm::length2(&(project_to_line(p,a,b) - p))
 }
 
+pub fn to_imvec(p :PtC) -> ImVec2 {
+    ImVec2 { x: p.x, y: -p.y }
+}
+
