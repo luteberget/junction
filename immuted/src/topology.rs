@@ -4,8 +4,8 @@ use crate::model::*;
 use crate::util::*;
 use crate::objects::*;
 
-pub type Tracks = Vec<(f64,(usize,Port),(usize,Port))>;
-pub type Locations = Vec<(Pt,NDType,Vc)>;
+pub type Tracks = Vec<(f64,(Pt,Port),(Pt,Port))>;
+pub type Locations = HashMap<Pt,(NDType,Vc)>;
 pub type TrackObjects = HashMap<usize,Vec<(f64,PtA, Function,Option<AB>)>>;
 
 
@@ -88,7 +88,7 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
         }
     }
 
-    let mut tp : Vec<(Option<(usize,Port)>, Option<(usize,Port)>, f64)> =
+    let mut tp : Vec<(Option<(Pt,Port)>, Option<(Pt,Port)>, f64)> =
         tracks.into_iter().map(|(_,_,l)| (None,None,l)).collect();
 
     let mut settr = |(i,ab) :(usize,AB), val| match ab {
@@ -96,19 +96,19 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
         AB::B => tp[i].1 = val,
     };
 
-    let mut locx :Vec<(Pt,NDType,Vc)> = Vec::new();
+    let mut locx :HashMap<Pt,(NDType,Vc)> = HashMap::new();
 
-    for (l_i, (p,conns)) in locs.into_iter().enumerate() {
+    for (p,conns) in locs.into_iter() {
         let p = to_vec(p);
         match conns.as_slice() {
             [(t,q)] => {
-                settr(*t, Some((l_i, Port::End)));
-                locx.push((p,NDType::OpenEnd, *q - p));
+                settr(*t, Some((p, Port::End)));
+                locx.insert(p,(NDType::OpenEnd, *q - p));
             },
             [(t1,q1),(t2,q2)] => {
-                settr(*t1, Some((l_i, Port::ContA)));
-                settr(*t2, Some((l_i, Port::ContB)));
-                locx.push((p,NDType::Cont, *q1 - p));
+                settr(*t1, Some((p, Port::ContA)));
+                settr(*t2, Some((p, Port::ContB)));
+                locx.insert(p,(NDType::Cont, *q1 - p));
             },
             [(t1,q1),(t2,q2),(t3,q3)] => {
                 let track_idxs = [*t1,*t2,*t3];
@@ -125,10 +125,10 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
                     }
 
                     let side = if angle_diff == 1 { Side::Left } else { Side::Right };
-                    settr(track_idxs[pm[0]], Some((l_i, Port::Trunk)));
-                    settr(track_idxs[pm[1]], Some((l_i, side_to_port(opposite(side)))));
-                    settr(track_idxs[pm[2]], Some((l_i, side_to_port(side))));
-                    locx.push((p,NDType::Sw(side), qs[pm[1]] - p));
+                    settr(track_idxs[pm[0]], Some((p, Port::Trunk)));
+                    settr(track_idxs[pm[1]], Some((p, side_to_port(opposite(side)))));
+                    settr(track_idxs[pm[2]], Some((p, side_to_port(side))));
+                    locx.insert(p,(NDType::Sw(side), qs[pm[1]] - p));
                     break;
                 }
                 if !found { panic!("error in switch"); } // TODO report err
@@ -153,8 +153,8 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
                             if n == 0 { 
                                 maindir = Some(*q1 - p); 
                             }
-                            settr(*t1, Some((l_i, Port::Cross(AB::A,n))));
-                            settr(*t2, Some((l_i, Port::Cross(AB::B,n))));
+                            settr(*t1, Some((p, Port::Cross(AB::A,n))));
+                            settr(*t2, Some((p, Port::Cross(AB::B,n))));
 
                             n += 1;
                         },
@@ -163,11 +163,11 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
                 }
 
                 if n == 2 {
-                    locx.push((p, NDType::Crossing, maindir.unwrap()));
+                    locx.insert(p, (NDType::Crossing, maindir.unwrap()));
                 }
             },
             _ => {
-                locx.push((p,NDType::Err, glm::zero()));
+                locx.insert(p,(NDType::Err, glm::zero()));
             },
         };
     }

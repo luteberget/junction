@@ -25,8 +25,8 @@ pub struct Derived {
     pub interlocking :Option<Arc<Interlocking>>,
     pub history :Vec<Option<Arc<History>>>,
 
-    pub locations :Arc<Vec<(Pt,NDType,Vc)>>,
-    pub tracks :Arc<Vec<(f64, (usize,Port),(usize,Port))>>,
+    pub locations :Arc<HashMap<Pt,(NDType,Vc)>>,
+    pub tracks :Arc<Vec<(f64, (Pt,Port),(Pt,Port))>>,
 }
 
 pub struct ViewModel {
@@ -52,7 +52,7 @@ impl ViewModel {
                 dgraph: None, 
                 interlocking: None, 
                 history: Vec::new(), 
-                locations :Arc::new(Vec::new()),
+                locations :Arc::new(HashMap::new()),
                 tracks :Arc::new(Vec::new()),
             },
             thread_pool: thread_pool,
@@ -163,7 +163,7 @@ impl ViewModel {
 
         println!("CLOSEST NODE {:?}", self.get_closest_node(pt));
         if let Some((p,d)) = self.get_closest_node(pt) {
-            if d < 0.2*0.2 {
+            if d < 0.5*0.5 {
                 thing = Some(Ref::Node(p));
                 dist_sqr = d;
             }
@@ -176,7 +176,7 @@ impl ViewModel {
         let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
         println!("corners {:?} vs locs {:?}", corners(pt), self.get_data().locations);
         for p in corners(pt) {
-            for (px,_,_) in self.get_data().locations.iter() {
+            for (px,_) in self.get_data().locations.iter() {
                 if &p == px {
                     let d = glm::length2(&(pt-glm::vec2(p.x as f32,p.y as f32)));
                     if d < dist_sqr {

@@ -112,6 +112,15 @@ impl Canvas {
                 igEndPopup();
             }
 
+            if igIsMouseClicked(1,false) {
+                if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
+                    if !self.selection.contains(&r) {
+                        self.selection = std::iter::once(r).collect();
+                    }
+                }
+                igOpenPopup(const_cstr!("ctx").as_ptr());
+            }
+
             // Edit actions 
             match &mut self.action {
                 Action::Normal(normal) => {
@@ -231,13 +240,14 @@ impl Canvas {
                 ImDrawList_AddLine(draw_list, pos + p1, pos + p2, col, 2.0);
             }
 
-            for (pt,t,vc) in &*d.locations {
+            for (pt0,(t,vc)) in &*d.locations {
                 use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
-                let pt :PtC = vec2(pt.x as _ ,pt.y as _ );
+                let pt :PtC = vec2(pt0.x as _ ,pt0.y as _ );
                 let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
                 match t {
                     NDType::OpenEnd => {
-                        let col = col::error();
+                        let col = if self.selection.contains(&Ref::Node(*pt0)) {
+                            col::selected() } else { col::error() };
                         for angle in &[-45.0,45.0] {
                             ImDrawList_AddLine(draw_list,
                                pos + self.view.world_ptc_to_screen(pt),
@@ -311,19 +321,11 @@ impl Canvas {
                         self.action = Action::Normal(NormalState::SelectWindow(a));
                     }
                 } else {
-                    if igIsItemActive() && igIsMouseReleased(0) {
+                    if igIsItemHovered(0) && igIsMouseReleased(0) {
                         if !(*io).KeyShift { self.selection.clear(); }
                         if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                             self.selection.insert(r);
                         } 
-                    }
-                    if igIsMouseClicked(1,false) {
-                        if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
-                            if !self.selection.contains(&r) {
-                                self.selection = std::iter::once(r).collect();
-                            }
-                        }
-                        igOpenPopup(const_cstr!("ctx").as_ptr());
                     }
                 }
             },
@@ -352,6 +354,7 @@ impl Canvas {
                     }
                 }
                 doc.set_model(new_model);
+                self.selection = std::iter::empty().collect();
                 self.action = Action::DrawingLine(None);
             }
         } else {

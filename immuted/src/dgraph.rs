@@ -30,8 +30,8 @@ pub struct DGraphBuilder {
 
 impl DGraphBuilder {
     pub fn convert(model :&Model, 
-                   tracks :&[(f64,(usize,Port),(usize,Port))], 
-                   locs :&[(Pt,NDType,Vc)],
+                   tracks :&[(f64,(Pt,Port),(Pt,Port))], 
+                   locs :&HashMap<Pt,(NDType,Vc)>,
                    trackobjects :&HashMap<usize, Vec<(f64,PtA,Function,Option<AB>)>>) -> Result<DGraph, ()> {
         let mut m = DGraphBuilder::new();
 
@@ -45,7 +45,7 @@ impl DGraphBuilder {
 
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
 
-        let locs = locs.iter().map(|(_,t,_)| *t).collect::<Vec<_>>();
+        //let locs = locs.iter().map(|(_,(t,_))| *t).collect::<Vec<_>>();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
         m.create_network(
             tracks, &locs, 
@@ -199,14 +199,14 @@ impl DGraphBuilder {
     }
 
     pub fn create_network(&mut self,
-        tracks: &[(f64, (usize, Port), (usize, Port))], // track length and line pieces
-        nodes: &[NDType],
+        tracks: &[(f64, (Pt, Port), (Pt, Port))], // track length and line pieces
+        nodes: &HashMap<Pt,(NDType, Vc)>,
         mut each_track: impl FnMut(usize,Cursor,&mut Self)) {
 
         println!("TRACKS HERE {:?}", tracks);
         println!("TRACKS NODES {:?}", nodes);
 
-        let mut ports :HashMap<(usize,Port), rolling_inf::NodeId>  = HashMap::new();
+        let mut ports :HashMap<(Pt,Port), rolling_inf::NodeId>  = HashMap::new();
         for (i,(len,a,b)) in tracks.iter().enumerate() {
             let (start_a,start_b) = self.new_node_pair();
             let (end_a,end_b) = self.new_node_pair();
@@ -218,29 +218,29 @@ impl DGraphBuilder {
 
         println!("PREP PORTS {:?}", ports);
 
-        for (i,node) in nodes.iter().enumerate() {
+        for (pt,(node,_)) in nodes.iter() {
             match node {
                 NDType::BufferStop => {},
                 NDType::OpenEnd => {
-                    self.dgraph.nodes[ports[&(i, Port::End)]].edges =
+                    self.dgraph.nodes[ports[&(*pt, Port::End)]].edges =
                         rolling_inf::Edges::ModelBoundary;
                 },
                 NDType::Cont => {
-                    self.connect_linear(ports[&(i, Port::ContA)],
-                                        ports[&(i, Port::ContB)], 0.0);
+                    self.connect_linear(ports[&(*pt, Port::ContA)],
+                                        ports[&(*pt, Port::ContB)], 0.0);
                 },
                 NDType::Sw(side) => {
                     let sw_obj = self.new_object(rolling_inf::StaticObject::Switch {
-                        left_link:  (ports[&(i,Port::Left)], 0.0),
-                        right_link: (ports[&(i,Port::Right)], 0.0),
+                        left_link:  (ports[&(*pt,Port::Left)], 0.0),
+                        right_link: (ports[&(*pt,Port::Right)], 0.0),
                         branch_side: *side,
                     });
 
-                    self.dgraph.nodes[ports[&(i, Port::Left)]].edges  = 
-                        rolling_inf::Edges::Single(ports[&(i,Port::Trunk)], 0.0);
-                    self.dgraph.nodes[ports[&(i, Port::Right)]].edges = 
-                        rolling_inf::Edges::Single(ports[&(i,Port::Trunk)], 0.0);
-                    self.dgraph.nodes[ports[&(i, Port::Trunk)]].edges =
+                    self.dgraph.nodes[ports[&(*pt, Port::Left)]].edges  = 
+                        rolling_inf::Edges::Single(ports[&(*pt,Port::Trunk)], 0.0);
+                    self.dgraph.nodes[ports[&(*pt, Port::Right)]].edges = 
+                        rolling_inf::Edges::Single(ports[&(*pt,Port::Trunk)], 0.0);
+                    self.dgraph.nodes[ports[&(*pt, Port::Trunk)]].edges =
                         rolling_inf::Edges::Switchable(sw_obj);
                 },
                 _ => unimplemented!(),
