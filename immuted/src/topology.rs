@@ -1,13 +1,13 @@
 use std::collections::{BTreeSet, BTreeMap,HashMap, VecDeque};
 use nalgebra_glm as glm;
 use crate::model::*;
+use crate::util::*;
 use crate::objects::*;
 
 pub type Tracks = Vec<(f64,(usize,Port),(usize,Port))>;
 pub type Locations = Vec<(Pt,NDType,Vc)>;
 pub type TrackObjects = HashMap<usize,Vec<(f64,PtA, Function,Option<AB>)>>;
 
-fn to_vec(pt :(i32,i32)) -> Pt { nalgebra_glm::vec2(pt.0,pt.1) }
 
 pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,TrackObjects,im::HashMap<Pt,NDType>), ()>{
 

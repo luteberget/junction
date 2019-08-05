@@ -1,21 +1,29 @@
+use rolling::input::staticinfrastructure as rolling_inf;
 use threadpool::ThreadPool;
 use std::sync::mpsc::*;
 use crate::model::*;
 use crate::dgraph::*;
 use std::sync::Arc;
+use std::collections::HashMap;
+use nalgebra_glm as glm;
 
 // TODO data
-#[derive(Clone)]
+
 #[derive(Debug)]
-pub struct Interlocking {}
+pub struct Interlocking {
+    routes: Vec<(rolling_inf::Route, Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>)>,
+    boundary_routes: HashMap<(i32,i32), Vec<usize>>,
+    signal_routes: HashMap<(i32,i32), Vec<usize>>,
+}
+
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct History {}
 
 pub struct Derived {
-    pub dgraph :Option<DGraph>,
-    pub interlocking :Option<Interlocking>,
-    pub history :Vec<Option<History>>,
+    pub dgraph :Option<Arc<DGraph>>,
+    pub interlocking :Option<Arc<Interlocking>>,
+    pub history :Vec<Option<Arc<History>>>,
 
     pub locations :Arc<Vec<(Pt,NDType,Vc)>>,
     pub tracks :Arc<Vec<(f64, (usize,Port),(usize,Port))>>,
@@ -30,9 +38,9 @@ pub struct ViewModel {
 
 #[derive(Debug)]
 pub enum SetData {
-    DGraph(DGraph),
-    Interlocking(Interlocking),
-    History(usize,History),
+    DGraph(Arc<DGraph>),
+    Interlocking(Arc<Interlocking>),
+    History(usize,Arc<History>),
 }
 
 impl ViewModel {
@@ -87,6 +95,8 @@ impl ViewModel {
 
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
             let dgraph = DGraphBuilder::convert(&model,&tracks,&locs,&trackobjects).expect("dgraph conversion failed");
+            let dgraph = Arc::new(dgraph);
+
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
             if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
             // if tx fails (channel is closed), we don't need 
@@ -97,14 +107,22 @@ impl ViewModel {
             // be placed into the struct.
 
             //let interlocking = interlocking::calc(&dgraph); 
-            let interlocking = Interlocking {};
+            let (routes,route_issues) = 
+                route_finder::find_routes(Default::default(), &dgraph.rolling_inf)
+                .expect("interlocking route finder failed");
+            println!("FOUND routes {:?}", routes);
+            let interlocking = Arc::new(Interlocking {
+                routes: routes,
+                boundary_routes: HashMap::new(),
+                signal_routes: HashMap::new(),
+            });
                 // calc interlocking from dgraph
             let send_ok = tx.send(SetData::Interlocking(interlocking.clone()));
             if !send_ok.is_ok() { println!("job canceled after interlocking"); return; }
 
             for (i,dispatch) in model.dispatches.iter().enumerate() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
-                let history = History {};
+                let history = Arc::new(History {});
                 let send_ok = tx.send(SetData::History(i, history));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
@@ -134,6 +152,41 @@ impl ViewModel {
     pub fn redo(&mut self) {
         self.model.redo();
         self.update();
+    }
+
+    pub fn get_closest(&self, pt :PtC) -> Option<(Ref,f32)> {
+        let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
+        if let Some(((p1,p2),_param,(d,_n))) = self.get_undoable().get().get_closest_lineseg(pt) {
+            thing = Some(Ref::LineSeg(p1,p2));
+            dist_sqr = d; 
+        }
+
+        println!("CLOSEST NODE {:?}", self.get_closest_node(pt));
+        if let Some((p,d)) = self.get_closest_node(pt) {
+            if d < 0.2*0.2 {
+                thing = Some(Ref::Node(p));
+                dist_sqr = d;
+            }
+        }
+
+        thing.map(|t| (t,dist_sqr))
+    }
+
+    pub fn get_closest_node(&self, pt :PtC) -> Option<(Pt,f32)> {
+        let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
+        println!("corners {:?} vs locs {:?}", corners(pt), self.get_data().locations);
+        for p in corners(pt) {
+            for (px,_,_) in self.get_data().locations.iter() {
+                if &p == px {
+                    let d = glm::length2(&(pt-glm::vec2(p.x as f32,p.y as f32)));
+                    if d < dist_sqr {
+                        thing = Some(p);
+                        dist_sqr = d;
+                    }
+                }
+            }
+        }
+        thing.map(|t| (t,dist_sqr))
     }
 }
 

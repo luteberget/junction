@@ -12,13 +12,11 @@ pub type ModelNodeId = Pt;
 pub type ModelObjectId = PtA;
 
 #[derive(Debug)]
-#[derive(Clone)]
 pub struct DGraph {
-    pub rolling_inf :Arc<rolling_inf::StaticInfrastructure>, 
-    // separate Arc to be sent around to simulation threads
+    pub rolling_inf :rolling_inf::StaticInfrastructure, 
 
-    pub node_ids : BiMap<ModelNodeId, rolling_inf::NodeId>,
-    pub object_ids : BiMap<ModelObjectId, rolling_inf::ObjectId>,
+    //pub node_ids : BiMap<ModelNodeId, rolling_inf::NodeId>,
+    //pub object_ids : BiMap<ModelObjectId, rolling_inf::ObjectId>,
 
     pub tvd_sections :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
@@ -64,6 +62,7 @@ impl DGraphBuilder {
                         Function::MainSignal => { 
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
+                            dg.insert_object(cursor, rolling_inf::StaticObject::Signal);
                         },
                     }
                     last_pos = pos;
@@ -82,12 +81,23 @@ impl DGraphBuilder {
             }
         }
 
-
         // Train detectors
+        for (node_idx,node) in m.dgraph.nodes.iter().enumerate() {
+            if matches!(node.edges, rolling_inf::Edges::ModelBoundary) {
+                detector_nodes.insert((node_idx, node.other_node));
+            }
+        }
+        let tvd_sections = route_finder::detectors_to_sections(&mut m.dgraph, &detector_nodes)
+            .expect("could not calc tvd sections.");
 
         println!("DGRAPH");
         println!("{:?}", m.dgraph);
-        unimplemented!()
+
+        Ok(DGraph {
+            rolling_inf: m.dgraph,
+            tvd_sections: tvd_sections
+        })
+
     }
 
     pub fn new() -> DGraphBuilder {
@@ -126,14 +136,41 @@ impl DGraphBuilder {
 
     fn split_edge(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, second_dist :f64) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
         let (na,nb) = self.new_node_pair();
-        let first_dist = match self.dgraph.nodes[b].edges {
-            rolling_inf::Edges::Single(_,reverse) => reverse - second_dist,
-            _ => panic!(), // TODO
-        };
-        println!("CONNECT LINEAR {:?} {:?}", (a,na,first_dist), (nb,b,second_dist));
-        self.connect_linear(a,na,first_dist);
-        self.connect_linear(nb,b,second_dist);
+        let reverse_dist = self.edge_length(b, a).unwrap();
+        let first_dist = reverse_dist - second_dist;
+        //println!("CONNECT LINEAR {:?} {:?}", (a,na,first_dist), (nb,b,second_dist));
+        self.replace_conn(a,b,na,first_dist);
+        self.replace_conn(b,a,nb,second_dist);
         (na,nb)
+    }
+
+    pub fn edge_length(&self, a :rolling_inf::NodeId, b: rolling_inf::NodeId) -> Option<f64> {
+        match self.dgraph.nodes[a].edges {
+            rolling_inf::Edges::Single(bx,d) if b == bx => Some(d),
+            rolling_inf::Edges::Switchable(objid) => {
+                if let rolling_inf::StaticObject::Switch { left_link, right_link, .. } = self.dgraph.objects[objid] {
+                    if left_link.0 == b { Some(left_link.1) }
+                    else if right_link.0 == b { Some(right_link.1) }
+                    else { None }
+                } else { None }
+            }
+            _ => None,
+        }
+    }
+
+    fn replace_conn(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, x :rolling_inf::NodeId, d :f64) {
+        use rolling_inf::Edges;
+        match self.dgraph.nodes[a].edges {
+            Edges::Single(bx,d) if b == bx => { self.dgraph.nodes[a].edges = Edges::Single(x,d); }
+            Edges::Switchable(objid) => {
+                if let rolling_inf::StaticObject::Switch { ref mut left_link, ref mut right_link, .. } = &mut self.dgraph.objects[objid] {
+                    if left_link.0 == b { *left_link = (x,d); }
+                    else if right_link.0 == b { *right_link = (x,d); }
+                    else { panic!() }
+                } else { panic!() }
+            }
+            _ => { panic!() },
+        }
     }
 
     pub fn insert_node_pair(&mut self, at :Cursor) -> Cursor {
@@ -147,6 +184,7 @@ impl DGraphBuilder {
     }
 
     pub fn insert_object(&mut self, at :Cursor, obj :rolling_inf::StaticObject) -> Cursor {
+        println!("INSERT OBJECT {:?} {:?}", at, obj);
         if let Cursor::Node(a) = at {
             self.new_object_at(obj, a);
             at

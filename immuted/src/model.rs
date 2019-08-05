@@ -134,7 +134,7 @@ pub struct Model {
 #[derive(Debug)]
 pub enum Ref {
     Node(Pt),
-    Track(Pt,Pt),
+    LineSeg(Pt,Pt),
     Object(PtA),
 }
 
@@ -150,10 +150,16 @@ fn closest_pts(pt :PtC) -> [(Pt,Pt);2] {
     ]
 }
 
+pub fn corners(pt :PtC) -> Vec<Pt> {
+    use itertools::iproduct;
+    use nalgebra_glm::vec2; 
+    iproduct!(
+        [0.0,1.0].iter().map(|d| (pt.x + d).floor() as i32),
+        [0.0,1.0].iter().map(|d| (pt.y + d).floor() as i32))
+        .map(|(x,y)| vec2(x,y)).collect()
+}
+
 impl Model {
-    pub fn get_closest(&self, pt :PtC) -> Option<(Ref,(f32,f32))> {
-        self.get_closest_lineseg(pt).map(|(a,_param,b)| (Ref::Track(a.0,a.1),b))
-    }
 
     pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),f32,(f32,f32))> {
         // TODO performance
@@ -192,7 +198,7 @@ impl Model {
             let p2 = glm::vec2(b.x as f32,b.y as f32);
             if (x_lo <= p1.x && p1.x <= x_hi && y_lo <= p1.y && p1.y <= y_hi) ||
                (x_lo <= p2.x && p2.x <= x_hi && y_lo <= p2.y && p2.y <= y_hi) {
-                   r.push(Ref::Track(*a,*b));
+                   r.push(Ref::LineSeg(*a,*b));
                }
         }
         r
@@ -200,7 +206,7 @@ impl Model {
 
     pub fn delete(&mut self, x :Ref) {
         match x {
-            Ref::Track(a,b) => { self.linesegs.remove(&(a,b)); },
+            Ref::LineSeg(a,b) => { self.linesegs.remove(&(a,b)); },
             Ref::Node(a) => { self.node_data.remove(&a); },
             Ref::Object(p) => { self.objects.remove(&p); },
         }

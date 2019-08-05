@@ -16,3 +16,6 @@ threadpool = "*"
 rolling = { path = "../../trainspotting/rolling" }
 bimap = "*"
 ordered-float = "*"
+
+route_finder = { path = "../lib/route_finder" }
+itertools = "*"

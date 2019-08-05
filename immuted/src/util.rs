@@ -58,3 +58,4 @@ pub fn to_imvec(p :PtC) -> ImVec2 {
     ImVec2 { x: p.x, y: -p.y }
 }
 
+pub fn to_vec(pt :(i32,i32)) -> Pt { nalgebra_glm::vec2(pt.0,pt.1) }

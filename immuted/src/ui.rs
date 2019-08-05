@@ -52,3 +52,9 @@ pub fn canvas(size :ImVec2, f :impl FnOnce(*mut ImDrawList,ImVec2)) {
         ImDrawList_PopClipRect(draw_list);
     }
 }
+
+pub fn show_text(s :&str) {
+    unsafe {
+    igTextSlice(s.as_ptr() as _ , s.as_ptr().offset(s.len() as _ ) as _ );
+    }
+}

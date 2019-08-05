@@ -59,6 +59,31 @@ impl Canvas {
         }
     } }
 
+    pub fn context_menu_contents(&mut self, doc :&mut ViewModel) {
+        unsafe {
+            ui::show_text(&format!("selection: {:?}", self.selection));
+            //
+            // TODO cache some info about selection? In case it is very big and we need to know
+            // every frame whether it contains a Node or not.
+            // 
+            if !self.selection.is_empty() {
+                if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, util::to_imvec(glm::zero())) {
+                    self.delete_selection(doc);
+                }
+            }
+
+            if self.selection.len() == 1 {
+                match self.selection.iter().next().unwrap() {
+                    Ref::Node(pt) => {
+                        ui::show_text("Dispatch from boundary?");
+                    },
+                    _ => {},
+                }
+            }
+
+        }
+    }
+
     pub fn draw(&mut self, doc :&mut ViewModel) {
         self.toolbar();
 
@@ -83,11 +108,7 @@ impl Canvas {
 
             // Context menu 
             if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-                if !self.selection.is_empty() {
-                    if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, zero) {
-                        self.delete_selection(doc);
-                    }
-                }
+                self.context_menu_contents(doc);
                 igEndPopup();
             }
 
@@ -95,7 +116,7 @@ impl Canvas {
             match &mut self.action {
                 Action::Normal(normal) => {
                     let normal = *normal;
-                    self.normalstate(normal, doc.get_undoable(), draw_list, pointer_ingrid, pos);
+                    self.normalstate(normal, doc, draw_list, pointer_ingrid, pos);
                 }
                 Action::DrawingLine(from) => {
                     let from = *from;
@@ -169,6 +190,7 @@ impl Canvas {
 
     pub fn scroll(&mut self) {
         unsafe {
+            if !igIsWindowFocused(0 as _) { return; }
             let io = igGetIO();
             let wheel = (*io).MouseWheel;
             if wheel != 0.0 {
@@ -201,7 +223,7 @@ impl Canvas {
             for l in &m.linesegs {
                 let p1 = self.view.world_pt_to_screen(l.0);
                 let p2 = self.view.world_pt_to_screen(l.1);
-                let selected = self.selection.contains(&Ref::Track(l.0,l.1));
+                let selected = self.selection.contains(&Ref::LineSeg(l.0,l.1));
                 let preview = sel_window
                     .map(|(a,b)| util::point_in_rect(p1,a,b) || util::point_in_rect(p2,a,b))
                     .unwrap_or(false) ;
@@ -248,13 +270,13 @@ impl Canvas {
         }
     }
 
-    pub fn set_selection_window(&mut self, doc :&Undoable<Model>, a :ImVec2, b :ImVec2) {
-        self.selection = doc.get().get_rect(self.view.screen_to_world_ptc(a),
+    pub fn set_selection_window(&mut self, doc :&ViewModel, a :ImVec2, b :ImVec2) {
+        self.selection = doc.get_undoable().get().get_rect(self.view.screen_to_world_ptc(a),
                                             self.view.screen_to_world_ptc(b))
                         .into_iter().collect();
     }
 
-    pub fn normalstate(&mut self, state: NormalState, doc :&Undoable<Model>,
+    pub fn normalstate(&mut self, state: NormalState, doc :&mut ViewModel,
                        draw_list :*mut ImDrawList, pointer_ingrid :PtC, pos :ImVec2) {
         unsafe {
         let io = igGetIO();
@@ -278,7 +300,7 @@ impl Canvas {
             }
             NormalState::Default => {
                 if igIsMouseDragging(0,-1.0) {
-                    if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
+                    if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                         if !self.selection.contains(&r) {
                             self.selection = std::iter::once(r).collect();
                         }
@@ -291,12 +313,12 @@ impl Canvas {
                 } else {
                     if igIsItemActive() && igIsMouseReleased(0) {
                         if !(*io).KeyShift { self.selection.clear(); }
-                        if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
+                        if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                             self.selection.insert(r);
                         } 
                     }
                     if igIsMouseClicked(1,false) {
-                        if let Some((r,_)) = doc.get().get_closest(pointer_ingrid) {
+                        if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                             if !self.selection.contains(&r) {
                                 self.selection = std::iter::once(r).collect();
                             }
