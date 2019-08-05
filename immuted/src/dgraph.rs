@@ -23,16 +23,7 @@ pub struct DGraph {
     pub tvd_sections :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
 
-    pub edge_intervals :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Interval>,
-}
-
-#[derive(Copy, Clone)]
-#[derive(Debug)]
-pub struct Interval {
-    // TODO ??? 
-    //pub track :TrackId, 
-    //pub p1 :Pos, // TODO ??? 
-    //pub p2 :Pos,
+    //pub edge_intervals :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Interval>,
 }
 
 pub struct DGraphBuilder {
@@ -40,7 +31,10 @@ pub struct DGraphBuilder {
 }
 
 impl DGraphBuilder {
-    pub fn convert(model :&Model) -> Result<DGraph, ()> {
+    pub fn convert(model :&Model, 
+                   tracks :&[(f64,(usize,Port),(usize,Port))], 
+                   locs :&[(Pt,NDType,Vc)],
+                   trackobjects :&HashMap<usize, Vec<(f64,PtA,Function,Option<AB>)>>) -> Result<DGraph, ()> {
         let mut m = DGraphBuilder::new();
 
         // Create signals objects separately (they are not actually part of the "geographical" 
@@ -51,51 +45,48 @@ impl DGraphBuilder {
             static_signals.insert(*p,id);
         }
 
-        // model needs to have a map from line segment to track index
-        // List of tracks and related objects.
-        let mut tracks = model./*railway.tracks*/linesegs.iter()
-            .map(|(_segs,len)| (*len, Vec::new()))
-            .collect::<Vec<(_,Vec<()>)>>();
+        let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
 
-//         // Calculate sight and put it onto track.
-//         for sig in &static_signals {
-//             let (track,pos,obj) = find_sight_point(model, sig);
-//             let track = tracks.get_mut(&track));
-//             track.1.push((*pos, None, obj));
-//         }
-// 
-//         let mut nontrivial_nodes = HashMap::new();
-//         for node in &nodes {
-//             match node {
-//                 Node::Switch => nontrivial.add
-//                 // TODO Node::Crossing => nontrivial.add
-//                 _ => {},
-//             };
-//         }
-// 
-//         let anonymous_detector = ObjectType::Detector;
-// 
-// 
-//         for (track_id, mut t) in tracks {
-//             // Go over each track and construct corresponding nodes for 
-//             // internal objects.
-// 
-//             let (na,nb) = m.new_node_pair();
-// 
-//             if let NodeType::Macro(_) = t.start.0 {
-//                 t.objs.push((0.0, None, &anonymous_detector));
-//             }
-// 
-//             if let NodeType::Macro(_) = t.end.0 {
-//                 t.objs.push((t.len, None, &anonymous_detector));
-//             }
-// 
-//             match t.start {
-//                 (NodeType::BufferStop, _ ) => {},
-//             }
-//         }
-// 
-// 
+        let locs = locs.iter().map(|(_,t,_)| *t).collect::<Vec<_>>();
+        let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
+        m.create_network(
+            tracks, &locs, 
+            |track_idx,mut cursor,dg| {
+                let mut last_pos = 0.0;
+                let mut objs :Vec<(f64,PtA,Function,Option<AB>)> = trackobjects[&track_idx].clone();
+                objs.sort_by_key(|(pos,_,_,_)| OrderedFloat(*pos));
+                for (pos, id, func, dir) in objs {
+                    println!("INSERT OBJ {:?}", (pos,func,dir));
+                    cursor = cursor.advance_single(&dg.dgraph, pos - last_pos).unwrap();
+                    cursor = dg.insert_node_pair(cursor);
+                    match func {
+                        Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
+                        Function::MainSignal => { 
+                            let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
+                            signal_cursors.insert(id,c); 
+                        },
+                    }
+                    last_pos = pos;
+                }
+            } );
+
+        println!("SIGNALS AT {:?}", signal_cursors);
+        // Sight to signals
+        for (id,cursor) in signal_cursors {
+            let objid = static_signals[&id];
+            let sight_dist = 200.0; // TODO configurable
+            for (cursor,dist) in cursor.reverse(&m.dgraph).advance_nontrailing_truncate(&m.dgraph, sight_dist) {
+                m.insert_object(cursor, rolling_inf::StaticObject::Sight{
+                    distance: dist, signal: objid,
+                });
+            }
+        }
+
+
+        // Train detectors
+
+        println!("DGRAPH");
+        println!("{:?}", m.dgraph);
         unimplemented!()
     }
 
@@ -113,7 +104,13 @@ impl DGraphBuilder {
         id
     }
 
-    pub fn new_nodes(&mut self) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
+    pub fn new_object_at(&mut self, obj :rolling_inf::StaticObject, node: rolling_inf::NodeId) -> rolling_inf::ObjectId {
+        let obj_id = self.new_object(obj);
+        self.dgraph.nodes[node].objects.push(obj_id);
+        obj_id
+    }
+
+    pub fn new_node_pair(&mut self) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
         let (i1,i2) = (self.dgraph.nodes.len(), self.dgraph.nodes.len() +1);
         self.dgraph.nodes.push(rolling_inf::Node { other_node: i2,
             edges: rolling_inf::Edges::Nothing, objects: Default::default() });
@@ -121,6 +118,181 @@ impl DGraphBuilder {
             edges: rolling_inf::Edges::Nothing, objects: Default::default() });
         (i1,i2)
     }
+
+    fn connect_linear(&mut self, na :rolling_inf::NodeId, nb :rolling_inf::NodeId, d :f64) {
+        self.dgraph.nodes[na].edges = rolling_inf::Edges::Single(nb, d);
+        self.dgraph.nodes[nb].edges = rolling_inf::Edges::Single(na, d);
+    }
+
+    fn split_edge(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, second_dist :f64) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
+        let (na,nb) = self.new_node_pair();
+        let first_dist = match self.dgraph.nodes[b].edges {
+            rolling_inf::Edges::Single(_,reverse) => reverse - second_dist,
+            _ => panic!(), // TODO
+        };
+        println!("CONNECT LINEAR {:?} {:?}", (a,na,first_dist), (nb,b,second_dist));
+        self.connect_linear(a,na,first_dist);
+        self.connect_linear(nb,b,second_dist);
+        (na,nb)
+    }
+
+    pub fn insert_node_pair(&mut self, at :Cursor) -> Cursor {
+        match at {
+            Cursor::Node(x) => Cursor::Node(x),
+            Cursor::Edge((a,b),d) => {
+                let (na,nb) = self.split_edge(a,b,d);
+                Cursor::Node(nb)
+            },
+        }
+    }
+
+    pub fn insert_object(&mut self, at :Cursor, obj :rolling_inf::StaticObject) -> Cursor {
+        if let Cursor::Node(a) = at {
+            self.new_object_at(obj, a);
+            at
+        } else {
+            let at = self.insert_node_pair(at);
+            self.insert_object(at, obj)
+        }
+    }
+
+    pub fn create_network(&mut self,
+        tracks: &[(f64, (usize, Port), (usize, Port))], // track length and line pieces
+        nodes: &[NDType],
+        mut each_track: impl FnMut(usize,Cursor,&mut Self)) {
+
+        println!("TRACKS HERE {:?}", tracks);
+        println!("TRACKS NODES {:?}", nodes);
+
+        let mut ports :HashMap<(usize,Port), rolling_inf::NodeId>  = HashMap::new();
+        for (i,(len,a,b)) in tracks.iter().enumerate() {
+            let (start_a,start_b) = self.new_node_pair();
+            let (end_a,end_b) = self.new_node_pair();
+            ports.insert(*a, start_a);
+            self.connect_linear(start_b, end_a, *len);
+            ports.insert(*b, end_b);
+            each_track(i,Cursor::Node(start_b), self);
+        }
+
+        println!("PREP PORTS {:?}", ports);
+
+        for (i,node) in nodes.iter().enumerate() {
+            match node {
+                NDType::BufferStop => {},
+                NDType::OpenEnd => {
+                    self.dgraph.nodes[ports[&(i, Port::End)]].edges =
+                        rolling_inf::Edges::ModelBoundary;
+                },
+                NDType::Cont => {
+                    self.connect_linear(ports[&(i, Port::ContA)],
+                                        ports[&(i, Port::ContB)], 0.0);
+                },
+                NDType::Sw(side) => {
+                    let sw_obj = self.new_object(rolling_inf::StaticObject::Switch {
+                        left_link:  (ports[&(i,Port::Left)], 0.0),
+                        right_link: (ports[&(i,Port::Right)], 0.0),
+                        branch_side: *side,
+                    });
+
+                    self.dgraph.nodes[ports[&(i, Port::Left)]].edges  = 
+                        rolling_inf::Edges::Single(ports[&(i,Port::Trunk)], 0.0);
+                    self.dgraph.nodes[ports[&(i, Port::Right)]].edges = 
+                        rolling_inf::Edges::Single(ports[&(i,Port::Trunk)], 0.0);
+                    self.dgraph.nodes[ports[&(i, Port::Trunk)]].edges =
+                        rolling_inf::Edges::Switchable(sw_obj);
+                },
+                _ => unimplemented!(),
+            }
+        }
+    }
 }
 
+#[derive(Copy,Clone, Debug)]
+pub enum Cursor {
+    Node(rolling_inf::NodeId),
+    Edge((rolling_inf::NodeId, rolling_inf::NodeId), f64), // remaining distance along edge
+}
 
+fn edge_multiplicity(e :&rolling_inf::Edges) -> usize {
+    match e {
+        rolling_inf::Edges::Switchable(_) => 2,
+        rolling_inf::Edges::ModelBoundary |
+        rolling_inf::Edges::Nothing => 0,
+        rolling_inf::Edges::Single(_,_) => 1,
+    }
+}
+
+fn out_edges(dg :&rolling_inf::StaticInfrastructure, e: &rolling_inf::NodeId) -> Vec<(rolling_inf::NodeId,f64)> {
+    match dg.nodes[*e].edges {
+        rolling_inf::Edges::Single(n,d) => vec![(n,d)],
+        rolling_inf::Edges::Switchable(obj) => match dg.objects[obj] {
+            rolling_inf::StaticObject::Switch { right_link, left_link, .. } => vec![right_link,left_link],
+            _ => panic!(),
+        },
+        rolling_inf::Edges::ModelBoundary | rolling_inf::Edges::Nothing => vec![],
+    }
+}
+
+impl Cursor {
+    pub fn advance_single(&self, dg :&rolling_inf::StaticInfrastructure, l :f64) -> Option<Cursor> {
+        if l <= 0.0 { return Some(*self); }
+        match self {
+            Cursor::Node(n) => match dg.nodes[*n].edges {
+                rolling_inf::Edges::Single(b,d) => Cursor::Edge((*n,b),d).advance_single(dg, l),
+                _ => None,
+            }
+            Cursor::Edge((a,b),d) => if *d > l {
+                Some(Cursor::Edge((*a,*b), *d - l))
+            } else {
+                Cursor::Node(*b).advance_single(dg, l - *d)
+            },
+        }
+    }
+
+    pub fn advance_nontrailing_truncate(&self, dg :&rolling_inf::StaticInfrastructure, l :f64) -> Vec<(Cursor,f64)> {
+        let mut output = Vec::new();
+        let mut cursors = vec![(*self,l)];
+        while let Some((cursor,d)) = cursors.pop() {
+            match cursor {
+                Cursor::Edge((a0,b0),nd0) => {
+                    if nd0 >= d { 
+                        output.push((Cursor::Edge((a0,b0),nd0-d), l)); // Done: Full length achieved
+                    } else {
+                        if edge_multiplicity(&dg.nodes[b0].edges) > 1 {
+                            output.push((Cursor::Edge((a0,b0),0.0), l - (d - nd0))); // Done: Trailing switch, truncate path here
+                        } else {
+                            let a = dg.nodes[b0].other_node;
+                            for (b,nd) in out_edges(dg,&a)  {
+                                cursors.push((Cursor::Edge((a,b),nd), d - nd0));
+                            }
+                        }
+                    }
+                },
+                Cursor::Node(a) => {
+                    for (b,nd) in out_edges(dg, &a) {
+                        cursors.push((Cursor::Edge((a,b),nd), d));
+                    }
+                },
+            };
+        }
+        output
+    }
+
+    pub fn nodes(&self, dg :&rolling_inf::StaticInfrastructure) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
+        match self {
+            Cursor::Node(n) => (*n, dg.nodes[*n].other_node),
+            Cursor::Edge((a,b),_d) => (*a,*b),
+        }
+    }
+
+    pub fn reverse(&self, dg :&rolling_inf::StaticInfrastructure) -> Cursor {
+        match self {
+            Cursor::Node(n) => Cursor::Node(dg.nodes[*n].other_node),
+            _ => unimplemented!(),
+        }
+    }
+
+    // advance_single_truncate,
+    // advance_multiple,
+    // advance_multiple_truncate,
+}

@@ -19,8 +19,8 @@ pub enum Shape {
 
 impl Symbol {
     pub fn move_to(&mut self, model :&Model, pt :PtC) -> Option<()> {
-        if let Some((l,(d1,d2))) = model.get_closest_lineseg(pt) {
-            let pt_on_line = project_to_line(pt, glm::vec2(l.0.x as _ ,l.0.y as _ ),
+        if let Some((l,_param,(d1,d2))) = model.get_closest_lineseg(pt) {
+            let (pt_on_line,_param) = project_to_line(pt, glm::vec2(l.0.x as _ ,l.0.y as _ ),
                                                  glm::vec2(l.1.x as _ ,l.1.y as _ ));
             let tangent : PtC = glm::vec2(l.1.x as f32 -l.0.x as f32 ,l.1.y as f32 -l.0.y as f32);
             let normal : PtC   = glm::vec2(-tangent.y,tangent.x);

@@ -209,7 +209,7 @@ impl Canvas {
                 ImDrawList_AddLine(draw_list, pos + p1, pos + p2, col, 2.0);
             }
 
-            for (pt,t,vc) in &d.locations {
+            for (pt,t,vc) in &*d.locations {
                 use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
                 let pt :PtC = vec2(pt.x as _ ,pt.y as _ );
                 let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
@@ -223,7 +223,21 @@ impl Canvas {
                                 + util::to_imvec(8.0*rotate_vec2(&normalize(&tangent),radians(&vec1(*angle)).x)), col, 2.0);
                         }
                     },
-                    _ =>{},
+                    NDType::Cont => {
+                        ImDrawList_AddCircleFilled(draw_list, 
+                            pos + self.view.world_ptc_to_screen(pt), 4.0, col::selected(), 8);
+                    },
+                    NDType::Sw(side) => {
+                        let angle = if matches!(side, Side::Left) { 45.0 } else { -45.0 };
+                        let p1 = pos + self.view.world_ptc_to_screen(pt);
+                        let p2 = p1 + util::to_imvec(15.0*normalize(&tangent));
+                        let p3 = p1 + util::to_imvec(15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
+                        ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3, col::unselected());
+                    },
+                    _ =>{
+                        ImDrawList_AddCircleFilled(draw_list, 
+                            pos + self.view.world_ptc_to_screen(pt), 6.0, col::error(), 8);
+                    },
                 }
             }
 

@@ -4,6 +4,20 @@ use crate::util::*;
 
 pub use rolling::input::staticinfrastructure::SwitchPosition as Side;
 
+pub fn opposite(side :Side) -> Side {
+    match side {
+        Side::Left => Side::Right,
+        Side::Right => Side::Left,
+    }
+}
+
+pub fn side_to_port(side :Side) -> Port {
+    match side {
+        Side::Left => Port::Right,
+        Side::Right => Port::Left,
+    }
+}
+
 pub type Pt = glm::I32Vec2;
 pub type PtA = glm::I32Vec2;
 pub type PtC = glm::Vec2;
@@ -87,10 +101,16 @@ pub struct Vehicle {
 }
 
 #[derive(Debug,Copy,Clone)]
-pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Err }
+pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Crossing, Err }
+// TODO crossing switchable, crossing orthogonal?, what settings does a crossing have?
+// Assuming non-switched crossing for now.
 
-#[derive(Debug,Copy,Clone)]
-pub enum Port { End, ContA, ContB, Left, Right, Trunk, Err }
+#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+pub enum Port { End, ContA, ContB, Left, Right, Trunk, Err, Cross(AB,usize) }
+// Crossing has AB as different sides of opposing ports, and usize as the different pairs of edges
+
+#[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
+pub enum AB { A, B }
 
 #[derive(Copy, Clone)]
 #[derive(Debug)]
@@ -132,10 +152,10 @@ fn closest_pts(pt :PtC) -> [(Pt,Pt);2] {
 
 impl Model {
     pub fn get_closest(&self, pt :PtC) -> Option<(Ref,(f32,f32))> {
-        self.get_closest_lineseg(pt).map(|(a,b)| (Ref::Track(a.0,a.1),b))
+        self.get_closest_lineseg(pt).map(|(a,_param,b)| (Ref::Track(a.0,a.1),b))
     }
 
-    pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),(f32,f32))> {
+    pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),f32,(f32,f32))> {
         // TODO performance
         let (mut thing,mut dist_sqr,mut next_dist) = (None, std::f32::INFINITY, std::f32::INFINITY);
         for x1 in [pt.x.floor() as i32, (pt.x + 1.0).floor() as i32].iter().cloned() {
@@ -144,13 +164,13 @@ impl Model {
         for y2 in [pt.y.floor() as i32, (pt.y + 1.0).floor() as i32].iter().cloned() {
             let l = (glm::vec2(x1,y1),glm::vec2(x2,y2));
             if self.linesegs.contains(&l) {
-                let d = dist_to_line_sqr(pt, 
+                let (d,param) = dist_to_line_sqr(pt, 
                                          glm::vec2(l.0.x as _ ,l.0.y as _ ), 
                                          glm::vec2(l.1.x as _ ,l.1.y as _ ));
                 if d < dist_sqr {
                     next_dist = dist_sqr;
                     dist_sqr = d;
-                    thing = Some(l);
+                    thing = Some((l,param));
                 } else if d < next_dist {
                     next_dist = d;
                 }
@@ -159,7 +179,7 @@ impl Model {
         }
         }
         }
-        thing.map(|t| (t,(dist_sqr,next_dist)))
+        thing.map(|(tr,param)| (tr,param,(dist_sqr,next_dist)))
     }
 
     pub fn get_rect(&self, a :PtC, b :PtC) -> Vec<Ref> {
@@ -185,5 +205,6 @@ impl Model {
             Ref::Object(p) => { self.objects.remove(&p); },
         }
     }
-}
 
+
+}

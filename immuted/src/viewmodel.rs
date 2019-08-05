@@ -2,6 +2,7 @@ use threadpool::ThreadPool;
 use std::sync::mpsc::*;
 use crate::model::*;
 use crate::dgraph::*;
+use std::sync::Arc;
 
 // TODO data
 #[derive(Clone)]
@@ -16,8 +17,8 @@ pub struct Derived {
     pub interlocking :Option<Interlocking>,
     pub history :Vec<Option<History>>,
 
-    pub locations :Vec<(Pt,NDType,Vc)>,
-    pub tracks :Vec<(f64, (usize,Port),(usize,Port))>,
+    pub locations :Arc<Vec<(Pt,NDType,Vc)>>,
+    pub tracks :Arc<Vec<(f64, (usize,Port),(usize,Port))>>,
 }
 
 pub struct ViewModel {
@@ -43,8 +44,8 @@ impl ViewModel {
                 dgraph: None, 
                 interlocking: None, 
                 history: Vec::new(), 
-                locations :Vec::new(),
-                tracks :Vec::new(),
+                locations :Arc::new(Vec::new()),
+                tracks :Arc::new(Vec::new()),
             },
             thread_pool: thread_pool,
             get_data: None,
@@ -72,9 +73,11 @@ impl ViewModel {
 
         let model = self.model.get().clone(); // persistent structs
 
-        let (tracks,locs,node_data) = crate::topology::convert(&model.linesegs, &model.node_data, 50.0).unwrap();
-        self.derived.tracks = dbg!(tracks);
-        self.derived.locations = dbg!(locs);
+        let (tracks,locs,trackobjects, node_data) = crate::topology::convert(&model, 50.0).unwrap();
+        self.derived.tracks = Arc::new(tracks);
+        self.derived.locations = Arc::new(locs);
+        let tracks = self.derived.tracks.clone();
+        let locs = self.derived.locations.clone();
 
         let (tx,rx) = channel();
         self.get_data = Some(rx);
@@ -83,7 +86,7 @@ impl ViewModel {
             let tx = tx;        // move sender into thread
 
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
-            let dgraph = DGraphBuilder::convert(&model).expect("dgraph conversion failed");
+            let dgraph = DGraphBuilder::convert(&model,&tracks,&locs,&trackobjects).expect("dgraph conversion failed");
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
             if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
             // if tx fails (channel is closed), we don't need 
