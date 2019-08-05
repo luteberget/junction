@@ -11,9 +11,9 @@ use nalgebra_glm as glm;
 
 #[derive(Debug)]
 pub struct Interlocking {
-    routes: Vec<(rolling_inf::Route, Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>)>,
-    boundary_routes: HashMap<(i32,i32), Vec<usize>>,
-    signal_routes: HashMap<(i32,i32), Vec<usize>>,
+    pub routes: Vec<(rolling_inf::Route, Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>)>,
+    pub boundary_routes: HashMap<(i32,i32), Vec<usize>>,
+    pub signal_routes: HashMap<(i32,i32), Vec<usize>>,
 }
 
 #[derive(Clone)]
@@ -65,6 +65,7 @@ impl ViewModel {
             println!("Received data from background thread {:?}", data);
             match data {
                 SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
+                SetData::Interlocking(il) => { self.derived.interlocking = Some(il); },
                 _ => {},
                 // ...
             }

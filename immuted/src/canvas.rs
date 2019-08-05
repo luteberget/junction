@@ -75,7 +75,20 @@ impl Canvas {
             if self.selection.len() == 1 {
                 match self.selection.iter().next().unwrap() {
                     Ref::Node(pt) => {
-                        ui::show_text("Dispatch from boundary?");
+                        if let Some(il) = &doc.get_data().interlocking {
+                            if let Some(v) = il.boundary_routes.get(&(pt.x,pt.y)) {
+                                for idx in v {
+                                    ui::show_text(&format!("route {}", idx));
+                                }
+                                if v.len() == 0 {
+                                    ui::show_text("No routes available.");
+                                }
+                            } else {
+                                ui::show_text("No routes available.");
+                            }
+                        } else {
+                            ui::show_text("No interlocking computed?");
+                        }
                     },
                     _ => {},
                 }
