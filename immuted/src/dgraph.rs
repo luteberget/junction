@@ -55,8 +55,11 @@ impl DGraphBuilder {
                 objs.sort_by_key(|(pos,_,_,_)| OrderedFloat(*pos));
                 for (pos, id, func, dir) in objs {
                     println!("INSERT OBJ {:?}", (pos,func,dir));
+                    println!("cursor 1 {:?}", cursor);
                     cursor = cursor.advance_single(&dg.dgraph, pos - last_pos).unwrap();
+                    println!("cursor 2 {:?}", cursor);
                     cursor = dg.insert_node_pair(cursor);
+                    println!("cursor 3 {:?}", cursor);
                     match func {
                         Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
                         Function::MainSignal => { 
@@ -170,7 +173,8 @@ impl DGraphBuilder {
                 } else { panic!() }
             }
             _ => { panic!() },
-        }
+        };
+        self.dgraph.nodes[x].edges = Edges::Single(a,d);
     }
 
     pub fn insert_node_pair(&mut self, at :Cursor) -> Cursor {
@@ -273,11 +277,15 @@ fn out_edges(dg :&rolling_inf::StaticInfrastructure, e: &rolling_inf::NodeId) ->
 
 impl Cursor {
     pub fn advance_single(&self, dg :&rolling_inf::StaticInfrastructure, l :f64) -> Option<Cursor> {
+        println!("advance by {:?}", l);
         if l <= 0.0 { return Some(*self); }
         match self {
-            Cursor::Node(n) => match dg.nodes[*n].edges {
-                rolling_inf::Edges::Single(b,d) => Cursor::Edge((*n,b),d).advance_single(dg, l),
-                _ => None,
+            Cursor::Node(n) => {
+                println!("advance form node {:?}", dg.nodes[*n]);
+                match dg.nodes[*n].edges {
+                    rolling_inf::Edges::Single(b,d) => Cursor::Edge((*n,b),d).advance_single(dg, l),
+                    _ => None,
+                }
             }
             Cursor::Edge((a,b),d) => if *d > l {
                 Some(Cursor::Edge((*a,*b), *d - l))
