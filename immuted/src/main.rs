@@ -12,6 +12,7 @@ mod viewmodel;
 mod dgraph;
 mod interlocking;
 mod topology;
+mod history;
 
 use matches::matches;
 

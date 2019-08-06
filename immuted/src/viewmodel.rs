@@ -5,13 +5,12 @@ use crate::model::*;
 use crate::dgraph::*;
 use crate::topology;
 use crate::interlocking;
+use crate::history;
 use std::sync::Arc;
 use nalgebra_glm as glm;
 
 
-#[derive(Clone)]
-#[derive(Debug)]
-pub struct History {}
+pub use rolling::output::history::History;
 
 #[derive(Default)]
 pub struct Derived {
@@ -96,11 +95,15 @@ impl ViewModel {
 
             for (i,dispatch) in model.dispatches.iter().enumerate() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
-                let history = Arc::new(History {});
+                let history = history::get_history(&model.vehicles,
+                                                   &dgraph.rolling_inf,
+                                                   interlocking.routes.iter().map(|(r,_)| r),
+                                                   &(dispatch.0)).unwrap();
+                let history = Arc::new(history); // TODO   maybe Arc is not needed for history
+                                                        // only used in Gui thread?
                 let send_ok = tx.send(SetData::History(i, history));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
-
         });
     }
 

@@ -96,9 +96,14 @@ impl Object {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 #[derive(Debug)]
 pub struct Vehicle {
+    pub name :String,
+    pub length: f64,
+    pub max_acc :f64,
+    pub max_brk :f64,
+    pub max_vel :f64,
 }
 
 #[derive(Debug,Copy,Clone)]
@@ -117,11 +122,11 @@ pub enum AB { A, B }
 #[derive(Debug)]
 pub enum Command {
     Train { route :usize, vehicle :usize },
-    Route { start_loc :PtA, end_loc :Option<PtA>, alternative :usize }
+    Route { route: usize },
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Dispatch(Vec<(f64,Command)>);
+pub struct Dispatch(pub Vec<(f64,Command)>);
 
 impl Dispatch {
     pub fn insert(&mut self, t :f64, cmd :Command) {
