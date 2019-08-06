@@ -1,20 +1,14 @@
-use rolling::input::staticinfrastructure as rolling_inf;
+//use rolling::input::staticinfrastructure as rolling_inf;
 use threadpool::ThreadPool;
 use std::sync::mpsc::*;
 use crate::model::*;
 use crate::dgraph::*;
+use crate::interlocking;
+use crate::interlocking::Interlocking;
 use std::sync::Arc;
 use std::collections::HashMap;
 use nalgebra_glm as glm;
 
-// TODO data
-
-#[derive(Debug)]
-pub struct Interlocking {
-    pub routes: Vec<(rolling_inf::Route, Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>)>,
-    pub boundary_routes: HashMap<(i32,i32), Vec<usize>>,
-    pub signal_routes: HashMap<(i32,i32), Vec<usize>>,
-}
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -107,16 +101,8 @@ impl ViewModel {
             // receiver end of the channel, so it will anyway not
             // be placed into the struct.
 
-            //let interlocking = interlocking::calc(&dgraph); 
-            let (routes,route_issues) = 
-                route_finder::find_routes(Default::default(), &dgraph.rolling_inf)
-                .expect("interlocking route finder failed");
-            println!("FOUND routes {:?}", routes);
-            let interlocking = Arc::new(Interlocking {
-                routes: routes,
-                boundary_routes: HashMap::new(),
-                signal_routes: HashMap::new(),
-            });
+            let interlocking = interlocking::calc(&dgraph); 
+            let interlocking = Arc::new(interlocking);
                 // calc interlocking from dgraph
             let send_ok = tx.send(SetData::Interlocking(interlocking.clone()));
             if !send_ok.is_ok() { println!("job canceled after interlocking"); return; }

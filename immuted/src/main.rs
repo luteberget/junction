@@ -10,6 +10,7 @@ mod view;
 mod objects;
 mod viewmodel;
 mod dgraph;
+mod interlocking;
 mod topology;
 
 use matches::matches;

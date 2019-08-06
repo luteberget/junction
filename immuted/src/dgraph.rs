@@ -14,14 +14,9 @@ pub type ModelObjectId = PtA;
 #[derive(Debug)]
 pub struct DGraph {
     pub rolling_inf :rolling_inf::StaticInfrastructure, 
-
-    //pub node_ids : BiMap<ModelNodeId, rolling_inf::NodeId>,
-    //pub object_ids : BiMap<ModelObjectId, rolling_inf::ObjectId>,
-
+    pub node_ids :HashMap<rolling_inf::NodeId, Pt>,
     pub tvd_sections :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
-
-    //pub edge_intervals :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Interval>,
 }
 
 pub struct DGraphBuilder {
@@ -47,7 +42,7 @@ impl DGraphBuilder {
 
         //let locs = locs.iter().map(|(_,(t,_))| *t).collect::<Vec<_>>();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
-        m.create_network(
+        let node_ids = m.create_network(
             tracks, &locs, 
             |track_idx,mut cursor,dg| {
                 let mut last_pos = 0.0;
@@ -98,6 +93,7 @@ impl DGraphBuilder {
 
         Ok(DGraph {
             rolling_inf: m.dgraph,
+            node_ids: node_ids,
             tvd_sections: tvd_sections
         })
 
@@ -201,7 +197,9 @@ impl DGraphBuilder {
     pub fn create_network(&mut self,
         tracks: &[(f64, (Pt, Port), (Pt, Port))], // track length and line pieces
         nodes: &HashMap<Pt,(NDType, Vc)>,
-        mut each_track: impl FnMut(usize,Cursor,&mut Self)) {
+        mut each_track: impl FnMut(usize,Cursor,&mut Self)) -> HashMap<rolling_inf::NodeId, Pt> {
+
+        let mut node_ids = HashMap::new();
 
         println!("TRACKS HERE {:?}", tracks);
         println!("TRACKS NODES {:?}", nodes);
@@ -224,6 +222,7 @@ impl DGraphBuilder {
                 NDType::OpenEnd => {
                     self.dgraph.nodes[ports[&(*pt, Port::End)]].edges =
                         rolling_inf::Edges::ModelBoundary;
+                    node_ids.insert(ports[&(*pt,Port::End)], *pt);
                 },
                 NDType::Cont => {
                     self.connect_linear(ports[&(*pt, Port::ContA)],
@@ -246,6 +245,7 @@ impl DGraphBuilder {
                 _ => unimplemented!(),
             }
         }
+        node_ids
     }
 }
 

@@ -16,6 +16,7 @@ pub struct Canvas {
     action :Action,
     selection :HashSet<Ref>,
     view :View,
+    preview_route :Option<usize>,
 }
 
 #[derive(Debug)]
@@ -38,6 +39,7 @@ impl Canvas {
             action :Action::Normal(NormalState::Default),
             selection :HashSet::new(),
             view :View::default(),
+            preview_route: None,
         }
     }
 
@@ -66,34 +68,44 @@ impl Canvas {
             // TODO cache some info about selection? In case it is very big and we need to know
             // every frame whether it contains a Node or not.
             // 
+
+            igSeparator();
             if !self.selection.is_empty() {
                 if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, util::to_imvec(glm::zero())) {
                     self.delete_selection(doc);
                 }
             }
 
+            igSeparator();
             if self.selection.len() == 1 {
-                match self.selection.iter().next().unwrap() {
-                    Ref::Node(pt) => {
-                        if let Some(il) = &doc.get_data().interlocking {
-                            if let Some(v) = il.boundary_routes.get(&(pt.x,pt.y)) {
-                                for idx in v {
-                                    ui::show_text(&format!("route {}", idx));
-                                }
-                                if v.len() == 0 {
-                                    ui::show_text("No routes available.");
-                                }
-                            } else {
-                                ui::show_text("No routes available.");
-                            }
-                        } else {
-                            ui::show_text("No interlocking computed?");
-                        }
-                    },
-                    _ => {},
+                if let Some(Ref::Node(pt)) = self.selection.iter().nth(0) {
+                    self.preview_route = Self::route_selector(doc,pt);
                 }
             }
+        }
+    }
 
+    fn route_selector(doc :&ViewModel, pt :&Pt) -> Option<usize> {
+        unsafe {
+            let il = doc.get_data().interlocking.as_ref()?;
+            let routes = il.boundary_routes.get(pt)?;
+            let mut some = false;
+            let mut retval = None;
+            for idx in routes {
+                some = true;
+                if igSelectable(const_cstr!("").as_ptr(), false, 0 as _, util::to_imvec(glm::zero())) {
+                    // some action
+                }
+                if igIsItemHovered(0) {
+                    retval = Some(*idx);
+                }
+                igSameLine(0.0,-1.0); ui::show_text(&format!("Route to {:?}", 
+                                                (il.routes[*idx].0).exit));
+            }
+            if !some {
+                ui::show_text("No routes.");
+            }
+            retval
         }
     }
 
@@ -166,6 +178,10 @@ impl Canvas {
             // Draw background
             self.draw_background(&doc, draw_list, pos, size);
 
+            // Draw highlightred route
+            if let Some(idx) = self.preview_route {
+                self.draw_route(&doc, draw_list, pos, size, idx);
+            }
 
         }});
     }
@@ -222,6 +238,10 @@ impl Canvas {
                 self.view.translate((*io).MouseDelta);
             }
         }
+    }
+
+    pub fn draw_route(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, route_idx: usize) {
+        println!("draw route {:?}", route_idx);
     }
 
     pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
