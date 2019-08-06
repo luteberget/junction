@@ -1,5 +1,5 @@
 use crate::model::*;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use crate::ui;
 use crate::objects::*;
 use crate::util;
@@ -240,8 +240,32 @@ impl Canvas {
         }
     }
 
-    pub fn draw_route(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, route_idx: usize) {
-        println!("draw route {:?}", route_idx);
+    pub fn get_symm<'a, K:std::hash::Hash+std::cmp::Eq+Copy, V>
+            (map :&'a HashMap<(K,K), V>, (a,b) :(K,K)) -> Option<&'a V> {
+        if let Some(x) = map.get(&(a,b)) { return Some(x); }
+        if let Some(x) = map.get(&(b,a)) { return Some(x); }
+        None
+    }
+
+    pub fn draw_route(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, route_idx: usize) -> Option<()> {
+        unsafe {
+        let il = vm.get_data().interlocking.as_ref()?;
+        let dgraph = vm.get_data().dgraph.as_ref()?;
+        let (route,route_nodes) = &il.routes[route_idx];
+
+        for (a,b) in route_nodes {
+            if let Some(v) = Self::get_symm(&dgraph.edge_lines, (*a,*b)) {
+                for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
+                    ImDrawList_AddLine(draw_list,
+                                       pos + self.view.world_ptc_to_screen(*pt_a),
+                                       pos + self.view.world_ptc_to_screen(*pt_b),
+                                       col::error(), 5.0);
+                }
+            }
+        }
+
+        Some(())
+        }
     }
 
     pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
@@ -273,36 +297,38 @@ impl Canvas {
                 ImDrawList_AddLine(draw_list, pos + p1, pos + p2, col, 2.0);
             }
 
-            for (pt0,(t,vc)) in &*d.locations {
-                use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
-                let pt :PtC = vec2(pt0.x as _ ,pt0.y as _ );
-                let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
-                match t {
-                    NDType::OpenEnd => {
-                        let col = if self.selection.contains(&Ref::Node(*pt0)) {
-                            col::selected() } else { col::error() };
-                        for angle in &[-45.0,45.0] {
-                            ImDrawList_AddLine(draw_list,
-                               pos + self.view.world_ptc_to_screen(pt),
-                               pos + self.view.world_ptc_to_screen(pt) 
-                                + util::to_imvec(8.0*rotate_vec2(&normalize(&tangent),radians(&vec1(*angle)).x)), col, 2.0);
-                        }
-                    },
-                    NDType::Cont => {
-                        ImDrawList_AddCircleFilled(draw_list, 
-                            pos + self.view.world_ptc_to_screen(pt), 4.0, col::selected(), 8);
-                    },
-                    NDType::Sw(side) => {
-                        let angle = if matches!(side, Side::Left) { 45.0 } else { -45.0 };
-                        let p1 = pos + self.view.world_ptc_to_screen(pt);
-                        let p2 = p1 + util::to_imvec(15.0*normalize(&tangent));
-                        let p3 = p1 + util::to_imvec(15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
-                        ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3, col::unselected());
-                    },
-                    _ =>{
-                        ImDrawList_AddCircleFilled(draw_list, 
-                            pos + self.view.world_ptc_to_screen(pt), 6.0, col::error(), 8);
-                    },
+            if let Some(topo) = d.topology.as_ref() {
+                for (pt0,(t,vc)) in &topo.locations {
+                    use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
+                    let pt :PtC = vec2(pt0.x as _ ,pt0.y as _ );
+                    let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
+                    match t {
+                        NDType::OpenEnd => {
+                            let col = if self.selection.contains(&Ref::Node(*pt0)) {
+                                col::selected() } else { col::error() };
+                            for angle in &[-45.0,45.0] {
+                                ImDrawList_AddLine(draw_list,
+                                   pos + self.view.world_ptc_to_screen(pt),
+                                   pos + self.view.world_ptc_to_screen(pt) 
+                                    + util::to_imvec(8.0*rotate_vec2(&normalize(&tangent),radians(&vec1(*angle)).x)), col, 2.0);
+                            }
+                        },
+                        NDType::Cont => {
+                            ImDrawList_AddCircleFilled(draw_list, 
+                                pos + self.view.world_ptc_to_screen(pt), 4.0, col::selected(), 8);
+                        },
+                        NDType::Sw(side) => {
+                            let angle = if matches!(side, Side::Left) { 45.0 } else { -45.0 };
+                            let p1 = pos + self.view.world_ptc_to_screen(pt);
+                            let p2 = p1 + util::to_imvec(15.0*normalize(&tangent));
+                            let p3 = p1 + util::to_imvec(15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
+                            ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3, col::unselected());
+                        },
+                        _ =>{
+                            ImDrawList_AddCircleFilled(draw_list, 
+                                pos + self.view.world_ptc_to_screen(pt), 6.0, col::error(), 8);
+                        },
+                    }
                 }
             }
 

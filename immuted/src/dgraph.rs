@@ -3,9 +3,9 @@ use rolling::input::staticinfrastructure as rolling_inf;
 use std::collections::{HashMap, HashSet};
 use ordered_float::OrderedFloat;
 use std::sync::Arc;
-use bimap::BiMap;
 use crate::model::*;
 use crate::objects::*;
+use crate::topology::*;
 use matches::matches;
 
 pub type ModelNodeId = Pt;
@@ -17,18 +17,28 @@ pub struct DGraph {
     pub node_ids :HashMap<rolling_inf::NodeId, Pt>,
     pub tvd_sections :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
+    pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
 }
 
 pub struct DGraphBuilder {
     dgraph :rolling_inf::StaticInfrastructure,
+    edge_tracks :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Interval>,
+}
+
+#[derive(Debug)]
+pub struct Interval {
+    track_idx: usize,
+    start: f64,
+    end :f64,
 }
 
 impl DGraphBuilder {
-    pub fn convert(model :&Model, 
-                   tracks :&[(f64,(Pt,Port),(Pt,Port))], 
-                   locs :&HashMap<Pt,(NDType,Vc)>,
-                   trackobjects :&HashMap<usize, Vec<(f64,PtA,Function,Option<AB>)>>) -> Result<DGraph, ()> {
+    pub fn convert(model :&Model, topology :&Topology) -> Result<DGraph, ()> {
         let mut m = DGraphBuilder::new();
+
+        let tracks = &topology.tracks;
+        let locs = &topology.locations;
+        let trackobjects = &topology.trackobjects;
 
         // Create signals objects separately (they are not actually part of the "geographical" 
         // infrastructure network, they are merely pieces of state referenced by sight objects)
@@ -39,8 +49,6 @@ impl DGraphBuilder {
         }
 
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
-
-        //let locs = locs.iter().map(|(_,(t,_))| *t).collect::<Vec<_>>();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
         let node_ids = m.create_network(
             tracks, &locs, 
@@ -49,12 +57,9 @@ impl DGraphBuilder {
                 let mut objs :Vec<(f64,PtA,Function,Option<AB>)> = trackobjects[&track_idx].clone();
                 objs.sort_by_key(|(pos,_,_,_)| OrderedFloat(*pos));
                 for (pos, id, func, dir) in objs {
-                    println!("INSERT OBJ {:?}", (pos,func,dir));
-                    println!("cursor 1 {:?}", cursor);
                     cursor = cursor.advance_single(&dg.dgraph, pos - last_pos).unwrap();
-                    println!("cursor 2 {:?}", cursor);
                     cursor = dg.insert_node_pair(cursor);
-                    println!("cursor 3 {:?}", cursor);
+
                     match func {
                         Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
                         Function::MainSignal => { 
@@ -67,7 +72,6 @@ impl DGraphBuilder {
                 }
             } );
 
-        println!("SIGNALS AT {:?}", signal_cursors);
         // Sight to signals
         for (id,cursor) in signal_cursors {
             let objid = static_signals[&id];
@@ -88,13 +92,16 @@ impl DGraphBuilder {
         let tvd_sections = route_finder::detectors_to_sections(&mut m.dgraph, &detector_nodes)
             .expect("could not calc tvd sections.");
 
-        println!("DGRAPH");
-        println!("{:?}", m.dgraph);
+        let edge_lines = m.edge_tracks.into_iter()
+            .map(|(edge,Interval { track_idx, start, end })| 
+                 (edge, topology.interval_map(track_idx,start,end))).collect();
+
 
         Ok(DGraph {
             rolling_inf: m.dgraph,
             node_ids: node_ids,
-            tvd_sections: tvd_sections
+            tvd_sections: tvd_sections,
+            edge_lines: edge_lines,
         })
 
     }
@@ -104,7 +111,7 @@ impl DGraphBuilder {
             nodes: Vec::new(), 
             objects: Vec::new(),
         };
-        DGraphBuilder { dgraph: model }
+        DGraphBuilder { dgraph: model, edge_tracks: HashMap::new() }
     }
 
     pub fn new_object(&mut self, obj :rolling_inf::StaticObject) -> rolling_inf::ObjectId {
@@ -136,10 +143,20 @@ impl DGraphBuilder {
     fn split_edge(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, second_dist :f64) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
         let (na,nb) = self.new_node_pair();
         let reverse_dist = self.edge_length(b, a).unwrap();
+        let forward_dist = self.edge_length(a, b).unwrap();
         let first_dist = reverse_dist - second_dist;
-        //println!("CONNECT LINEAR {:?} {:?}", (a,na,first_dist), (nb,b,second_dist));
         self.replace_conn(a,b,na,first_dist);
         self.replace_conn(b,a,nb,second_dist);
+
+        // TODO this seems overcomplicated
+        for (a,b) in vec![(a,b),(b,a)].into_iter() {
+            if let Some(Interval { track_idx, start, end }) = self.edge_tracks.remove(&(a,b)) {
+                self.edge_tracks.insert((a,na), Interval { track_idx, 
+                    start: start, end: start+first_dist });
+                self.edge_tracks.insert((nb,b), Interval { track_idx, 
+                    start: start+first_dist, end: end });
+            }
+        }
         (na,nb)
     }
 
@@ -160,7 +177,7 @@ impl DGraphBuilder {
     fn replace_conn(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, x :rolling_inf::NodeId, d :f64) {
         use rolling_inf::Edges;
         match self.dgraph.nodes[a].edges {
-            Edges::Single(bx,d) if b == bx => { self.dgraph.nodes[a].edges = Edges::Single(x,d); }
+            Edges::Single(bx,_dist) if b == bx => { self.dgraph.nodes[a].edges = Edges::Single(x,d); }
             Edges::Switchable(objid) => {
                 if let rolling_inf::StaticObject::Switch { ref mut left_link, ref mut right_link, .. } = &mut self.dgraph.objects[objid] {
                     if left_link.0 == b { *left_link = (x,d); }
@@ -184,7 +201,6 @@ impl DGraphBuilder {
     }
 
     pub fn insert_object(&mut self, at :Cursor, obj :rolling_inf::StaticObject) -> Cursor {
-        println!("INSERT OBJECT {:?} {:?}", at, obj);
         if let Cursor::Node(a) = at {
             self.new_object_at(obj, a);
             at
@@ -200,10 +216,6 @@ impl DGraphBuilder {
         mut each_track: impl FnMut(usize,Cursor,&mut Self)) -> HashMap<rolling_inf::NodeId, Pt> {
 
         let mut node_ids = HashMap::new();
-
-        println!("TRACKS HERE {:?}", tracks);
-        println!("TRACKS NODES {:?}", nodes);
-
         let mut ports :HashMap<(Pt,Port), rolling_inf::NodeId>  = HashMap::new();
         for (i,(len,a,b)) in tracks.iter().enumerate() {
             let (start_a,start_b) = self.new_node_pair();
@@ -211,10 +223,10 @@ impl DGraphBuilder {
             ports.insert(*a, start_a);
             self.connect_linear(start_b, end_a, *len);
             ports.insert(*b, end_b);
+            self.edge_tracks.insert((start_b,end_a), Interval { track_idx: i, 
+                start: 0.0, end: *len });
             each_track(i,Cursor::Node(start_b), self);
         }
-
-        println!("PREP PORTS {:?}", ports);
 
         for (pt,(node,_)) in nodes.iter() {
             match node {
@@ -277,11 +289,9 @@ fn out_edges(dg :&rolling_inf::StaticInfrastructure, e: &rolling_inf::NodeId) ->
 
 impl Cursor {
     pub fn advance_single(&self, dg :&rolling_inf::StaticInfrastructure, l :f64) -> Option<Cursor> {
-        println!("advance by {:?}", l);
         if l <= 0.0 { return Some(*self); }
         match self {
             Cursor::Node(n) => {
-                println!("advance form node {:?}", dg.nodes[*n]);
                 match dg.nodes[*n].edges {
                     rolling_inf::Edges::Single(b,d) => Cursor::Edge((*n,b),d).advance_single(dg, l),
                     _ => None,
@@ -338,7 +348,4 @@ impl Cursor {
         }
     }
 
-    // advance_single_truncate,
-    // advance_multiple,
-    // advance_multiple_truncate,
 }

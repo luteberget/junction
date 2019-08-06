@@ -3,17 +3,59 @@ use nalgebra_glm as glm;
 use crate::model::*;
 use crate::util::*;
 use crate::objects::*;
+use ordered_float::OrderedFloat;
 
-pub type Tracks = Vec<(f64,(Pt,Port),(Pt,Port))>;
-pub type Locations = HashMap<Pt,(NDType,Vc)>;
-pub type TrackObjects = HashMap<usize,Vec<(f64,PtA, Function,Option<AB>)>>;
+pub struct Topology {
+    pub tracks : Vec<(f64,(Pt,Port),(Pt,Port))>,
+    pub locations : HashMap<Pt,(NDType,Vc)>,
+    pub trackobjects : HashMap<usize,Vec<(f64,PtA, Function,Option<AB>)>>,
+    pub interval_lines :Vec<Vec<(OrderedFloat<f64>,PtC)>>,
+}
+
+impl Topology {
+    pub fn interval_map(&self, track_idx: usize, start :f64, end :f64) -> Vec<PtC> {
+        let lines = &self.interval_lines[track_idx];
+        let mut output = Vec::new();
+
+        // start with a binary search to find the first vertex _before_ the start.
+        let mut i = {
+            match lines.binary_search_by_key(&OrderedFloat(start), |&(l,_pt)| l) {
+                Err(i) if i > 0 => {
+                    // lerp the previous segment
+                    let ((OrderedFloat(pos_a),pt_a),
+                         (OrderedFloat(pos_b),pt_b)) = (&lines[i-1],&lines[i]);
+                    output.push(glm::lerp(pt_a,pt_b, ((start - pos_a) / (pos_b - pos_a)) as f32));
+                    i
+                },
+                Ok(i)|Err(i) => i,
+            }
+        };
+
+        // Internal segments
+        while i < lines.len() && !(lines[i].0 > OrderedFloat(end)) {
+            output.push(lines[i].1);
+            i += 1;
+        }
+
+        // lerp final segment
+        if i > 0 && i < lines.len() && lines[i].0 > OrderedFloat(end) {
+            let ((OrderedFloat(pos_a),pt_a),
+                 (OrderedFloat(pos_b),pt_b)) = (&lines[i-1],&lines[i]);
+            output.push(glm::lerp(pt_a,pt_b, ((end - pos_a) / (pos_b - pos_a)) as f32));
+        }
+
+        output
+    }
+}
 
 
-pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,TrackObjects,im::HashMap<Pt,NDType>), ()>{
+//pub fn convert(model :&Model, def_len :f64) -> Result<(Tracks,Locations,TrackObjects,im::HashMap<Pt,NDType>), ()>{
+pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
 
 
     let mut tracks :Vec<(Pt,Pt,f64)> = Vec::new();
     let mut locs :HashMap<(i32,i32), Vec<((usize,AB),Pt)>> = HashMap::new();
+    let mut interval_lines = Vec::new();
 
     let mut pieces = SymSet::new();
     for (a,b) in model.linesegs.iter() {
@@ -63,11 +105,15 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
 
         println!("List {:?}", list);
         let mut l = 0.0;
-        for (a,b) in list {
+        let mut interval_map = Vec::new();
+        for (a,b) in list.iter().cloned() {
             piece_map.insert((a,b), (tracks.len()-1, l, def_len));
+            interval_map.push((OrderedFloat(l),glm::vec2(a.0 as f32 ,a.1 as f32)));
             l += def_len;
         }
-
+        let last_pt = list[list.len()-1].1;
+        interval_map.push((OrderedFloat(l),glm::vec2(last_pt.0 as f32, last_pt.1 as f32)));
+        interval_lines.push(interval_map);
         trackobjects.insert(tracks.len()-1, Vec::new());
     }
 
@@ -174,10 +220,12 @@ pub fn convert<'a,'b>(model :&Model, def_len :f64) -> Result<(Tracks,Locations,T
 
 
     Ok(
-        (tp.into_iter().map(|(a,b,l)| (l, a.unwrap(), b.unwrap())).collect(),
-         locx,
-         trackobjects,
-         model.node_data.clone() /* TODO */)
+        Topology {
+            tracks: tp.into_iter().map(|(a,b,l)| (l, a.unwrap(), b.unwrap())).collect(),
+            locations: locx,
+            trackobjects: trackobjects,
+            interval_lines: interval_lines, 
+        }
     )
 }
 

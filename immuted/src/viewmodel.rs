@@ -3,10 +3,9 @@ use threadpool::ThreadPool;
 use std::sync::mpsc::*;
 use crate::model::*;
 use crate::dgraph::*;
+use crate::topology;
 use crate::interlocking;
-use crate::interlocking::Interlocking;
 use std::sync::Arc;
-use std::collections::HashMap;
 use nalgebra_glm as glm;
 
 
@@ -14,13 +13,12 @@ use nalgebra_glm as glm;
 #[derive(Debug)]
 pub struct History {}
 
+#[derive(Default)]
 pub struct Derived {
     pub dgraph :Option<Arc<DGraph>>,
-    pub interlocking :Option<Arc<Interlocking>>,
+    pub interlocking :Option<Arc<interlocking::Interlocking>>,
     pub history :Vec<Option<Arc<History>>>,
-
-    pub locations :Arc<HashMap<Pt,(NDType,Vc)>>,
-    pub tracks :Arc<Vec<(f64, (Pt,Port),(Pt,Port))>>,
+    pub topology: Option<Arc<topology::Topology>>,
 }
 
 pub struct ViewModel {
@@ -33,7 +31,7 @@ pub struct ViewModel {
 #[derive(Debug)]
 pub enum SetData {
     DGraph(Arc<DGraph>),
-    Interlocking(Arc<Interlocking>),
+    Interlocking(Arc<interlocking::Interlocking>),
     History(usize,Arc<History>),
 }
 
@@ -42,13 +40,7 @@ impl ViewModel {
                thread_pool: ThreadPool) -> ViewModel {
         ViewModel {
             model: model,
-            derived: Derived { 
-                dgraph: None, 
-                interlocking: None, 
-                history: Vec::new(), 
-                locations :Arc::new(HashMap::new()),
-                tracks :Arc::new(Vec::new()),
-            },
+            derived: Default::default(),
             thread_pool: thread_pool,
             get_data: None,
         }
@@ -73,14 +65,9 @@ impl ViewModel {
     }
 
     fn update(&mut self) {
-
         let model = self.model.get().clone(); // persistent structs
-
-        let (tracks,locs,trackobjects, node_data) = crate::topology::convert(&model, 50.0).unwrap();
-        self.derived.tracks = Arc::new(tracks);
-        self.derived.locations = Arc::new(locs);
-        let tracks = self.derived.tracks.clone();
-        let locs = self.derived.locations.clone();
+        let topology = Arc::new(topology::convert(&model, 50.0).unwrap());
+        self.derived.topology = Some(topology.clone());
 
         let (tx,rx) = channel();
         self.get_data = Some(rx);
@@ -89,7 +76,7 @@ impl ViewModel {
             let tx = tx;        // move sender into thread
 
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
-            let dgraph = DGraphBuilder::convert(&model,&tracks,&locs,&trackobjects).expect("dgraph conversion failed");
+            let dgraph = DGraphBuilder::convert(&model,&topology).expect("dgraph conversion failed");
             let dgraph = Arc::new(dgraph);
 
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
@@ -161,9 +148,8 @@ impl ViewModel {
 
     pub fn get_closest_node(&self, pt :PtC) -> Option<(Pt,f32)> {
         let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
-        println!("corners {:?} vs locs {:?}", corners(pt), self.get_data().locations);
         for p in corners(pt) {
-            for (px,_) in self.get_data().locations.iter() {
+            for (px,_) in self.get_data().topology.as_ref()?.locations.iter() {
                 if &p == px {
                     let d = glm::length2(&(pt-glm::vec2(p.x as f32,p.y as f32)));
                     if d < dist_sqr {
