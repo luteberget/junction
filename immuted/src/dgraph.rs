@@ -15,6 +15,7 @@ pub type ModelObjectId = PtA;
 pub struct DGraph {
     pub rolling_inf :rolling_inf::StaticInfrastructure, 
     pub node_ids :HashMap<rolling_inf::NodeId, Pt>,
+    pub object_ids :HashMap<rolling_inf::ObjectId, PtA>,
     pub tvd_sections :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
     pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
@@ -50,6 +51,7 @@ impl DGraphBuilder {
 
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
+        let mut object_ids = HashMap::new();
         let node_ids = m.create_network(
             tracks, &locs, 
             |track_idx,mut cursor,dg| {
@@ -65,7 +67,9 @@ impl DGraphBuilder {
                         Function::MainSignal => { 
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
-                            dg.insert_object(cursor, rolling_inf::StaticObject::Signal);
+                            let (_cursor, obj) = dg.insert_object(cursor, 
+                                                                  rolling_inf::StaticObject::Signal);
+                            object_ids.insert(obj, id);
                         },
                     }
                     last_pos = pos;
@@ -100,6 +104,7 @@ impl DGraphBuilder {
         Ok(DGraph {
             rolling_inf: m.dgraph,
             node_ids: node_ids,
+            object_ids: object_ids,
             tvd_sections: tvd_sections,
             edge_lines: edge_lines,
         })
@@ -200,10 +205,10 @@ impl DGraphBuilder {
         }
     }
 
-    pub fn insert_object(&mut self, at :Cursor, obj :rolling_inf::StaticObject) -> Cursor {
+    pub fn insert_object(&mut self, at :Cursor, obj :rolling_inf::StaticObject) -> (Cursor,rolling_inf::ObjectId) {
         if let Cursor::Node(a) = at {
-            self.new_object_at(obj, a);
-            at
+            let objid = self.new_object_at(obj, a);
+            (at,objid)
         } else {
             let at = self.insert_node_pair(at);
             self.insert_object(at, obj)

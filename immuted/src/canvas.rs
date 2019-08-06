@@ -17,6 +17,7 @@ pub struct Canvas {
     selection :HashSet<Ref>,
     view :View,
     preview_route :Option<usize>,
+    active_dispatch :Option<(usize,f64)>,
 }
 
 #[derive(Debug)]
@@ -40,6 +41,7 @@ impl Canvas {
             selection :HashSet::new(),
             view :View::default(),
             preview_route: None,
+            active_dispatch :None,
         }
     }
 
@@ -78,23 +80,41 @@ impl Canvas {
 
             igSeparator();
             if self.selection.len() == 1 {
-                if let Some(Ref::Node(pt)) = self.selection.iter().nth(0) {
-                    self.preview_route = Self::route_selector(doc,pt);
+                if let Some(Ref::Node(pt)) = self.selection.iter().cloned().nth(0) {
+                    self.preview_route = self.boundary_route_selector(doc,pt);
                 }
             }
         }
     }
 
-    fn route_selector(doc :&ViewModel, pt :&Pt) -> Option<usize> {
+    fn start_boundary_route(&mut self, doc:&mut ViewModel, route_idx :usize) {
+        println!("Dispatching route {}", route_idx);
+        let mut model = doc.get_undoable().get().clone();
+        let (dispatch_idx,time) = self.active_dispatch.unwrap_or_else(|| {
+            model.dispatches.push_back(Default::default()); // empty dispatch
+            let d = (model.dispatches.len()-1, 0.0);
+            self.active_dispatch = Some(d);
+            d
+        });
+
+        let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
+        dispatch.insert(time, Command::Train { route: route_idx, vehicle: 0 });
+        doc.set_model(model);
+        println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
+    }
+
+    fn boundary_route_selector(&mut self, doc :&mut ViewModel, pt :Pt) -> Option<usize> {
         unsafe {
             let il = doc.get_data().interlocking.as_ref()?;
-            let routes = il.boundary_routes.get(pt)?;
+            let routes = il.boundary_routes.get(&pt)?;
             let mut some = false;
             let mut retval = None;
+            let mut dispatch_action = None;
             for idx in routes {
                 some = true;
                 if igSelectable(const_cstr!("").as_ptr(), false, 0 as _, util::to_imvec(glm::zero())) {
-                    // some action
+                    //self.start_boundary_route(doc, *idx);
+                    dispatch_action = Some(*idx);
                 }
                 if igIsItemHovered(0) {
                     retval = Some(*idx);
@@ -105,6 +125,7 @@ impl Canvas {
             if !some {
                 ui::show_text("No routes.");
             }
+            if let Some(idx) = dispatch_action { self.start_boundary_route(doc, idx) }
             retval
         }
     }
@@ -253,16 +274,32 @@ impl Canvas {
         let dgraph = vm.get_data().dgraph.as_ref()?;
         let (route,route_nodes) = &il.routes[route_idx];
 
+        for sec in route.resources.sections.iter() {
+            if let Some(edges) = dgraph.tvd_sections.get(sec) {
+                for (a,b) in edges.iter() {
+                    if let Some(v) = Self::get_symm(&dgraph.edge_lines, (*a,*b)) {
+                        for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
+                            ImDrawList_AddLine(draw_list,
+                                               pos + self.view.world_ptc_to_screen(*pt_a),
+                                               pos + self.view.world_ptc_to_screen(*pt_b),
+                                               col::selected(), 3.5);
+                        }
+                    }
+                }
+            }
+        }
+
         for (a,b) in route_nodes {
             if let Some(v) = Self::get_symm(&dgraph.edge_lines, (*a,*b)) {
                 for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
                     ImDrawList_AddLine(draw_list,
                                        pos + self.view.world_ptc_to_screen(*pt_a),
                                        pos + self.view.world_ptc_to_screen(*pt_b),
-                                       col::error(), 5.0);
+                                       col::error(), 6.0);
                 }
             }
         }
+        // TODO highlight end signal/boundary
 
         Some(())
         }

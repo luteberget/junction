@@ -31,8 +31,6 @@ impl Symbol {
                     let factor = if glm::angle(&(pt_on_line - pt), &normal) > glm::half_pi() {
                         1.0 } else { -1.0 };
                     let offset = 0.25*normal*factor;
-                    dbg!(offset);
-
                     if factor > 0.0 { self.tangent *= -1; }
                     self.loc = pt_on_line + offset;
                 },

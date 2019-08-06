@@ -17,7 +17,7 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
         .expect("interlocking route finder failed");
 
     let mut boundary_routes = HashMap::new();
-    let signal_routes = HashMap::new();
+    let mut signal_routes = HashMap::new();
     for (route_idx, (route,_)) in routes.iter().enumerate() {
         match route.entry {
             rolling_inf::RouteEntryExit::Boundary(Some(boundary)) => {
@@ -26,9 +26,11 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
                     boundary_routes.entry(*pt).or_insert(Vec::new()).push(route_idx);
                 }
             },
-            rolling_inf::RouteEntryExit::Signal(signal) => {
-            },
-            rolling_inf::RouteEntryExit::SignalTrigger { signal, .. } => {
+            rolling_inf::RouteEntryExit::Signal(signal) |
+            rolling_inf::RouteEntryExit::SignalTrigger { signal , .. } => {
+                if let Some(pta) = dgraph.object_ids.get(&signal) {
+                    signal_routes.entry(*pta).or_insert(Vec::new()).push(route_idx);
+                }
             },
             _ => {},
         }

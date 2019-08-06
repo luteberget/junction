@@ -1,6 +1,7 @@
 use nalgebra_glm as glm;
 use crate::objects::*;
 use crate::util::*;
+use ordered_float::OrderedFloat;
 
 pub use rolling::input::staticinfrastructure::SwitchPosition as Side;
 
@@ -115,8 +116,19 @@ pub enum AB { A, B }
 #[derive(Copy, Clone)]
 #[derive(Debug)]
 pub enum Command {
-    Train { start_node :Pt, vehicle :usize },
+    Train { route :usize, vehicle :usize },
     Route { start_loc :PtA, end_loc :Option<PtA>, alternative :usize }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Dispatch(Vec<(f64,Command)>);
+
+impl Dispatch {
+    pub fn insert(&mut self, t :f64, cmd :Command) {
+        let idx = match self.0.binary_search_by_key(&OrderedFloat(t), 
+                    |(t,_)| OrderedFloat(*t)) { Ok(i) | Err(i) => i };
+        self.0.insert(idx, (t, cmd));
+    }
 }
 
 #[derive(Clone, Default)]
@@ -126,11 +138,12 @@ pub struct Model {
     pub objects: im::HashMap<PtA, Object>,
     pub node_data: im::HashMap<Pt, NDType>,
     pub vehicles :im::Vector<Vehicle>,
-    pub dispatches :im::Vector<Vec<(f32,Command)>>,
+    pub dispatches :im::Vector<Dispatch>,
 }
 
 
 #[derive(Hash,PartialEq,Eq)]
+#[derive(Copy,Clone)]
 #[derive(Debug)]
 pub enum Ref {
     Node(Pt),
