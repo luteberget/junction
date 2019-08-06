@@ -13,6 +13,7 @@ mod dgraph;
 mod interlocking;
 mod topology;
 mod history;
+mod diagram;
 
 use matches::matches;
 
@@ -42,6 +43,8 @@ fn main() {
         ui::in_root_window(|| {
             canvas.draw(&mut doc);
         });
+
+        //if let Some(dispatch) = canvas.active_dispatch { dispatch.draw(&mut doc); }
 
         // Continue running.
         !matches!(action, backend_glfw::SystemAction::Close)

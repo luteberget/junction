@@ -1,3 +1,5 @@
+use std::ffi::CString;
+
 use crate::model::*;
 use std::collections::{HashSet, HashMap};
 use crate::ui;
@@ -16,7 +18,7 @@ pub struct Canvas {
     action :Action,
     selection :HashSet<Ref>,
     view :View,
-    preview_route :Option<usize>,
+    //preview_route :Option<usize>,
     active_dispatch :Option<(usize,f64)>,
 }
 
@@ -40,13 +42,12 @@ impl Canvas {
             action :Action::Normal(NormalState::Default),
             selection :HashSet::new(),
             view :View::default(),
-            preview_route: None,
             active_dispatch :None,
         }
     }
 
     //pub fn toolbar(&mut self, doc :&mut Undoable<Model>) {
-    pub fn toolbar(&mut self) { unsafe {
+    pub fn toolbar(&mut self, m :&Model) { unsafe {
         if tool_button(const_cstr!("select (A)").as_ptr(),
             'A' as _, matches!(&self.action, Action::Normal(_))) {
             self.action = Action::Normal(NormalState::Default);
@@ -61,9 +62,31 @@ impl Canvas {
             'D' as _, matches!(&self.action, Action::DrawingLine(_))) {
             self.action = Action::DrawingLine(None);
         }
+
+        // select active dispatch
+        igSameLine(0.0,-1.0);
+        let curr_name = if let Some((d,_)) = self.active_dispatch { CString::new(format!("Dispatch {}", d)).unwrap() } else { CString::new("None").unwrap() };
+        if igBeginCombo(const_cstr!("Dispatch").as_ptr(), curr_name.as_ptr(), 0) {
+            if igSelectable(const_cstr!("None").as_ptr(), self.active_dispatch.is_none(), 0 as _,
+                            util::to_imvec(glm::zero())) {
+                self.active_dispatch = None;
+            }
+            for (idx,_dispatch) in m.dispatches.iter().enumerate() {
+
+                igPushIDInt(idx as _);
+                if igSelectable(const_cstr!("##dispatch").as_ptr(), 
+                                self.active_dispatch.map(|(i,_)| i) == Some(idx), 0 as _,
+                                util::to_imvec(glm::zero())) {
+                    self.active_dispatch = Some((idx, 0.0));
+                }
+                igSameLine(0.0,-1.0); ui::show_text(&format!("Dispatch {}", idx));
+                igPopID();
+            }
+            igEndCombo();
+        }
     } }
 
-    pub fn context_menu_contents(&mut self, doc :&mut ViewModel) {
+    pub fn context_menu_contents(&mut self, doc :&mut ViewModel, preview_route :&mut Option<usize>) {
         unsafe {
             ui::show_text(&format!("selection: {:?}", self.selection));
             //
@@ -81,7 +104,7 @@ impl Canvas {
             igSeparator();
             if self.selection.len() == 1 {
                 if let Some(Ref::Node(pt)) = self.selection.iter().cloned().nth(0) {
-                    self.preview_route = self.boundary_route_selector(doc,pt);
+                    *preview_route = self.boundary_route_selector(doc,pt);
                 }
             }
         }
@@ -112,7 +135,9 @@ impl Canvas {
             let mut dispatch_action = None;
             for idx in routes {
                 some = true;
-                if igSelectable(const_cstr!("").as_ptr(), false, 0 as _, util::to_imvec(glm::zero())) {
+                igPushIDInt(*idx as _);
+                if igSelectable(const_cstr!("##route").as_ptr(), false, 
+                                0 as _, util::to_imvec(glm::zero())) {
                     //self.start_boundary_route(doc, *idx);
                     dispatch_action = Some(*idx);
                 }
@@ -121,6 +146,9 @@ impl Canvas {
                 }
                 igSameLine(0.0,-1.0); ui::show_text(&format!("Route to {:?}", 
                                                 (il.routes[*idx].0).exit));
+
+                igPopID();
+
             }
             if !some {
                 ui::show_text("No routes.");
@@ -131,7 +159,7 @@ impl Canvas {
     }
 
     pub fn draw(&mut self, doc :&mut ViewModel) {
-        self.toolbar();
+        self.toolbar(doc.get_undoable().get());
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;
@@ -153,8 +181,9 @@ impl Canvas {
             let pointer_ingrid = self.view.screen_to_world_ptc(pointer);
 
             // Context menu 
+            let mut preview_route = None;
             if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-                self.context_menu_contents(doc);
+                self.context_menu_contents(doc, &mut preview_route);
                 igEndPopup();
             }
 
@@ -200,7 +229,7 @@ impl Canvas {
             self.draw_background(&doc, draw_list, pos, size);
 
             // Draw highlightred route
-            if let Some(idx) = self.preview_route {
+            if let Some(idx) = preview_route {
                 self.draw_route(&doc, draw_list, pos, size, idx);
             }
 
