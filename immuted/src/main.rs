@@ -61,7 +61,7 @@ fn main() {
 
                 ui::Splitter::horizontal(&mut splitsize)
                     .left(const_cstr!("canvas").as_ptr(), || { canvas.draw(&mut doc); })
-                    .right(const_cstr!("graph").as_ptr(), || { diag.draw(&mut doc); });
+                    .right(const_cstr!("graph").as_ptr(), || { diag.draw(&mut doc, &mut canvas); }); // diagram can show transient rgraphics in canvas
 
             } else {
 

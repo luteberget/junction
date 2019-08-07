@@ -3,7 +3,11 @@ use crate::model::*;
 use crate::viewmodel::*;
 use crate::ui;
 use std::sync::Arc;
+use crate::dgraph::*;
 
+use crate::canvas::*;
+use nalgebra_glm as glm;
+use rolling::input::staticinfrastructure as rolling_inf;
 use backend_glfw::imgui::*;
 
 pub struct Diagram {
@@ -28,14 +32,36 @@ impl Diagram {
         }
     }
 
-    pub fn draw(&mut self, doc :&mut ViewModel) { unsafe {
+    pub fn draw(&mut self, doc :&mut ViewModel, canvas: &mut Canvas) { unsafe {
         let format = const_cstr!("%.3f").as_ptr();
         igSliderFloat(const_cstr!("Time").as_ptr(), &mut self.time, 
                       self.time_interval.0, self.time_interval.1, format, 1.0);
 
+        if igIsItemEdited() {
+            if let Some(dgraph) = doc.get_data().dgraph.as_ref() {
+                canvas.trains = Some(draw_train(self.time as _, &self.history, dgraph));
+            }
+        }
+
         let size = igGetContentRegionAvail_nonUDT2().into();
         ui::canvas(size, const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
             self.draw_background(&doc, draw_list, pos, size);
+
+            // Things to draw:
+            // 1. X front of train (km)
+            // 2. back of train (km) (and fill between?)
+            // 3. color for identifying trains?
+            // 4. color for accel/brake/coast
+            // 5. route activation status
+            // 6. editable events (train requested, route requested)
+            // 7. detection section blocked
+            // 8. scroll/zoom/pan axes
+            // 9. signal aspect and sight area
+            //
+            // Nice tohave:
+            // 1. move detector/signals by dragging in diagram (needs reverse-calc km)
+
+
         });
     } }
 
@@ -100,11 +126,9 @@ pub fn max_pos(h :&History) -> f64 {
     x
 }
 
-
 struct TrainGraph {
     segments :Vec<TrainGraphSegment>,
 }
-
 
 #[derive(Debug)]
 struct TrainGraphSegment {
@@ -126,18 +150,8 @@ fn plot_trains(history :&History) -> Vec<TrainGraph> {
         let mut prev_v = 0.0; // TODO allow train v0 != 0
         for e in events {
             match e {
-                //TrainLogEvent::Edge(a,b) => { edges.push((a,b), 0.0, 0.0)); },
-                //TrainLogEvent::Move(dt, action, DistanceVelocity { dx, v }) => {
-                    //let update_x = if t + *dt < time { *dx } else {
-                        //dynamic_update(params, velocity,DriverPlan { action: *action, dt: time - t}).dx
-                    //};
-                    //edges.last_mut().unwrap().2 += update_x;
-                    //truncate_edge_list(&mut edges, params.length);
-                    //velocity = *v;
-                    //t += *dt;
-                //},
+                //TODO sight?
                 TrainLogEvent::Wait(dt) => { t += dt; },
-
                 TrainLogEvent::Move(dt,action, DistanceVelocity {dx, v }) => {
                     let acc = if *dt > 0.0 { (*v - prev_v)/dt } else { 0.0 };
                     segments.push(TrainGraphSegment { 
@@ -150,9 +164,6 @@ fn plot_trains(history :&History) -> Vec<TrainGraph> {
                     x += dx;
                     prev_v = *v;
                 },
-
-                //TrainLogEvent::Sight(id,value) => {
-                //},
                 _ => {},
             }
         }
@@ -162,8 +173,98 @@ fn plot_trains(history :&History) -> Vec<TrainGraph> {
 }
 
 
+pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<Vec<(PtC,PtC)>> {
+    let mut trains = Vec::new();
+    for (train_i, (name, params, events)) in history.trains.iter().enumerate() {
+
+        use rolling::railway::dynamics::*;
+        use rolling::output::history::*;
+        let mut t = 0.0;
+        let mut edges = Vec::new();
+        let mut velocity = 0.0;
+
+        let mut lines = Vec::new();
+        for e in events {
+            match e {
+                TrainLogEvent::Edge(a,b) => { edges.push(((*a,*b), 0.0, 0.0)); },
+                TrainLogEvent::Move(dt, action, DistanceVelocity { dx, v }) => {
+                    let update_x = if t + *dt < time { *dx } else {
+                        dynamic_update(params, velocity, DriverPlan { action: *action, dt: time - t}).dx };
+                    edges.last_mut().unwrap().2 += update_x;
+                    truncate_edge_list(&mut edges, params.length);
+                    velocity = *v;
+                    t += *dt;
+                },
+                TrainLogEvent::Wait(dt) => { t += dt; },
+                //TrainLogEvent::Sight(id, value) => {
+                //},
+                _ => {},
+            }
+
+            if t >= time { break; }
+        }
+
+        for e in edges {
+            if let Some(line) = draw_edge_with_offset(dgraph, e) {
+                lines.extend(line);
+            }
+        }
+
+        trains.push(lines);
+    }
+    trains
+}
+
+pub fn draw_edge_with_offset(dgraph :&DGraph, (e,offset1,offset2) :((rolling_inf::NodeId, Option<rolling_inf::NodeId>), f64, f64)) -> Option<Vec<(PtC,PtC)>> {
+    let (a,b) = (e.0, e.1?);
+    let vec = dgraph.edge_lines.get(&(a,b))?;
+    let edge_length = edge_length(&dgraph.rolling_inf, a,b)?;
+    let line_length = pline_length(vec);
+    let section = pline_section(vec, 
+                                (offset1 as f32) / (edge_length as f32) *(line_length as f32), 
+                                (offset2 as f32) / (edge_length as f32) *(line_length as f32));
+    Some(section)
+}
+
+pub fn pline_length(v :&Vec<PtC>) -> f32 {
+    v.iter().zip(v.iter().skip(1)).map(|(a,b)| glm::length(&(b-a))).sum()
+}
+
+pub fn line_section((p1,p2) :(&PtC,&PtC), a :f32, b :f32) -> Option<(PtC,PtC)>{
+    let len = glm::length(&(p2-p1));
+    if a > len || b < 0.0 { return None; }
+    let pa = if a < 0.0 { *p1 } else { glm::lerp(p1,p2, a / len) };
+    let pb = if b > len { *p2 } else { glm::lerp(p1,p2, b / len) };
+    Some((pa,pb))
+}
+
+pub fn pline_section(p :&Vec<PtC>, a :f32, b :f32) -> Vec<(PtC,PtC)> {
+    let mut output = Vec::new();
+    let mut t = 0.0;
+    for (p1,p2) in p.iter().zip(p.iter().skip(1)) {
+        if let Some(l) = line_section((p1,p2), a - t, b - t) {
+            output.push(l);
+        }
+        t += glm::length(&(p2-p1));
+    }
+    output
+}
 
 
-
-
+fn truncate_edge_list(e :&mut Vec<((usize, Option<usize>), f64, f64)>, mut l :f64) {
+    let mut del = false;
+    for i in (0..e.len()).rev() {
+        if del {
+            e.remove(i);
+        } else {
+            let (_, ref mut a, ref mut b) = e[i];
+            if *b - *a > l {
+                *a = *b - l;
+                del = true;
+            } else {
+                l -= *b - *a;
+            }
+        }
+    }
+}
 

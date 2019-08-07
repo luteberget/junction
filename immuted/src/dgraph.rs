@@ -21,6 +21,20 @@ pub struct DGraph {
     pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
 }
 
+pub fn edge_length(rolling_inf :&rolling_inf::StaticInfrastructure, a :rolling_inf::NodeId, b: rolling_inf::NodeId) -> Option<f64> {
+    match rolling_inf.nodes[a].edges {
+        rolling_inf::Edges::Single(bx,d) if b == bx => Some(d),
+        rolling_inf::Edges::Switchable(objid) => {
+            if let rolling_inf::StaticObject::Switch { left_link, right_link, .. } = rolling_inf.objects[objid] {
+                if left_link.0 == b { Some(left_link.1) }
+                else if right_link.0 == b { Some(right_link.1) }
+                else { None }
+            } else { None }
+        }
+        _ => None,
+    }
+}
+
 pub struct DGraphBuilder {
     dgraph :rolling_inf::StaticInfrastructure,
     edge_tracks :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Interval>,
@@ -96,9 +110,13 @@ impl DGraphBuilder {
         let tvd_sections = route_finder::detectors_to_sections(&mut m.dgraph, &detector_nodes)
             .expect("could not calc tvd sections.");
 
-        let edge_lines = m.edge_tracks.into_iter()
+        let mut edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>
+            = m.edge_tracks.into_iter()
             .map(|(edge,Interval { track_idx, start, end })| 
                  (edge, topology.interval_map(track_idx,start,end))).collect();
+
+        let rev_edge_lines = edge_lines.iter().map(|((a,b),v)| ((*b,*a),v.clone())).collect::<Vec<_>>();
+        edge_lines.extend(rev_edge_lines.into_iter());
 
 
         Ok(DGraph {
@@ -147,8 +165,8 @@ impl DGraphBuilder {
 
     fn split_edge(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, second_dist :f64) -> (rolling_inf::NodeId, rolling_inf::NodeId) {
         let (na,nb) = self.new_node_pair();
-        let reverse_dist = self.edge_length(b, a).unwrap();
-        let forward_dist = self.edge_length(a, b).unwrap();
+        let reverse_dist = edge_length(&self.dgraph, b, a).unwrap();
+        let forward_dist = edge_length(&self.dgraph, a, b).unwrap();
         let first_dist = reverse_dist - second_dist;
         self.replace_conn(a,b,na,first_dist);
         self.replace_conn(b,a,nb,second_dist);
@@ -165,19 +183,6 @@ impl DGraphBuilder {
         (na,nb)
     }
 
-    pub fn edge_length(&self, a :rolling_inf::NodeId, b: rolling_inf::NodeId) -> Option<f64> {
-        match self.dgraph.nodes[a].edges {
-            rolling_inf::Edges::Single(bx,d) if b == bx => Some(d),
-            rolling_inf::Edges::Switchable(objid) => {
-                if let rolling_inf::StaticObject::Switch { left_link, right_link, .. } = self.dgraph.objects[objid] {
-                    if left_link.0 == b { Some(left_link.1) }
-                    else if right_link.0 == b { Some(right_link.1) }
-                    else { None }
-                } else { None }
-            }
-            _ => None,
-        }
-    }
 
     fn replace_conn(&mut self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, x :rolling_inf::NodeId, d :f64) {
         use rolling_inf::Edges;

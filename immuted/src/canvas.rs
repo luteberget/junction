@@ -1,5 +1,4 @@
 use std::ffi::CString;
-
 use crate::model::*;
 use std::collections::{HashSet, HashMap};
 use crate::ui;
@@ -20,6 +19,7 @@ pub struct Canvas {
     view :View,
     //preview_route :Option<usize>,
     pub active_dispatch :Option<(usize,f64)>,
+    pub trains :Option<Vec<Vec<(PtC,PtC)>>>,
 }
 
 #[derive(Debug)]
@@ -43,6 +43,7 @@ impl Canvas {
             selection :HashSet::new(),
             view :View::default(),
             active_dispatch :None,
+            trains: None,
         }
     }
 
@@ -234,6 +235,9 @@ impl Canvas {
                 self.draw_route(&doc, draw_list, pos, size, idx);
             }
 
+            // Draw train locations
+            self.draw_trains(&doc, draw_list, pos, size);
+
         }});
     }
 
@@ -297,6 +301,21 @@ impl Canvas {
         if let Some(x) = map.get(&(a,b)) { return Some(x); }
         if let Some(x) = map.get(&(b,a)) { return Some(x); }
         None
+    }
+
+    pub fn draw_trains(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) ->Option<()> {
+        let trains = self.trains.as_ref()?;
+        for t in trains.iter() {
+            for (p1,p2) in t.iter() {
+                unsafe {
+                ImDrawList_AddLine(draw_list,
+                                   pos + self.view.world_ptc_to_screen(*p1),
+                                   pos + self.view.world_ptc_to_screen(*p2),
+                                   col::selected(), 7.0);
+                }
+            }
+        }
+        Some(())
     }
 
     pub fn draw_route(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, route_idx: usize) -> Option<()> {
@@ -530,3 +549,4 @@ fn round_coord(p :PtC) -> PtA {
     let coeff = 10.0;
     glm::vec2((p.x * coeff) as _, (p.y * coeff) as _)
 }
+
