@@ -41,12 +41,12 @@ pub fn in_root_window(f :impl FnOnce()) {
     }
 }
 
-pub fn canvas(size :ImVec2, f :impl FnOnce(*mut ImDrawList,ImVec2)) {
+pub fn canvas(size :ImVec2, name :*const i8, f :impl FnOnce(*mut ImDrawList,ImVec2)) {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();
         ImDrawList_AddRectFilled(draw_list, pos, pos + size, col::background(), 0.0, 0);
-        let clicked = igInvisibleButton(const_cstr!("grid_canvas").as_ptr(), size);
+        let clicked = igInvisibleButton(name, size);
         ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
         f(draw_list, pos);
         ImDrawList_PopClipRect(draw_list);
@@ -58,3 +58,45 @@ pub fn show_text(s :&str) {
     igTextSlice(s.as_ptr() as _ , s.as_ptr().offset(s.len() as _ ) as _ );
     }
 }
+
+pub struct Splitter {
+    left: f32,
+    right: f32,
+    height: f32,
+}
+
+impl Splitter {
+    pub fn new(is_horizontal: bool, sz :&mut f32) -> Self {
+        unsafe {
+            let root_size = igGetContentRegionAvail_nonUDT2();
+            if *sz + 100.0 > root_size.x { *sz = root_size.x - 100.0 ; }
+            let mut right_size = root_size.x - *sz;
+            igSplitter(is_horizontal, 4.0, sz, &mut right_size, 100.0, 100.0, -1.0);
+            Splitter { left: *sz, right: right_size, height: root_size.y }
+        }
+    }
+
+    pub fn horizontal(sz1 :&mut f32) -> Self {
+        Self::new(true, sz1)
+    }
+
+    pub fn left(self, name :*const i8, f :impl FnOnce()) -> Self {
+        unsafe {
+        igBeginChild(name, ImVec2 {x: self.left, y: self.height }, false, 0);
+        f();
+        igEndChild();
+        self
+        }
+    }
+
+    pub fn right(self, name :*const i8, f :impl FnOnce()) {
+        unsafe {
+        igSameLine(0.0,-1.0);
+        igBeginChild(name, ImVec2 {x: self.right, y: self.height }, false, 0);
+        f();
+        igEndChild();
+        }
+    }
+}
+
+

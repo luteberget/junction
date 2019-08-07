@@ -51,8 +51,12 @@ impl ViewModel {
             match data {
                 SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
                 SetData::Interlocking(il) => { self.derived.interlocking = Some(il); },
-                _ => {},
-                // ...
+                SetData::History(idx,h) => {
+                    while idx >= self.derived.history.len() {
+                        self.derived.history.push(None);
+                    }
+                    self.derived.history[idx] = Some(h);
+                }
             }
         }
 

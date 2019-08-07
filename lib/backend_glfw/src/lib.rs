@@ -24,6 +24,20 @@ pub mod imgui {
         }
     }
 
+    impl std::ops::Mul<ImVec2> for f32 {
+        type Output = ImVec2;
+        fn mul(self, v :ImVec2) -> ImVec2 {
+            ImVec2 { x: v.x * self, y: v.y * self }
+        }
+    }
+
+    impl std::ops::Div<f32> for ImVec2 {
+        type Output = ImVec2;
+        fn div(self, d :f32) -> ImVec2 {
+            ImVec2 { x: self.x / d, y: self.y / d }
+        }
+    }
+
 }
 
 pub enum SystemAction {

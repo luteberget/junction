@@ -19,7 +19,7 @@ pub struct Canvas {
     selection :HashSet<Ref>,
     view :View,
     //preview_route :Option<usize>,
-    active_dispatch :Option<(usize,f64)>,
+    pub active_dispatch :Option<(usize,f64)>,
 }
 
 #[derive(Debug)]
@@ -164,8 +164,9 @@ impl Canvas {
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;
         let size = unsafe { igGetContentRegionAvail_nonUDT2().into() };
-        ui::canvas(size, |draw_list, pos| { unsafe {
+        ui::canvas(size, const_cstr!("railwaycanvas").as_ptr(), |draw_list, pos| { unsafe {
 
+            // TODO move keyboard shortcuts out of Canvas
             // Hotkeys
             self.handle_global_keys(doc);
             //hotkey!(CTRL+Z, { doc.undo(); });
@@ -187,7 +188,7 @@ impl Canvas {
                 igEndPopup();
             }
 
-            if igIsMouseClicked(1,false) {
+            if igIsItemHovered(0) && igIsMouseClicked(1,false) {
                 if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                     if !self.selection.contains(&r) {
                         self.selection = std::iter::once(r).collect();
@@ -278,7 +279,8 @@ impl Canvas {
 
     pub fn scroll(&mut self) {
         unsafe {
-            if !igIsWindowFocused(0 as _) { return; }
+            //if !igIsWindowFocused(0 as _) { return; }
+            if !igIsItemHovered(0){ return; }
             let io = igGetIO();
             let wheel = (*io).MouseWheel;
             if wheel != 0.0 {
@@ -434,7 +436,7 @@ impl Canvas {
                 }
             }
             NormalState::Default => {
-                if igIsMouseDragging(0,-1.0) {
+                if igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
                     if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                         if !self.selection.contains(&r) {
                             self.selection = std::iter::once(r).collect();
