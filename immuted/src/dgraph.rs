@@ -172,12 +172,12 @@ impl DGraphBuilder {
         self.replace_conn(b,a,nb,second_dist);
 
         // TODO this seems overcomplicated
-        for ((a1,a2),(b1,b2)) in vec![((a,na),(b,nb)),((b,nb),(a,na))].into_iter() {
+        for ((a1,a2),(b1,b2),split_dist) in vec![((a,na),(b,nb),first_dist),((b,nb),(a,na),second_dist)].into_iter() {
             if let Some(Interval { track_idx, start, end }) = self.edge_tracks.remove(&(a1,b1)) {
                 self.edge_tracks.insert((a1,a2), Interval { track_idx, 
-                    start: start, end: start+first_dist });
+                    start: start, end: start+split_dist });
                 self.edge_tracks.insert((b2,b1), Interval { track_idx, 
-                    start: start+first_dist, end: end });
+                    start: start+split_dist, end: end });
             }
         }
         (na,nb)
