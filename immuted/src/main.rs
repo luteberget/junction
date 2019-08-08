@@ -12,6 +12,7 @@ mod view;
 mod objects;
 mod viewmodel;
 mod dgraph;
+mod mileage;
 mod interlocking;
 mod topology;
 mod history;

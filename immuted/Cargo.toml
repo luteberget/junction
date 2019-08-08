@@ -13,7 +13,9 @@ threadpool = "*"
 
 im = "13.0"
 nalgebra-glm = "*"
+petgraph = "*"
 
 backend_glfw = { path = "../lib/backend_glfw" }
 rolling = { path = "../../trainspotting/rolling" }
 route_finder = { path = "../lib/route_finder" }
+

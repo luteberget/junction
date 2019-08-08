@@ -67,7 +67,6 @@ impl Diagram {
 
 
     pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
-        unsafe {
         let m = vm.get_undoable().get();
         let d = vm.get_data();
         let h = &self.history;
@@ -84,7 +83,6 @@ impl Diagram {
                                  pos + self.to_screen(&size, p2.0, p2.1),
                                  pos + self.to_screen(&size, p3.0, p3.1));
             }
-        }
         }
     }
 

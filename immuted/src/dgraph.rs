@@ -6,7 +6,9 @@ use std::sync::Arc;
 use crate::model::*;
 use crate::objects::*;
 use crate::topology::*;
+use crate::mileage;
 use matches::matches;
+use nalgebra_glm as glm;
 
 pub type ModelNodeId = Pt;
 pub type ModelObjectId = PtA;
@@ -19,6 +21,15 @@ pub struct DGraph {
     pub tvd_sections :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
     pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
+    pub mileage :HashMap<rolling_inf::NodeId, f64>,
+}
+
+impl DGraph {
+    pub fn mileage_at(&self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, param :f64) -> Option<f64> {
+        let km_a = *self.mileage.get(&a)?;
+        let km_b = *self.mileage.get(&b)?;
+        Some(glm::lerp_scalar(km_a,km_b,param))
+    }
 }
 
 pub fn edge_length(rolling_inf :&rolling_inf::StaticInfrastructure, a :rolling_inf::NodeId, b: rolling_inf::NodeId) -> Option<f64> {
@@ -118,6 +129,9 @@ impl DGraphBuilder {
         let rev_edge_lines = edge_lines.iter().map(|((a,b),v)| ((*b,*a),v.clone())).collect::<Vec<_>>();
         edge_lines.extend(rev_edge_lines.into_iter());
 
+        let mileage = mileage::auto(&m.dgraph);
+        println!("MILEAGES {:?}", mileage);
+        //mileage::test_lsq();
 
         Ok(DGraph {
             rolling_inf: m.dgraph,
@@ -125,6 +139,7 @@ impl DGraphBuilder {
             object_ids: object_ids,
             tvd_sections: tvd_sections,
             edge_lines: edge_lines,
+            mileage: mileage,
         })
 
     }
