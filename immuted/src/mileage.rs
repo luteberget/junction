@@ -7,6 +7,121 @@ use crate::dgraph::*;
 //use crate::model::*;
 use rolling_inf::*;
 
+pub fn test_lsq_rs() {
+     let edges :Vec<(usize,usize,f64)> = vec![(0,1,50.0),(1,2,100.0),(1,2,150.0),(2,3,50.0)];
+     let mut order : HashMap<usize,usize> = HashMap::new();
+     order.insert(0,0);
+     order.insert(1,1);
+     order.insert(2,2);
+     order.insert(3,3);
+
+     let params = lsqr::Params {
+         damp: 0.0,
+         rel_mat_err: 1e-2,
+         rel_rhs_err: 1e-2,
+         condlim :0.0,
+         iterlim: 6000, 
+     };
+
+     let mut rhs = edges.iter().map(|(a,b,d)| *d)
+         .chain(std::iter::once(0.)).collect::<Vec<_>>();
+
+     // -1  1  0  0
+     //  0 -1  1  0
+     //  0 -1  1  0
+     //  0  0  0  1
+     //  1  0  0  0
+     let sol = lsqr::lsqr(|msg| println!("{}", msg),
+                edges.len() + 1, order.len(), 
+                params,
+                |prod| {
+                    match prod {
+                        lsqr::Product::YAddAx { x, y } => {
+                            println!("YAddAx");
+                            println!("x = {:?}", x);
+                            println!("y = {:?}", y);
+                            // compute y += A * x
+                            // y contains edge adjustments(?), x contains node kms
+                            // [n_e +1, n_n] * [n_n, 1] = [n_e +1, 1]
+                           for (e, (a,b,d)) in edges.iter().enumerate() {
+                               let (a,b) = if order[a] <= order[b] { (*a,*b) } else { (*b,*a) };
+                               y[e] += x[b] - x[a];
+                           }
+                           y[edges.len()] += x[0]; // the last row contains only the
+                           // fixed (for the moment: the first) node.
+                             println!("YAddAx end");
+                            println!("x = {:?}", x);
+                            println!("y = {:?}", y);
+                        },
+                        lsqr::Product::XAddATy { x, y } => {
+                            println!("XAddATy");
+                            println!("x = {:?}", x);
+                            println!("y = {:?}", y);
+                            // compute x += A^T * y
+                            // y contains something, 
+                            for (e, (a,b,d)) in edges.iter().enumerate() {
+                            // TODO replace order by pre-arranging the edges to be correctly directed 
+                                let (a,b) = if order[a] <= order[b] { (*a,*b) } else { (*b,*a) };
+                                x[a] += -1. * y[e];
+                                x[b] +=  1. * y[e];
+                            }
+                            x[0] += y[0]; // node 0 is fixed
+                            println!("XAddATy end");
+                            println!("x = {:?}", x);
+                            println!("y = {:?}", y);
+                        },
+                    }
+                },
+                &mut rhs);
+
+     println!("ok? {:?}", sol);
+}
+
+pub fn test_lsq() {
+     let edges = vec![(0,1,50.0),(1,2,100.0),(1,2,150.0),(2,3,50.0)];
+     let mut order = HashMap::new();
+     order.insert(0,0);
+     order.insert(1,1);
+     order.insert(2,2);
+     order.insert(3,3);
+
+
+     use nalgebra::*;
+     let matrix = DMatrix::from_fn(edges.len() + 1, order.len(),
+       |e,n| {
+          if e == edges.len() {
+              if n == 0 { 1.0 } else { 0.0 }
+          } else {
+              let (a,b,d) = edges[e];
+              let (a,b) = if order[&a] <= order[&b] { (a,b) } else { (b,a) };
+              if n == a { -1.0 }
+              else if n == b { 1.0 }
+              else { 0.0 }
+          }
+       });
+
+     let lengths = DVector::from_fn(edges.len()+1, |i,_| if i == edges.len() { 0.0 } else { edges[i].2 });
+
+
+     println!("Matrix {}", matrix);
+     println!("Lengths {}", lengths);
+     println!("Transposed {}", matrix.transpose());
+
+     let mut xtx = matrix.transpose() * &matrix;
+     println!(" xtx {}", xtx);
+     println!(" determinant {}", xtx.determinant());
+
+     if !xtx.try_inverse_mut() { panic!(); }
+     println!(" inv {}", xtx);
+
+     let xxx = xtx * matrix.transpose();
+     println!(" xxx {}", xxx);
+
+     let beta = xxx * lengths;
+
+     println!(" beta {}", beta);
+     
+}
 
 // try using lapack
 // least squares routine

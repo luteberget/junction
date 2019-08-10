@@ -21,6 +21,10 @@ mod diagram;
 use matches::matches;
 
 fn main() {
+
+    mileage::test_lsq_rs();
+    return;
+
     use crate::model::*;
 
     // Stores lines(tracks), node data, objects, vehicles and dispatches
