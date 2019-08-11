@@ -5,6 +5,7 @@ use crate::ui;
 use crate::objects::*;
 use crate::util;
 use crate::view::*;
+use crate::interlocking::*;
 use crate::viewmodel::*;
 use crate::ui::col;
 use crate::ui::ImVec2;
@@ -12,6 +13,8 @@ use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
 use const_cstr::const_cstr;
 use matches::matches;
+use rolling::input::staticinfrastructure as rolling_inf;
+
 
 pub struct Canvas {
     action :Action,
@@ -103,47 +106,71 @@ impl Canvas {
             }
 
             igSeparator();
+            let mut dispatch_action = None;
             if self.selection.len() == 1 {
-                if let Some(Ref::Node(pt)) = self.selection.iter().cloned().nth(0) {
-                    *preview_route = self.boundary_route_selector(doc,pt);
+                if let Some(il) = doc.get_data().interlocking.as_ref() {
+                    if let Some(Ref::Node(pt)) = self.selection.iter().cloned().nth(0) {
+                        if let Some(rs) = il.boundary_routes.get(&pt) {
+                            let (preview,action) = Self::route_selector(il,rs);
+                            *preview_route = preview;
+                            dispatch_action = action;
+                        }
+                    }
+                    if let Some(Ref::Object(pta)) = self.selection.iter().cloned().nth(0) {
+                        if let Some(rs) = il.signal_routes.get(&pta) {
+                            let (preview,action) = Self::route_selector(il,rs);
+                            *preview_route = preview;
+                            dispatch_action = action;
+                        }
+                    }
                 }
+            }
+
+            if let Some(route_id) = dispatch_action {
+                self.start_route(doc, route_id);
             }
         }
     }
 
-    fn start_boundary_route(&mut self, doc:&mut ViewModel, route_idx :usize) {
-        println!("Dispatching route {}", route_idx);
-        let mut model = doc.get_undoable().get().clone();
-        let (dispatch_idx,time) = self.active_dispatch.unwrap_or_else(|| {
-            model.dispatches.push_back(Default::default()); // empty dispatch
-            let d = (model.dispatches.len()-1, 0.0);
-            self.active_dispatch = Some(d);
-            d
-        });
+    fn start_route(&mut self, doc:&mut ViewModel, route_idx :usize) {
+        if let Some(il) = doc.get_data().interlocking.as_ref() {
+            println!("Dispatching route {}", route_idx);
+            let mut model = doc.get_undoable().get().clone();
+            let (dispatch_idx,time) = self.active_dispatch.unwrap_or_else(|| {
+                model.dispatches.push_back(Default::default()); // empty dispatch
+                let d = (model.dispatches.len()-1, 0.0);
+                self.active_dispatch = Some(d);
+                d
+            });
 
-        let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
-        dispatch.insert(time, Command::Train { route: route_idx, vehicle: 0 });
-        doc.set_model(model);
-        println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
+            let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
+            let cmd = match (il.routes[route_idx].0).entry {
+                rolling_inf::RouteEntryExit::Boundary(_) => 
+                    Command::Train { route: route_idx, vehicle: 0 },
+                rolling_inf::RouteEntryExit::Signal(_) | rolling_inf::RouteEntryExit::SignalTrigger {..} => 
+                    Command::Route { route: route_idx },
+            };
+            dispatch.insert(time, cmd);
+            doc.set_model(model);
+            println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
+        }
     }
 
-    fn boundary_route_selector(&mut self, doc :&mut ViewModel, pt :Pt) -> Option<usize> {
+    fn route_selector(il :&Interlocking, routes :&[usize]) -> (Option<usize>,Option<usize>) {
         unsafe {
-            let il = doc.get_data().interlocking.as_ref()?;
-            let routes = il.boundary_routes.get(&pt)?;
             let mut some = false;
-            let mut retval = None;
-            let mut dispatch_action = None;
+            let mut preview = None;
+            let mut action = None;
             for idx in routes {
                 some = true;
                 igPushIDInt(*idx as _);
                 if igSelectable(const_cstr!("##route").as_ptr(), false, 
                                 0 as _, util::to_imvec(glm::zero())) {
                     //self.start_boundary_route(doc, *idx);
-                    dispatch_action = Some(*idx);
+                    action = Some(*idx);
                 }
                 if igIsItemHovered(0) {
-                    retval = Some(*idx);
+                    preview = Some(*idx);
                 }
                 igSameLine(0.0,-1.0); ui::show_text(&format!("Route to {:?}", 
                                                 (il.routes[*idx].0).exit));
@@ -154,8 +181,7 @@ impl Canvas {
             if !some {
                 ui::show_text("No routes.");
             }
-            if let Some(idx) = dispatch_action { self.start_boundary_route(doc, idx) }
-            retval
+            (preview,action)
         }
     }
 
