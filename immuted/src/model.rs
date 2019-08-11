@@ -220,18 +220,13 @@ impl Model {
         thing.map(|(tr,param)| (tr,param,(dist_sqr,next_dist)))
     }
 
-    pub fn get_rect(&self, a :PtC, b :PtC) -> Vec<Ref> {
-        let (x_lo,x_hi) = (a.x.min(b.x), a.x.max(b.x));
-        let (y_lo,y_hi) = (a.y.min(b.y), a.y.max(b.y));
-        // TODO performance
+    pub fn get_linesegs_in_rect(&self, a :PtC, b :PtC) -> Vec<(Pt,Pt)> {
         let mut r = Vec::new();
-        for (a,b) in self.linesegs.iter() {
-            let p1 = glm::vec2(a.x as f32,a.y as f32);
-            let p2 = glm::vec2(b.x as f32,b.y as f32);
-            if (x_lo <= p1.x && p1.x <= x_hi && y_lo <= p1.y && p1.y <= y_hi) ||
-               (x_lo <= p2.x && p2.x <= x_hi && y_lo <= p2.y && p2.y <= y_hi) {
-                   r.push(Ref::LineSeg(*a,*b));
-               }
+        for (p1,p2) in self.linesegs.iter() {
+            if in_rect(glm::vec2(p1.x as f32, p1.y as f32), a, b) ||
+               in_rect(glm::vec2(p2.x as f32, p2.y as f32), a, b) {
+                   r.push((*p1,*p2));
+            }
         }
         r
     }

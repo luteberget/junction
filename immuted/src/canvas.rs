@@ -212,7 +212,7 @@ impl Canvas {
                 },
                 Action::InsertObject(Some(obj)) => {
                     let moved = obj.symbol.move_to(doc.get_undoable().get(),pointer_ingrid);
-                    obj.symbol.draw(pos,&self.view,draw_list);
+                    obj.symbol.draw(pos,&self.view,draw_list,col::unselected());
                     if let Some(err) = moved {
                         let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
                         let window = ImVec2 { x: 4.0, y: 4.0 };
@@ -385,14 +385,17 @@ impl Canvas {
             }
 
             if let Some(topo) = d.topology.as_ref() {
+                use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
                 for (pt0,(t,vc)) in &topo.locations {
-                    use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
+                    let selected = self.selection.contains(&Ref::Node(*pt0));
+                    let preview = sel_window.map(|(a,b)| 
+                             util::point_in_rect(self.view.world_pt_to_screen(*pt0),a,b)).unwrap_or(false);
+                    let col = if selected || preview { col::selected() } else { col::unselected() };
+
                     let pt :PtC = vec2(pt0.x as _ ,pt0.y as _ );
                     let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
                     match t {
                         NDType::OpenEnd => {
-                            let col = if self.selection.contains(&Ref::Node(*pt0)) {
-                                col::selected() } else { col::error() };
                             for angle in &[-45.0,45.0] {
                                 ImDrawList_AddLine(draw_list,
                                    pos + self.view.world_ptc_to_screen(pt),
@@ -402,32 +405,37 @@ impl Canvas {
                         },
                         NDType::Cont => {
                             ImDrawList_AddCircleFilled(draw_list, 
-                                pos + self.view.world_ptc_to_screen(pt), 4.0, col::selected(), 8);
+                                pos + self.view.world_ptc_to_screen(pt), 4.0, col, 8);
                         },
                         NDType::Sw(side) => {
                             let angle = if matches!(side, Side::Left) { 45.0 } else { -45.0 };
                             let p1 = pos + self.view.world_ptc_to_screen(pt);
                             let p2 = p1 + util::to_imvec(15.0*normalize(&tangent));
                             let p3 = p1 + util::to_imvec(15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
-                            ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3, col::unselected());
+                            ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3, col);
                         },
                         _ =>{
                             ImDrawList_AddCircleFilled(draw_list, 
-                                pos + self.view.world_ptc_to_screen(pt), 6.0, col::error(), 8);
+                                pos + self.view.world_ptc_to_screen(pt), 4.0, col, 8);
                         },
                     }
                 }
             }
 
 
-            for (_pta,obj) in &m.objects {
-                obj.symbol.draw(pos, &self.view, draw_list);
+            for (pta,obj) in &m.objects {
+                let selected = self.selection.contains(&Ref::Object(*pta));
+                let preview = sel_window.map(|(a,b)| 
+                         util::point_in_rect(self.view.
+                                 world_ptc_to_screen(unround_coord(*pta)),a,b)).unwrap_or(false);
+                let col = if selected || preview { col::selected() } else { col::unselected() };
+                obj.symbol.draw(pos, &self.view, draw_list, col);
             }
         }
     }
 
     pub fn set_selection_window(&mut self, doc :&ViewModel, a :ImVec2, b :ImVec2) {
-        self.selection = doc.get_undoable().get().get_rect(self.view.screen_to_world_ptc(a),
+        self.selection = doc.get_rect(self.view.screen_to_world_ptc(a),
                                             self.view.screen_to_world_ptc(b))
                         .into_iter().collect();
     }

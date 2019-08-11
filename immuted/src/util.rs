@@ -59,3 +59,9 @@ pub fn to_imvec(p :PtC) -> ImVec2 {
 }
 
 pub fn to_vec(pt :(i32,i32)) -> Pt { nalgebra_glm::vec2(pt.0,pt.1) }
+
+pub fn in_rect(pt :PtC, a :PtC, b :PtC) -> bool {
+    let (x_lo,x_hi) = (a.x.min(b.x), a.x.max(b.x));
+    let (y_lo,y_hi) = (a.y.min(b.y), a.y.max(b.y));
+    (x_lo <= pt.x && pt.x <= x_hi && y_lo <= pt.y && pt.y <= y_hi)
+}

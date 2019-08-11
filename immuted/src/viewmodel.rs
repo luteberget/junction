@@ -5,6 +5,8 @@ use crate::model::*;
 use crate::dgraph::*;
 use crate::topology;
 use crate::interlocking;
+use crate::canvas::unround_coord;
+use crate::util;
 use crate::history;
 use std::sync::Arc;
 use nalgebra_glm as glm;
@@ -133,6 +135,26 @@ impl ViewModel {
     pub fn redo(&mut self) {
         self.model.redo();
         self.update();
+    }
+
+    pub fn get_rect(&self, a :PtC, b :PtC) -> Vec<Ref> {
+        let mut r = Vec::new();
+        for (a,b) in self.get_undoable().get().get_linesegs_in_rect(a,b) {
+            r.push(Ref::LineSeg(a,b));
+        }
+        if let Some(topo) = self.get_data().topology.as_ref() {
+            for (pt,_) in topo.locations.iter() {
+                if util::in_rect(glm::vec2(pt.x as f32,pt.y as f32), a,b) {
+                    r.push(Ref::Node(*pt));
+                }
+            }
+        }
+        for (pta,_) in self.get_undoable().get().objects.iter() {
+            if util::in_rect(unround_coord(*pta), a, b) {
+                r.push(Ref::Object(*pta));
+            }
+        }
+        r
     }
 
     pub fn get_closest(&self, pt :PtC) -> Option<(Ref,f32)> {

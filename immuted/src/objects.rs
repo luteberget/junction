@@ -42,8 +42,7 @@ impl Symbol {
         }
     }
 
-    pub fn draw(&self, pos :ImVec2, view :&View, draw_list :*mut ImDrawList) {
-        let c = col::unselected();
+    pub fn draw(&self, pos :ImVec2, view :&View, draw_list :*mut ImDrawList, c :u32) {
         unsafe {
             let p = pos + view.world_ptc_to_screen(self.loc);
             let scale = 5.0;
