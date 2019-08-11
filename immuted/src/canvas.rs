@@ -51,7 +51,8 @@ impl Canvas {
     }
 
     //pub fn toolbar(&mut self, doc :&mut Undoable<Model>) {
-    pub fn toolbar(&mut self, m :&Model) { unsafe {
+    pub fn toolbar(&mut self, vm :&ViewModel) { unsafe {
+        let m = vm.get_undoable().get();
         if tool_button(const_cstr!("select (A)").as_ptr(),
             'A' as _, matches!(&self.action, Action::Normal(_))) {
             self.action = Action::Normal(NormalState::Default);
@@ -66,6 +67,10 @@ impl Canvas {
             'D' as _, matches!(&self.action, Action::DrawingLine(_))) {
             self.action = Action::DrawingLine(None);
         }
+
+        // Is background thread running
+        igSameLine(0.0,-1.0);
+        ui::show_text(&format!(" threads:{} ", vm.busy()));
 
         // select active dispatch
         igSameLine(0.0,-1.0);
@@ -88,6 +93,8 @@ impl Canvas {
             }
             igEndCombo();
         }
+
+
     } }
 
     pub fn context_menu_contents(&mut self, doc :&mut ViewModel, preview_route :&mut Option<usize>) {
@@ -186,7 +193,7 @@ impl Canvas {
     }
 
     pub fn draw(&mut self, doc :&mut ViewModel) {
-        self.toolbar(doc.get_undoable().get());
+        self.toolbar(doc);
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;

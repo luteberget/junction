@@ -61,12 +61,11 @@ impl ViewModel {
                 }
             }
         }
+    }
 
-        if let Some(Err(_)) = self.get_data.as_mut().map(|r| r.try_recv()) {
-            // channel was closed, discard handle
-            // TODO is this necessary?
-            self.get_data = None;
-        }
+    pub fn busy(&self) -> usize {
+        self.thread_pool.active_count() + 
+        self.thread_pool.queued_count() 
     }
 
     fn update(&mut self) {
