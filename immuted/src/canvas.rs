@@ -544,8 +544,11 @@ fn tool_button(name :*const i8, char :i8, selected :bool) -> bool {
     }
 }
 
-//fn unround_coord
-fn round_coord(p :PtC) -> PtA {
+pub fn unround_coord(p :PtA) -> PtC {
+    let coeff = 10.0;
+    glm::vec2(p.x as f32 / coeff, p.y as f32 / coeff)
+}
+pub fn round_coord(p :PtC) -> PtA {
     let coeff = 10.0;
     glm::vec2((p.x * coeff) as _, (p.y * coeff) as _)
 }

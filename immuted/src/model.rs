@@ -1,6 +1,7 @@
 use nalgebra_glm as glm;
 use crate::objects::*;
 use crate::util::*;
+use crate::canvas::*;
 use ordered_float::OrderedFloat;
 
 pub use rolling::input::staticinfrastructure::SwitchPosition as Side;
@@ -178,6 +179,19 @@ pub fn corners(pt :PtC) -> Vec<Pt> {
 }
 
 impl Model {
+
+    pub fn get_closest_object<'a>(&'a self, pt :PtC) -> Option<((&'a PtA,&'a Object),f32)> {
+        // TODO performance
+        let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
+        for (p,o) in self.objects.iter() {
+            let d = glm::length2(&(unround_coord(*p) - pt));
+            if d < dist_sqr {
+                thing = Some((p,o));
+                dist_sqr = d;
+            }
+        }
+        thing.map(|o| (o,dist_sqr))
+    }
 
     pub fn get_closest_lineseg(&self, pt :PtC) -> Option<((Pt,Pt),f32,(f32,f32))> {
         // TODO performance
