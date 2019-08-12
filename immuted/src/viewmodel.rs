@@ -8,8 +8,10 @@ use crate::interlocking;
 use crate::canvas::unround_coord;
 use crate::util;
 use crate::history;
+use crate::dispatch;
 use std::sync::Arc;
 use nalgebra_glm as glm;
+use crate::util::VecMap;
 
 
 pub use rolling::output::history::History;
@@ -18,7 +20,7 @@ pub use rolling::output::history::History;
 pub struct Derived {
     pub dgraph :Option<Arc<DGraph>>,
     pub interlocking :Option<Arc<interlocking::Interlocking>>,
-    pub history :Vec<Option<Arc<History>>>,
+    pub dispatch :Vec<Option<dispatch::DispatchView>>,
     pub topology: Option<Arc<topology::Topology>>,
 }
 
@@ -33,7 +35,7 @@ pub struct ViewModel {
 pub enum SetData {
     DGraph(Arc<DGraph>),
     Interlocking(Arc<interlocking::Interlocking>),
-    History(usize,Arc<History>),
+    Dispatch(usize,dispatch::DispatchView),
 }
 
 impl ViewModel {
@@ -47,18 +49,16 @@ impl ViewModel {
         }
     }
 
-    pub fn receive(&mut self) {
+    pub fn receive(&mut self, cache :&mut dispatch::InstantCache) {
         while let Some(Ok(data)) = self.get_data.as_mut().map(|r| r.try_recv()) {
             println!("Received data from background thread {:?}", data);
             match data {
                 SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
                 SetData::Interlocking(il) => { self.derived.interlocking = Some(il); },
-                SetData::History(idx,h) => {
-                    while idx >= self.derived.history.len() {
-                        self.derived.history.push(None);
-                    }
-                    self.derived.history[idx] = Some(h);
-                }
+                SetData::Dispatch(idx,h) => { 
+                    self.derived.dispatch.vecmap_insert(idx,h);
+                    cache.clear_dispatch(idx);
+                },
             }
         }
     }
@@ -104,9 +104,8 @@ impl ViewModel {
                                                    &dgraph.rolling_inf,
                                                    interlocking.routes.iter().map(|(r,_)| r),
                                                    &(dispatch.0)).unwrap();
-                let history = Arc::new(history); // TODO   maybe Arc is not needed for history
-                                                        // only used in Gui thread?
-                let send_ok = tx.send(SetData::History(i, history));
+                let view = dispatch::DispatchView::from_history(&dgraph, history);
+                let send_ok = tx.send(SetData::Dispatch(i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
         });
@@ -163,10 +162,16 @@ impl ViewModel {
             dist_sqr = d; 
         }
 
-        println!("CLOSEST NODE {:?}", self.get_closest_node(pt));
         if let Some((p,d)) = self.get_closest_node(pt) {
             if d < 0.5*0.5 {
                 thing = Some(Ref::Node(p));
+                dist_sqr = d;
+            }
+        }
+
+        if let Some(((p,_obj),d)) = self.get_undoable().get().get_closest_object(pt) {
+            if d < 0.5*0.5 {
+                thing = Some(Ref::Object(*p));
                 dist_sqr = d;
             }
         }

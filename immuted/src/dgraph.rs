@@ -69,11 +69,6 @@ impl DGraphBuilder {
         // Create signals objects separately (they are not actually part of the "geographical" 
         // infrastructure network, they are merely pieces of state referenced by sight objects)
         let mut static_signals :HashMap<PtA, rolling_inf::ObjectId> = HashMap::new();
-        for (p,o) in model.objects.iter().filter(|(p,o)| matches!(o.symbol.shape, Shape::Signal))  {
-            let id = m.new_object(rolling_inf::StaticObject::Signal);
-            static_signals.insert(*p,id);
-        }
-
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
         let mut object_ids = HashMap::new();
@@ -92,8 +87,10 @@ impl DGraphBuilder {
                         Function::MainSignal => { 
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
+
                             let (_cursor, obj) = dg.insert_object(cursor, 
                                                                   rolling_inf::StaticObject::Signal);
+                            static_signals.insert(id, obj);
                             object_ids.insert(obj, id);
                         },
                     }
@@ -106,6 +103,7 @@ impl DGraphBuilder {
             let objid = static_signals[&id];
             let sight_dist = 200.0; // TODO configurable
             for (cursor,dist) in cursor.reverse(&m.dgraph).advance_nontrailing_truncate(&m.dgraph, sight_dist) {
+                let cursor = cursor.reverse(&m.dgraph);
                 m.insert_object(cursor, rolling_inf::StaticObject::Sight{
                     distance: dist, signal: objid,
                 });
@@ -370,7 +368,7 @@ impl Cursor {
     pub fn reverse(&self, dg :&rolling_inf::StaticInfrastructure) -> Cursor {
         match self {
             Cursor::Node(n) => Cursor::Node(dg.nodes[*n].other_node),
-            _ => unimplemented!(),
+            Cursor::Edge((a,b),l) => Cursor::Edge((*b,*a), edge_length(dg, *a, *b).unwrap() - l),
         }
     }
 

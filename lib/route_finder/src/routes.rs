@@ -223,7 +223,9 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
 
     let mut sections = state.exited_sections.clone();
     sections.extend(state.entered_sections.iter().map(|&(x, l)| (x, l, state.length)));
+    println!("BEFORE SECTION TOLERANCE {:?}", sections);
     sections.retain(|&mut (_,a,b)| b-a > config.section_tolerance);
+    println!("AFTER SECTION TOLERANCE {:?}", sections);
 
     let trigger = sections.first();
     let entry = match (trigger,entry) {

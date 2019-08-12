@@ -65,3 +65,36 @@ pub fn in_rect(pt :PtC, a :PtC, b :PtC) -> bool {
     let (y_lo,y_hi) = (a.y.min(b.y), a.y.max(b.y));
     (x_lo <= pt.x && pt.x <= x_hi && y_lo <= pt.y && pt.y <= y_hi)
 }
+
+
+pub trait VecMap<V> {
+    fn vecmap_insert(&mut self, key :usize, value :V);
+    fn vecmap_remove(&mut self, key :usize) -> bool;
+    fn vecmap_get(&self, key :usize) -> Option<&V>;
+}
+
+impl<V> VecMap<V> for Vec<Option<V>> {
+    fn vecmap_insert(&mut self, key :usize, value :V) {
+        while self.len() < key+1 {
+            self.push(None);
+        }
+        self[key] = Some(value);
+    }
+
+    fn vecmap_remove(&mut self, key :usize) -> bool {
+        if let Some(slot) = self.get_mut(key) {
+            if slot.is_some() {
+                *slot = None;
+                return true;
+            } 
+        } 
+        false
+    }
+
+    fn vecmap_get(&self, key :usize) -> Option<&V> {
+        if let Some(Some(e)) = self.get(key) {
+            return Some(e);
+        }
+        None
+    }
+}

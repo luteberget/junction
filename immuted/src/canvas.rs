@@ -4,6 +4,7 @@ use std::collections::{HashSet, HashMap};
 use crate::ui;
 use crate::objects::*;
 use crate::util;
+use crate::dispatch;
 use crate::view::*;
 use crate::interlocking::*;
 use crate::viewmodel::*;
@@ -17,12 +18,11 @@ use rolling::input::staticinfrastructure as rolling_inf;
 
 
 pub struct Canvas {
-    action :Action,
-    selection :HashSet<Ref>,
-    view :View,
-    //preview_route :Option<usize>,
-    pub active_dispatch :Option<(usize,f64)>,
-    pub trains :Option<Vec<Vec<(PtC,PtC)>>>,
+    pub action :Action,
+    pub selection :HashSet<Ref>,
+    pub view :View,
+    pub active_dispatch :Option<(usize, f32)>,
+    pub instant_cache: dispatch::InstantCache,
 }
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl Canvas {
             selection :HashSet::new(),
             view :View::default(),
             active_dispatch :None,
-            trains: None,
+            instant_cache: dispatch::InstantCache::new(),
         }
     }
 
@@ -74,7 +74,7 @@ impl Canvas {
 
         // select active dispatch
         igSameLine(0.0,-1.0);
-        let curr_name = if let Some((d,_)) = self.active_dispatch { CString::new(format!("Dispatch {}", d)).unwrap() } else { CString::new("None").unwrap() };
+        let curr_name = if let Some((d,_t)) = self.active_dispatch { CString::new(format!("Dispatch {}", d)).unwrap() } else { CString::new("None").unwrap() };
         if igBeginCombo(const_cstr!("Dispatch").as_ptr(), curr_name.as_ptr(), 0) {
             if igSelectable(const_cstr!("None").as_ptr(), self.active_dispatch.is_none(), 0 as _,
                             util::to_imvec(glm::zero())) {
@@ -84,9 +84,10 @@ impl Canvas {
 
                 igPushIDInt(idx as _);
                 if igSelectable(const_cstr!("##dispatch").as_ptr(), 
-                                self.active_dispatch.map(|(i,_)| i) == Some(idx), 0 as _,
+                                 self.active_dispatch.map(|(i,_t)| i) == Some(idx), 0 as _,
                                 util::to_imvec(glm::zero())) {
-                    self.active_dispatch = Some((idx, 0.0));
+                    let t = self.instant_cache.dispatch_time(idx).unwrap_or(0.0);
+                    self.active_dispatch = Some((idx, t));
                 }
                 igSameLine(0.0,-1.0); ui::show_text(&format!("Dispatch {}", idx));
                 igPopID();
@@ -157,7 +158,7 @@ impl Canvas {
                 rolling_inf::RouteEntryExit::Signal(_) | rolling_inf::RouteEntryExit::SignalTrigger {..} => 
                     Command::Route { route: route_idx },
             };
-            dispatch.insert(time, cmd);
+            dispatch.insert(time as f64, cmd);
             doc.set_model(model);
             println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
         }
@@ -337,8 +338,9 @@ impl Canvas {
     }
 
     pub fn draw_trains(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) ->Option<()> {
-        let trains = self.trains.as_ref()?;
-        for t in trains.iter() {
+        let (idx,time) = self.active_dispatch.as_ref()?;
+        let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
+        for t in instant.draw.iter() {
             for (p1,p2) in t.iter() {
                 unsafe {
                 ImDrawList_AddLine(draw_list,
