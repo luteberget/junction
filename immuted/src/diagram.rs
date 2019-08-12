@@ -5,13 +5,20 @@ use crate::util::VecMap;
 use crate::canvas::*;
 use crate::dispatch::*;
 use backend_glfw::imgui::*;
+use crate::model::*;
+
+pub enum DiagramAction {
+    DraggingCommand(usize)
+}
 
 pub struct Diagram { }
 
 impl Diagram {
     pub fn draw(doc :&mut ViewModel, canvas: &mut Canvas) -> Option<()> { unsafe {
+        let mut move_command = None;
         let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
         let dgraph = doc.get_data().dgraph.as_ref()?;
+        let dispatch_spec = doc.get_undoable().get().dispatches.get(*dispatch_idx)?;
         let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
 
         *time = time.max(dispatch.time_interval.0).min(dispatch.time_interval.1);
@@ -27,7 +34,7 @@ impl Diagram {
 
         let size = igGetContentRegionAvail_nonUDT2().into();
         ui::canvas(size, const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
-            Self::draw_background(&dispatch, draw_list, pos, size);
+            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, &mut move_command);
 
             // Things to draw:
             // 1. X front of train (km)
@@ -46,12 +53,19 @@ impl Diagram {
 
         });
 
+        if let Some((cmd_idx, t)) = move_command {
+            let mut model = doc.get_undoable().get().clone();
+            let dispatch = model.dispatches.get_mut(*dispatch_idx)?;
+            dispatch.0[cmd_idx].0 = t;
+            doc.set_model(model);
+        }
+
         Some(())
     } }
 
 
-    pub fn draw_background(dispatch :&DispatchView, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
-        for graph in &dispatch.diagram {
+    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<(usize,f64)> ) {
+        for graph in &view.diagram {
             for s in &graph.segments {
                 let p0 = (s.start_time, s.start_pos, s.start_vel);
                 let dt = s.dt/3.0;
@@ -59,10 +73,34 @@ impl Diagram {
                 let p2 = (p1.0 + dt, p1.1 + p1.2*dt + s.acc*dt*dt*0.5, p1.2 + s.acc*dt);
                 let p3 = (p2.0 + dt, p2.1 + p2.2*dt + s.acc*dt*dt*0.5, p2.2 + s.acc*dt);
                 draw_interpolate(draw_list,
-                                 pos + Self::to_screen(dispatch, &size, p0.0, p0.1),
-                                 pos + Self::to_screen(dispatch, &size, p1.0, p1.1),
-                                 pos + Self::to_screen(dispatch, &size, p2.0, p2.1),
-                                 pos + Self::to_screen(dispatch, &size, p3.0, p3.1));
+                                 pos + Self::to_screen(view, &size, p0.0, p0.1),
+                                 pos + Self::to_screen(view, &size, p1.0, p1.1),
+                                 pos + Self::to_screen(view, &size, p2.0, p2.1),
+                                 pos + Self::to_screen(view, &size, p3.0, p3.1));
+            }
+        }
+
+
+        for (idx,(t,cmd)) in dispatch.0.iter().enumerate() {
+            let km = 0.0; // TODO take entry point and map to abspos 
+            unsafe {
+                let mouse = (*igGetIO()).MousePos;
+                let p = pos + Self::to_screen(view, &size, *t, km);
+                ImDrawList_AddCircleFilled(draw_list, p, 3.0, ui::col::error(), 4);
+                if igIsItemHovered(0) && (p-mouse).length_sq() < 5.*5. {
+                    igBeginTooltip();
+                    ui::show_text(&format!("@{:.3}: {:?}", t, cmd));
+                    igEndTooltip();
+                }
+
+                if igIsMouseDragging(0,-1.0) {
+                    let delta = (*igGetIO()).MouseDelta;
+                    let dt = (view.time_interval.1 - view.time_interval.0)*delta.x/size.x;
+                    if (p-mouse).length_sq() < 5.*5. {
+                        println!("DRAG {:?} {:?}", delta, dt);
+                        *move_command = Some((idx, (*t + dt as f64) as _));
+                    }
+                }
             }
         }
     }

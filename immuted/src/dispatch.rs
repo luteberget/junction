@@ -22,8 +22,8 @@ impl DispatchView {
         let diagram = plot_trains(&history);
         DispatchView {
             history: history,
-            time_interval: (0.0, t),
-            pos_interval: (0.0, x),
+            time_interval: (-0.1*t, 1.1*t),
+            pos_interval: (-0.1*x, 1.1*x),
             instant: instant,
             diagram: diagram,
         }
