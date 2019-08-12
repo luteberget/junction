@@ -21,9 +21,10 @@ pub struct Canvas {
     pub action :Action,
     pub selection :HashSet<Ref>,
     pub view :View,
-    pub active_dispatch :Option<(usize, f32)>,
+    pub active_dispatch :Option<(usize, f32, bool)>,
     pub instant_cache: dispatch::InstantCache,
 }
+
 
 #[derive(Debug)]
 pub enum Action {
@@ -74,7 +75,7 @@ impl Canvas {
 
         // select active dispatch
         igSameLine(0.0,-1.0);
-        let curr_name = if let Some((d,_t)) = self.active_dispatch { CString::new(format!("Dispatch {}", d)).unwrap() } else { CString::new("None").unwrap() };
+        let curr_name = if let Some((d,_t,_play)) = self.active_dispatch { CString::new(format!("Dispatch {}", d)).unwrap() } else { CString::new("None").unwrap() };
         if igBeginCombo(const_cstr!("Dispatch").as_ptr(), curr_name.as_ptr(), 0) {
             if igSelectable(const_cstr!("None").as_ptr(), self.active_dispatch.is_none(), 0 as _,
                             util::to_imvec(glm::zero())) {
@@ -84,10 +85,10 @@ impl Canvas {
 
                 igPushIDInt(idx as _);
                 if igSelectable(const_cstr!("##dispatch").as_ptr(), 
-                                 self.active_dispatch.map(|(i,_t)| i) == Some(idx), 0 as _,
+                                 self.active_dispatch.map(|(i,_t,_play)| i) == Some(idx), 0 as _,
                                 util::to_imvec(glm::zero())) {
                     let t = self.instant_cache.dispatch_time(idx).unwrap_or(0.0);
-                    self.active_dispatch = Some((idx, t));
+                    self.active_dispatch = Some((idx, t, false));
                 }
                 igSameLine(0.0,-1.0); ui::show_text(&format!("Dispatch {}", idx));
                 igPopID();
@@ -144,9 +145,9 @@ impl Canvas {
         if let Some(il) = doc.get_data().interlocking.as_ref() {
             println!("Dispatching route {}", route_idx);
             let mut model = doc.get_undoable().get().clone();
-            let (dispatch_idx,time) = self.active_dispatch.unwrap_or_else(|| {
+            let (dispatch_idx,time,play) = self.active_dispatch.unwrap_or_else(|| {
                 model.dispatches.push_back(Default::default()); // empty dispatch
-                let d = (model.dispatches.len()-1, 0.0);
+                let d = (model.dispatches.len()-1, 0.0, true);
                 self.active_dispatch = Some(d);
                 d
             });
@@ -338,7 +339,7 @@ impl Canvas {
     }
 
     pub fn draw_trains(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) ->Option<()> {
-        let (idx,time) = self.active_dispatch.as_ref()?;
+        let (idx,time,_play) = self.active_dispatch.as_ref()?;
         let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
         for t in instant.draw.iter() {
             for (p1,p2) in t.iter() {

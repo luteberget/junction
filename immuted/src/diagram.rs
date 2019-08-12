@@ -10,9 +10,16 @@ pub struct Diagram { }
 
 impl Diagram {
     pub fn draw(doc :&mut ViewModel, canvas: &mut Canvas) -> Option<()> { unsafe {
-        let (dispatch_idx,time) = canvas.active_dispatch.as_mut()?;
+        let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
         let dgraph = doc.get_data().dgraph.as_ref()?;
         let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
+
+        *time = time.max(dispatch.time_interval.0).min(dispatch.time_interval.1);
+
+        if igButton(if *play { const_cstr!("pause").as_ptr() } else { const_cstr!("play").as_ptr() },
+                    ImVec2 { x: 0.0, y: 0.0 }) {
+            *play = !*play;
+        }
 
         let format = const_cstr!("%.3f").as_ptr();
         igSliderFloat(const_cstr!("Time").as_ptr(), time,

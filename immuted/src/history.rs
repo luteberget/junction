@@ -18,7 +18,7 @@ pub fn get_history<'a>(vehicles :&im::Vector<Vehicle>,
     let mut train_no = 0;
     for (t,c) in commands {
         if *t > t0 {
-            dispatch.push(DispatchAction::Wait(Some((t0-t) as _ )));
+            dispatch.push(DispatchAction::Wait(Some((t-t0) as _ )));
             t0 = *t;
         }
 

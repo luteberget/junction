@@ -60,19 +60,21 @@ pub fn show_text(s :&str) {
 }
 
 pub struct Splitter {
-    left: f32,
-    right: f32,
-    height: f32,
+    horiz :bool,
+    before: f32,
+    after: f32,
+    size: f32,
 }
 
 impl Splitter {
     pub fn new(is_horizontal: bool, sz :&mut f32) -> Self {
         unsafe {
-            let root_size = igGetContentRegionAvail_nonUDT2();
-            if *sz + 100.0 > root_size.x { *sz = root_size.x - 100.0 ; }
-            let mut right_size = root_size.x - *sz;
-            igSplitter(is_horizontal, 4.0, sz, &mut right_size, 100.0, 100.0, -1.0);
-            Splitter { left: *sz, right: right_size, height: root_size.y }
+            let root = igGetContentRegionAvail_nonUDT2();
+            let (same,other) = if is_horizontal { (root.x, root.y) } else { (root.y, root.x) };
+            if *sz + 100.0 > same { *sz = same - 100.0 ; }
+            let mut after_size = same - *sz;
+            igSplitter(is_horizontal, 4.0, sz, &mut after_size, 100.0, 100.0, -1.0);
+            Splitter { horiz: is_horizontal, before: *sz, after: after_size, size: other }
         }
     }
 
@@ -80,9 +82,14 @@ impl Splitter {
         Self::new(true, sz1)
     }
 
+    pub fn vertical(sz1 :&mut f32) -> Self {
+        Self::new(false, sz1)
+    }
+
     pub fn left(self, name :*const i8, f :impl FnOnce()) -> Self {
         unsafe {
-        igBeginChild(name, ImVec2 {x: self.left, y: self.height }, false, 0);
+        igBeginChild(name, ImVec2 {x: if self.horiz { self.before } else { self.size }, 
+            y: if self.horiz { self.size } else { self.before } }, false, 0);
         f();
         igEndChild();
         self
@@ -91,8 +98,9 @@ impl Splitter {
 
     pub fn right(self, name :*const i8, f :impl FnOnce()) {
         unsafe {
-        igSameLine(0.0,-1.0);
-        igBeginChild(name, ImVec2 {x: self.right, y: self.height }, false, 0);
+        if self.horiz { igSameLine(0.0,-1.0); }
+        igBeginChild(name, ImVec2 {x: if self.horiz { self.after } else { self.size }, 
+            y: if self.horiz { self.size } else { self.after } }, false, 0);
         f();
         igEndChild();
         }
