@@ -37,8 +37,11 @@ pub enum Action {
 pub enum NormalState {
     Default,
     SelectWindow(ImVec2),
-    DragMove,
+    DragMove(MoveType),
 }
+
+#[derive(Debug,Copy,Clone)]
+pub enum MoveType { Grid(PtC), Continuous }
 
 impl Canvas {
     pub fn new() -> Self {
@@ -273,6 +276,7 @@ impl Canvas {
             // Draw train locations
             self.draw_trains(&doc, draw_list, pos, size);
 
+            Some(())
         }});
     }
 
@@ -476,6 +480,32 @@ impl Canvas {
                         .into_iter().collect();
     }
 
+    pub fn move_selected_objects(&mut self, doc :&mut ViewModel, delta :PtC) {
+        let mut model = doc.get_undoable().get().clone();
+        let mut changed_ptas = Vec::new();
+        for id in self.selection.iter() {
+            match id {
+                Ref::Object(pta) => {
+                    let mut obj = model.objects.get_mut(pta).unwrap().clone();
+                    obj.symbol.move_to(&model, obj.symbol.loc + delta);
+                    let new_pta = round_coord(obj.symbol.loc);
+                    model.objects.remove(pta);
+                    model.objects.insert(new_pta,obj);
+                    if *pta != new_pta { changed_ptas.push((*pta,new_pta)); }
+                },
+                _ => {},
+            }
+        }
+
+        for (a,b) in changed_ptas {
+            self.selection.remove(&Ref::Object(a));
+            self.selection.insert(Ref::Object(b));
+        }
+
+        doc.set_model(model);
+
+    }
+
     pub fn normalstate(&mut self, state: NormalState, doc :&mut ViewModel,
                        draw_list :*mut ImDrawList, pointer_ingrid :PtC, pos :ImVec2) {
         unsafe {
@@ -491,20 +521,32 @@ impl Canvas {
                     self.action = Action::Normal(NormalState::Default);
                 }
             },
-            NormalState::DragMove => {
+            NormalState::DragMove(typ) => {
                 if igIsMouseDragging(0,-1.0) {
-                    // TODO 
+                    let delta = self.view.screen_to_world_ptc((*io).MouseDelta) -
+                                self.view.screen_to_world_ptc(ImVec2 { x:0.0, y: 0.0 });
+                    match typ {
+                        MoveType::Continuous => { self.move_selected_objects(doc, delta); },
+                        MoveType::Grid(p) => {
+                            self.action = Action::Normal(NormalState::DragMove(MoveType::Grid(p + delta)));
+                        },
+                    }
                 } else {
                     self.action = Action::Normal(NormalState::Default);
                 }
             }
             NormalState::Default => {
-                if igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
+                if !(*io).KeyCtrl && igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
                     if let Some((r,_)) = doc.get_closest(pointer_ingrid) {
                         if !self.selection.contains(&r) {
                             self.selection = std::iter::once(r).collect();
                         }
-                        self.action = Action::Normal(NormalState::DragMove);
+                        if self.selection.iter().any(|x| matches!(x, Ref::Node(_)) || matches!(x, Ref::LineSeg(_,_))) {
+                            self.action = Action::Normal(NormalState::DragMove(
+                                    MoveType::Grid(glm::zero())));
+                        } else {
+                            self.action = Action::Normal(NormalState::DragMove(MoveType::Continuous));
+                        }
                     } else {
                         let a = (*io).MouseClickedPos[0] - pos;
                         //let b = a + igGetMouseDragDelta_nonUDT2(0,-1.0).into();

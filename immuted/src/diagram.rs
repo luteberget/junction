@@ -1,39 +1,90 @@
 use const_cstr::*;
 use crate::viewmodel::*;
 use crate::ui;
-use crate::util::VecMap;
+use crate::util::*;
 use crate::canvas::*;
 use crate::dispatch::*;
 use backend_glfw::imgui::*;
 use crate::model::*;
+use nalgebra_glm as glm;
 
 pub enum DiagramAction {
+    None,
     DraggingCommand(usize)
 }
 
-pub struct Diagram { }
+pub struct Diagram { 
+    action :DiagramAction,
+}
+
 
 impl Diagram {
-    pub fn draw(doc :&mut ViewModel, canvas: &mut Canvas) -> Option<()> { unsafe {
-        let mut move_command = None;
-        let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
-        let dgraph = doc.get_data().dgraph.as_ref()?;
-        let dispatch_spec = doc.get_undoable().get().dispatches.get(*dispatch_idx)?;
-        let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
-
-        *time = time.max(dispatch.time_interval.0).min(dispatch.time_interval.1);
-
-        if igButton(if *play { const_cstr!("pause").as_ptr() } else { const_cstr!("play").as_ptr() },
-                    ImVec2 { x: 0.0, y: 0.0 }) {
-            *play = !*play;
+    pub fn new() -> Diagram {
+        Diagram {
+            action: DiagramAction::None,
         }
+    }
 
-        let format = const_cstr!("%.3f").as_ptr();
-        igSliderFloat(const_cstr!("Time").as_ptr(), time,
-                      dispatch.time_interval.0, dispatch.time_interval.1, format, 1.0);
+    fn toolbar(&mut self, doc :&ViewModel, canvas: &mut Canvas) -> Option<()> {
+        unsafe {
+            let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
+            let view = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
+            *time = time.max(view.time_interval.0).min(view.time_interval.1);
 
+            if igButton(if *play { const_cstr!("pause").as_ptr() } else { const_cstr!("play").as_ptr() },
+                        ImVec2 { x: 0.0, y: 0.0 }) {
+                *play = !*play;
+            }
+
+            let format = const_cstr!("%.3f").as_ptr();
+            igSliderFloat(const_cstr!("Time").as_ptr(), time,
+                          view.time_interval.0, view.time_interval.1, format, 1.0);
+            Some(())
+        }
+    }
+
+    pub fn mouse_pos(&self, doc :&ViewModel, canvas :&Canvas, pos :ImVec2, size :ImVec2) -> Option<ImVec2> {
+        unsafe {
+            let (dispatch_idx,time,play) = canvas.active_dispatch.as_ref()?;
+            let view = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
+            let io = igGetIO();
+            let mousepos = ImVec2 {
+                x: glm::lerp_scalar(view.time_interval.0, view.time_interval.1, ((*io).MousePos.x - pos.x)/size.x),
+                y: glm::lerp_scalar(view.pos_interval.0, view.pos_interval.1, 1.-((*io).MousePos.y - pos.y)/size.y) };
+            Some(mousepos)
+        }
+    }
+
+    pub fn draw(&mut self, doc :&mut ViewModel, canvas: &mut Canvas) -> Option<()> { unsafe {
+        self.toolbar(doc, canvas);
+        let mut move_command = None;
         let size = igGetContentRegionAvail_nonUDT2().into();
         ui::canvas(size, const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
+
+            let mousepos = self.mouse_pos(doc,canvas,pos,size)?;
+            let (dispatch_idx,time,play) = canvas.active_dispatch.as_ref()?;
+
+            match self.action {
+                DiagramAction::None => {},
+                DiagramAction::DraggingCommand(cmd_idx) => {
+                    if !igIsMouseDragging(0,-1.) { self.action = DiagramAction::None; }
+                    let mut new_model = doc.get_undoable().get().clone();
+                    if let Some(d) = new_model.dispatches.get_mut(*dispatch_idx) {
+                        if let Some((t,_cmd)) = d.0.get_mut(cmd_idx) {
+                            if *t != mousepos.x as f64 {
+                                *t = mousepos.x as f64;
+                                doc.set_model(new_model);
+                            }
+                        }
+                    }
+                },
+            };
+
+            // Load data for displaying
+            let (dispatch_idx,time,play) = canvas.active_dispatch.as_ref()?;
+            let dgraph = doc.get_data().dgraph.as_ref()?;
+            let dispatch_spec = doc.get_undoable().get().dispatches.get(*dispatch_idx)?;
+            let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
             Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, &mut move_command);
 
             // Things to draw:
@@ -50,21 +101,18 @@ impl Diagram {
             // Nice tohave:
             // 1. move detector/signals by dragging in diagram (needs reverse-calc km)
 
-
+            Some(())
         });
 
-        if let Some((cmd_idx, t)) = move_command {
-            let mut model = doc.get_undoable().get().clone();
-            let dispatch = model.dispatches.get_mut(*dispatch_idx)?;
-            dispatch.0[cmd_idx].0 = t;
-            doc.set_model(model);
+        if let Some(cmd_idx) = move_command {
+            self.action = DiagramAction::DraggingCommand(cmd_idx);
         }
 
         Some(())
     } }
 
 
-    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<(usize,f64)> ) {
+    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize> ) {
         for graph in &view.diagram {
             for s in &graph.segments {
                 let p0 = (s.start_time, s.start_pos, s.start_vel);
@@ -94,11 +142,9 @@ impl Diagram {
                 }
 
                 if igIsMouseDragging(0,-1.0) {
-                    let delta = (*igGetIO()).MouseDelta;
-                    let dt = (view.time_interval.1 - view.time_interval.0)*delta.x/size.x;
+                    let mouse = (*igGetIO()).MouseClickedPos[0];
                     if (p-mouse).length_sq() < 5.*5. {
-                        println!("DRAG {:?} {:?}", delta, dt);
-                        *move_command = Some((idx, (*t + dt as f64) as _));
+                        *move_command = Some(idx)
                     }
                 }
             }

@@ -103,7 +103,7 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         locs.entry(b.0).or_insert(Vec::new()).push(((track_idx, AB::B), to_vec(b.1)));
 
 
-        println!("List {:?}", list);
+        //println!("List {:?}", list);
         let mut l = 0.0;
         let mut interval_map = Vec::new();
         for (a,b) in list.iter().cloned() {

@@ -98,3 +98,4 @@ impl<V> VecMap<V> for Vec<Option<V>> {
         None
     }
 }
+

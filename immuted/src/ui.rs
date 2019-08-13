@@ -41,7 +41,7 @@ pub fn in_root_window(f :impl FnOnce()) {
     }
 }
 
-pub fn canvas(size :ImVec2, name :*const i8, f :impl FnOnce(*mut ImDrawList,ImVec2)) {
+pub fn canvas(size :ImVec2, name :*const i8, f :impl FnOnce(*mut ImDrawList,ImVec2) -> Option<()>) {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();

@@ -90,7 +90,6 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
 
             while search_stack.len() > 0 {
                 let mut curr_state = search_stack.pop().unwrap();
-                println!("STARTING SEARCH FROM {:?}", curr_state);
                 loop { // TODO make absolutely sure this terminates
                     let mut is_exit = false;
 
@@ -223,9 +222,7 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
 
     let mut sections = state.exited_sections.clone();
     sections.extend(state.entered_sections.iter().map(|&(x, l)| (x, l, state.length)));
-    println!("BEFORE SECTION TOLERANCE {:?}", sections);
     sections.retain(|&mut (_,a,b)| b-a > config.section_tolerance);
-    println!("AFTER SECTION TOLERANCE {:?}", sections);
 
     let trigger = sections.first();
     let entry = match (trigger,entry) {

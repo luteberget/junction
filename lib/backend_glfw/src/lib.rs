@@ -38,6 +38,15 @@ pub mod imgui {
         }
     }
 
+    impl ImVec2 {
+        pub fn length(&self) -> f32 {
+            (self.x*self.x+self.y*self.y).sqrt()
+        }
+        pub fn length_sq(&self) -> f32 {
+            (self.x*self.x+self.y*self.y)
+        }
+    }
+
 }
 
 pub enum SystemAction {

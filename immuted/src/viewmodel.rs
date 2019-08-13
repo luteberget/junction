@@ -51,7 +51,7 @@ impl ViewModel {
 
     pub fn receive(&mut self, cache :&mut dispatch::InstantCache) {
         while let Some(Ok(data)) = self.get_data.as_mut().map(|r| r.try_recv()) {
-            println!("Received data from background thread {:?}", data);
+            //println!("Received data from background thread {:?}", data);
             match data {
                 SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
                 SetData::Interlocking(il) => { self.derived.interlocking = Some(il); },

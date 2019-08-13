@@ -36,6 +36,7 @@ fn main() {
     // Stores view, selection, and input mode.
     // Edits doc (and calls undo/redo).
     let mut canvas = canvas::Canvas::new();
+    let mut diagram = diagram::Diagram::new();
 
     // TODO 
     let mut splitsize = 500.0;
@@ -62,7 +63,7 @@ fn main() {
                     .left(const_cstr!("canvas").as_ptr(), || { 
                         canvas.draw(&mut doc); })
                     .right(const_cstr!("graph").as_ptr(), || { 
-                        diagram::Diagram::draw(&mut doc, &mut canvas); });
+                        diagram.draw(&mut doc, &mut canvas); });
 
             } else {
                 canvas.draw(&mut doc);
