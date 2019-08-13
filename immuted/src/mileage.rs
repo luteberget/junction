@@ -2,8 +2,17 @@ use std::collections::{HashMap, HashSet};
 use matches::matches;
 use rolling::input::staticinfrastructure::*;
 use petgraph::unionfind::UnionFind;
+use crate::model::Pt;
 
-pub fn auto(inf :&StaticInfrastructure) -> HashMap<NodeId, f64> {
+
+fn take_boundary(node_ids :&HashMap<NodeId, Pt>, boundaries :&mut HashSet<NodeId>) -> Option<NodeId> {
+    if let Some(id) = boundaries.iter().min_by_key(|n| { node_ids.get(n).map(|pt| (pt.x,-pt.y)).unwrap_or((10000,0)) }) {
+        let id = *id;
+        boundaries.take(&id)
+    } else { None }
+}
+
+pub fn auto(node_ids :&HashMap<NodeId,Pt>, inf :&StaticInfrastructure) -> HashMap<NodeId, f64> {
     let mut boundaries : HashSet<NodeId> = inf.nodes.iter().enumerate().filter_map(|(i,n)| {
         if matches!(n.edges, Edges::ModelBoundary) { Some(i) } else { None } }).collect();
     // TODO select leftmost boundaries first
@@ -13,7 +22,7 @@ pub fn auto(inf :&StaticInfrastructure) -> HashMap<NodeId, f64> {
     let mut km0 : HashMap<NodeId,f64> = HashMap::new();
     let mut uf = UnionFind::new(inf.nodes.len());
     let mut fixed = Vec::new();
-    while let Some(Some(boundary)) = boundaries.iter().cloned().next().map(|k| boundaries.take(&k)) {
+    while let Some(boundary) = take_boundary(node_ids, &mut boundaries) {
         fixed.push(boundary);
         let mut stack = vec![(boundary, 0.0, -1)];
         while let Some((node,pos,dir)) = stack.pop() {

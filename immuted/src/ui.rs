@@ -21,6 +21,12 @@ pub mod col {
     pub fn error() -> u32 {
         unsafe { igGetColorU32Vec4(ImVec4 { x: 1.00, y: 0.1, z: 0.1, w: 1.0  }) }
     }
+    pub fn block_a() -> u32 {
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.6-0.2, y: 0.75-0.2, z: 0.5-0.2, w: 0.5  }) }
+    }
+    pub fn block_b() -> u32 {
+        unsafe { igGetColorU32Vec4(ImVec4 { x: 0.75-0.2, y: 0.6-0.2, z: 0.5-0.2, w: 0.5  }) }
+    }
 }
 
 pub fn in_root_window(f :impl FnOnce()) {

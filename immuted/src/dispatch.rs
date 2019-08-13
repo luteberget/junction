@@ -35,7 +35,7 @@ impl DispatchView {
         let diagram = Diagram::from(&history, dgraph);
         let (pos1,pos2) = pos_range(&diagram);
         let pos_diff = pos2 - pos1;
-        println!("Pos range {:?}", (pos1,pos2));
+        //println!("Pos range {:?}", (pos1,pos2));
         DispatchView {
             history: history,
             time_interval: (-0.1*t, 1.1*t),
@@ -119,7 +119,7 @@ impl Diagram {
         let trains = plot_trains(&history, dgraph);
         let blocks = plot_blocks(&history, dgraph);
 
-        println!("GOT BLOCKS\n\n{:#?}\n\n", blocks);
+        //println!("GOT BLOCKS\n\n{:#?}\n\n", blocks);
 
         Diagram { trains, blocks }
     }
@@ -163,10 +163,10 @@ fn plot_blocks(history :&History, dgraph :&DGraph) -> Vec<BlockGraph> {
     let mut occupied : HashMap<ObjectId,(f64,(f64,NodeId))> = HashMap::new(); // Became occupied at time
     let mut vacant : HashMap<ObjectId,(f64,(f64,NodeId),(f64,NodeId))> = HashMap::new(); // Became occupied at time
     for infevent in &history.inf {
-        println!("infevent {:?}", infevent);
-        println!("rserved {:?}", reserved);
-        println!("occupied {:?}", occupied);
-        println!("vacant {:?}", vacant);
+        //println!("infevent {:?}", infevent);
+        //println!("rserved {:?}", reserved);
+        //println!("occupied {:?}", occupied);
+        //println!("vacant {:?}", vacant);
         match infevent {
             InfrastructureLogEvent::Wait(dt) => { t += dt; },
             InfrastructureLogEvent::Reserved(tvd,on) if *on => { reserved.insert(*tvd, t); }

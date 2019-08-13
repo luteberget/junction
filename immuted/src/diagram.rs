@@ -1,6 +1,7 @@
 use const_cstr::*;
 use crate::viewmodel::*;
 use crate::ui;
+use crate::ui::col;
 use crate::util::*;
 use crate::canvas::*;
 use crate::dispatch::*;
@@ -49,8 +50,8 @@ impl Diagram {
             let view = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
             let io = igGetIO();
             let mousepos = ImVec2 {
-                x: glm::lerp_scalar(view.time_interval.0, view.time_interval.1, ((*io).MousePos.x - pos.x)/size.x),
-                y: glm::lerp_scalar(view.pos_interval.0, view.pos_interval.1, 1.-((*io).MousePos.y - pos.y)/size.y) };
+                x: glm::lerp_scalar(view.pos_interval.0, view.pos_interval.1, ((*io).MousePos.x - pos.x)/size.x),
+                y: glm::lerp_scalar(view.time_interval.0, view.time_interval.1, ((*io).MousePos.y - pos.y)/size.y) };
             Some(mousepos)
         }
     }
@@ -72,8 +73,8 @@ impl Diagram {
                     let mut new_model = doc.get_undoable().get().clone();
                     if let Some(d) = new_model.dispatches.get_mut(*dispatch_idx) {
                         if let Some((t,_cmd)) = d.0.get_mut(cmd_idx) {
-                            if *t != mousepos.x as f64 {
-                                *t = mousepos.x as f64;
+                            if *t != mousepos.y as f64 {
+                                *t = mousepos.y as f64;
                                 doc.set_model(new_model);
                             }
                         }
@@ -125,6 +126,39 @@ impl Diagram {
 
 
     pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize> ) {
+
+        for block in &view.diagram.blocks {
+            unsafe {
+                // Reserved before
+                if block.reserved.0 < block.occupied.0 {
+                    ImDrawList_AddRectFilled(draw_list, 
+                                             pos + Self::to_screen(view,&size,block.reserved.0, block.pos.0),
+                                             pos + Self::to_screen(view,&size,block.occupied.0, block.pos.1),
+                                             col::block_a(), 0.0, 0);
+                 }
+
+                // Occupied
+                ImDrawList_AddRectFilled(draw_list, 
+                                         pos + Self::to_screen(view,&size,block.occupied.0, block.pos.0),
+                                         pos + Self::to_screen(view,&size,block.occupied.1, block.pos.1),
+                                         col::block_b(), 0.0, 0);
+
+                // Reserved after
+                if block.reserved.1 > block.occupied.1 {
+                    ImDrawList_AddRectFilled(draw_list, 
+                                             pos + Self::to_screen(view,&size,block.occupied.1, block.pos.0),
+                                             pos + Self::to_screen(view,&size,block.reserved.1, block.pos.1),
+                                             col::block_a(), 0.0, 0);
+
+                }
+
+                    ImDrawList_AddRect(draw_list, 
+                                             pos + Self::to_screen(view,&size,block.reserved.0, block.pos.0),
+                                             pos + Self::to_screen(view,&size,block.reserved.1, block.pos.1),
+                                             col::unselected(), 0.0, 0, 1.0);
+            }
+        }
+
         for graph in &view.diagram.trains {
             for s in &graph.segments {
                 draw_interpolate(draw_list,
@@ -164,10 +198,10 @@ impl Diagram {
     }
 
     fn to_screen(dispatch :&DispatchView, size :&ImVec2, t :f64, x :f64) -> ImVec2 {
-        ImVec2 { x: size.x*(t as f32 - dispatch.time_interval.0)
-                          /(dispatch.time_interval.1 - dispatch.time_interval.0),
-                 y: size.y - size.y*(x as f32 - dispatch.pos_interval.0)
-                          /(dispatch.pos_interval.1 - dispatch.pos_interval.0) }
+        ImVec2 { x: size.x*(x as f32 - dispatch.pos_interval.0)
+                          /(dispatch.pos_interval.1 - dispatch.pos_interval.0),
+                 y: size.y*(t as f32 - dispatch.time_interval.0)
+                          /(dispatch.time_interval.1 - dispatch.time_interval.0) }
     }
 }
 

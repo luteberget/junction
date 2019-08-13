@@ -127,7 +127,7 @@ impl DGraphBuilder {
         let rev_edge_lines = edge_lines.iter().map(|((a,b),v)| ((*b,*a),v.clone())).collect::<Vec<_>>();
         edge_lines.extend(rev_edge_lines.into_iter());
 
-        let mileage = mileage::auto(&m.dgraph);
+        let mileage = mileage::auto(&node_ids, &m.dgraph);
         //println!("MILEAGES {:?}", mileage);
         //mileage::test_lsq();
         //let mileage = std::iter::empty().collect();

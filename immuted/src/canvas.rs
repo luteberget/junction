@@ -146,7 +146,7 @@ impl Canvas {
 
     fn start_route(&mut self, doc:&mut ViewModel, route_idx :usize) {
         if let Some(il) = doc.get_data().interlocking.as_ref() {
-            println!("Dispatching route {}", route_idx);
+            //println!("Dispatching route {}", route_idx);
             let mut model = doc.get_undoable().get().clone();
             let (dispatch_idx,time,play) = self.active_dispatch.unwrap_or_else(|| {
                 model.dispatches.push_back(Default::default()); // empty dispatch
@@ -164,7 +164,7 @@ impl Canvas {
             };
             dispatch.insert(time as f64, cmd);
             doc.set_model(model);
-            println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
+            //println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
         }
     }
 
@@ -525,7 +525,8 @@ impl Canvas {
                     let delta = self.view.screen_to_world_ptc((*io).MouseDelta) -
                                 self.view.screen_to_world_ptc(ImVec2 { x:0.0, y: 0.0 });
                     match typ {
-                        MoveType::Continuous => { self.move_selected_objects(doc, delta); },
+                        MoveType::Continuous => { if delta.x != 0.0 || delta.y != 0.0 {
+                            self.move_selected_objects(doc, delta); }},
                         MoveType::Grid(p) => {
                             self.action = Action::Normal(NormalState::DragMove(MoveType::Grid(p + delta)));
                         },
