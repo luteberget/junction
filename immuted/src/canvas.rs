@@ -503,7 +503,6 @@ impl Canvas {
         }
 
         doc.set_model(model);
-
     }
 
     pub fn normalstate(&mut self, state: NormalState, doc :&mut ViewModel,

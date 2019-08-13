@@ -58,6 +58,7 @@ impl Diagram {
     pub fn draw(&mut self, doc :&mut ViewModel, canvas: &mut Canvas) -> Option<()> { unsafe {
         self.toolbar(doc, canvas);
         let mut move_command = None;
+        let mut delete_command = None;
         let size = igGetContentRegionAvail_nonUDT2().into();
         ui::canvas(size, const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
 
@@ -85,15 +86,16 @@ impl Diagram {
             let dgraph = doc.get_data().dgraph.as_ref()?;
             let dispatch_spec = doc.get_undoable().get().dispatches.get(*dispatch_idx)?;
             let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
-            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, &mut move_command);
+            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, 
+                                  &mut move_command, &mut delete_command);
 
             // Things to draw:
             // 1. X front of train (km)
             // 2. back of train (km) (and fill between?)
             // 3. color for identifying trains?
             // 4. color for accel/brake/coast
-            // 5. route activation status
-            // 6. editable events (train requested, route requested)
+            // 5. route activation status?
+            // 6. X editable events (train requested, route requested)
             // 7. detection section blocked
             // 8. scroll/zoom/pan axes
             // 9. signal aspect and sight area
@@ -108,23 +110,29 @@ impl Diagram {
             self.action = DiagramAction::DraggingCommand(cmd_idx);
         }
 
+        if let Some(cmd_idx) = delete_command {
+            let mut model = doc.get_undoable().get().clone();
+            if let Some((dispatch_idx,time,play)) = canvas.active_dispatch {
+                if let Some(d) = model.dispatches.get_mut(dispatch_idx) {
+                    d.0.remove(cmd_idx);
+                    doc.set_model(model);
+                }
+            }
+        }
+
         Some(())
     } }
 
 
-    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize> ) {
-        for graph in &view.diagram {
+    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize> ) {
+        for graph in &view.diagram.trains {
             for s in &graph.segments {
-                let p0 = (s.start_time, s.start_pos, s.start_vel);
-                let dt = s.dt/3.0;
-                let p1 = (p0.0 + dt, p0.1 + p0.2*dt + s.acc*dt*dt*0.5, p0.2 + s.acc*dt);
-                let p2 = (p1.0 + dt, p1.1 + p1.2*dt + s.acc*dt*dt*0.5, p1.2 + s.acc*dt);
-                let p3 = (p2.0 + dt, p2.1 + p2.2*dt + s.acc*dt*dt*0.5, p2.2 + s.acc*dt);
                 draw_interpolate(draw_list,
-                                 pos + Self::to_screen(view, &size, p0.0, p0.1),
-                                 pos + Self::to_screen(view, &size, p1.0, p1.1),
-                                 pos + Self::to_screen(view, &size, p2.0, p2.1),
-                                 pos + Self::to_screen(view, &size, p3.0, p3.1));
+                                 pos + Self::to_screen(view, &size, s.start_time, s.kms[0]),
+                                 pos + Self::to_screen(view, &size, s.start_time + 1./3.*s.dt , s.kms[1]),
+                                 pos + Self::to_screen(view, &size, s.start_time + 2./3.*s.dt , s.kms[2]),
+                                 pos + Self::to_screen(view, &size, s.start_time + 3./3.*s.dt , s.kms[3])
+                                 );
             }
         }
 
@@ -139,12 +147,16 @@ impl Diagram {
                     igBeginTooltip();
                     ui::show_text(&format!("@{:.3}: {:?}", t, cmd));
                     igEndTooltip();
+
+                    if igIsKeyPressed('D' as _, false ) { 
+                        *delete_command = Some(idx);
+                    }
                 }
 
                 if igIsMouseDragging(0,-1.0) {
                     let mouse = (*igGetIO()).MouseClickedPos[0];
                     if (p-mouse).length_sq() < 5.*5. {
-                        *move_command = Some(idx)
+                        *move_command = Some(idx);
                     }
                 }
             }

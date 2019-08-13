@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::viewmodel::*;
 use crate::model::*;
 use crate::dgraph::*;
@@ -11,19 +12,34 @@ pub struct DispatchView {
     pub time_interval :(f32,f32),
     pub pos_interval :(f32,f32),
     pub instant :Instant,
-    pub diagram :Vec<TrainGraph>,
+    pub diagram :Diagram, 
+}
+
+fn pos_range(diagram :&Diagram) -> (f32,f32) {
+    let (mut pmin,mut pmax) = (std::f32::INFINITY, -std::f32::INFINITY);
+    for t in &diagram.trains {
+        for seg in &t.segments {
+            pmin = pmin.min(seg.kms[0] as f32);
+            pmin = pmin.min(seg.kms[3] as f32);
+            pmax = pmax.max(seg.kms[0] as f32);
+            pmax = pmax.max(seg.kms[3] as f32);
+        }
+    }
+    (pmin,pmax)
 }
 
 impl DispatchView {
     pub fn from_history(dgraph :&DGraph, history :History) -> DispatchView {
         let t = max_time(&history) as f32;
-        let x = max_pos(&history) as f32;
         let instant = Instant::from(0.0, &history, dgraph);
-        let diagram = plot_trains(&history);
+        let diagram = Diagram::from(&history, dgraph);
+        let (pos1,pos2) = pos_range(&diagram);
+        let pos_diff = pos2 - pos1;
+        println!("Pos range {:?}", (pos1,pos2));
         DispatchView {
             history: history,
             time_interval: (-0.1*t, 1.1*t),
-            pos_interval: (-0.1*x, 1.1*x),
+            pos_interval: (pos1-0.1*pos_diff,pos2+0.1*pos_diff),
             instant: instant,
             diagram: diagram,
         }
@@ -92,15 +108,30 @@ pub fn max_time(h :&History) -> f64 {
     t
 }
 
-pub fn max_pos(h :&History) -> f64 {
-    let mut x :f64 = 0.0;
-    for TrainGraph { segments } in plot_trains(h) {
-        for seg in segments {
-            x = x.max(seg.start_pos)
-                .max(seg.start_pos + seg.dt*seg.start_vel + 0.5*seg.acc*seg.dt*seg.dt);
-        }
+#[derive(Debug)]
+pub struct Diagram {
+    pub trains: Vec<TrainGraph>,
+    pub blocks :Vec<BlockGraph>,
+}
+
+impl Diagram {
+    pub fn from(history :&History, dgraph :&DGraph) -> Diagram {
+        let trains = plot_trains(&history, dgraph);
+        let blocks = plot_blocks(&history, dgraph);
+
+        println!("GOT BLOCKS\n\n{:#?}\n\n", blocks);
+
+        Diagram { trains, blocks }
     }
-    x
+}
+
+#[derive(Debug)]
+pub struct BlockGraph {
+    pub pos :(f64,f64),
+    pub reserved :(f64,f64),
+    pub occupied :(f64,f64),
+    pub train :usize,
+    pub info: String,
 }
 
 #[derive(Debug)]
@@ -111,36 +142,118 @@ pub struct TrainGraph {
 #[derive(Debug)]
 pub struct TrainGraphSegment {
     pub start_time :f64,
-    pub start_pos :f64,
+    pub kms :[f64;4],
     pub start_vel :f64,
     pub dt: f64,
     pub acc :f64,
 }
 
-fn plot_trains(history :&History) -> Vec<TrainGraph> {
+fn plot_blocks(history :&History, dgraph :&DGraph) -> Vec<BlockGraph> {
+    let mut output = Vec::new();
+
+    // TVD object id -> time interval occupied
+    // integrate over trains:
+    //   if visiting node which enters TVD inside time interval (minus tolerance), 
+    //   add node as entry point for tvd visit.
+
+    use rolling::input::staticinfrastructure::*;
+    use rolling::output::history::*;
+    let mut t = 0.0;
+    let mut reserved : HashMap<ObjectId,f64> = HashMap::new(); // Reserved at time
+    let mut occupied : HashMap<ObjectId,(f64,(f64,NodeId))> = HashMap::new(); // Became occupied at time
+    let mut vacant : HashMap<ObjectId,(f64,(f64,NodeId),(f64,NodeId))> = HashMap::new(); // Became occupied at time
+    for infevent in &history.inf {
+        println!("infevent {:?}", infevent);
+        println!("rserved {:?}", reserved);
+        println!("occupied {:?}", occupied);
+        println!("vacant {:?}", vacant);
+        match infevent {
+            InfrastructureLogEvent::Wait(dt) => { t += dt; },
+            InfrastructureLogEvent::Reserved(tvd,on) if *on => { reserved.insert(*tvd, t); }
+            InfrastructureLogEvent::Occupied(tvd,on,node,train) if *on => {
+                if let Some(reserved_t) = reserved.remove(tvd) {
+                    occupied.insert(*tvd, (reserved_t, (t, *node)));
+                }
+            },
+            InfrastructureLogEvent::Occupied(tvd,on,node,train) if !*on => {
+                if let Some((reserved_t,(occupied_t,occ_node))) = occupied.remove(tvd) {
+                    vacant.insert(*tvd, (reserved_t, (occupied_t,occ_node),(t, *node)));
+                }
+            },
+            InfrastructureLogEvent::Reserved(tvd,on) if !*on => { 
+                if let Some((res_t, (occ_t, occ_node), (vac_t, vac_node))) = vacant.remove(tvd) {
+                    if let Some(pos1) = dgraph.mileage.get(&occ_node) {
+                        if let Some(pos2) = dgraph.mileage.get(&vac_node) {
+                            output.push(BlockGraph {
+                                pos: (pos1.min(*pos2), pos1.max(*pos2)),
+                                reserved: (res_t, t),
+                                occupied: (occ_t, vac_t),
+                                train: 0, // TODO
+                                info: format!("info"), // TODO
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {},
+        }
+    }
+
+    output
+}
+
+
+fn plot_trains(history :&History, dgraph :&DGraph) -> Vec<TrainGraph> {
     let mut output = Vec::new();
     for (train_i, (name, params, events)) in history.trains.iter().enumerate() {
         let mut segments =  Vec::new();
         use rolling::railway::dynamics::*;
         use rolling::output::history::*;
+        let mut edge_x = 0.0;
         let mut t = 0.0;
-        let mut x = 0.0;
+        let mut current_edge_pos = None;
         let mut prev_v = 0.0; // TODO allow train v0 != 0
         for e in events {
             match e {
                 //TODO sight?
                 TrainLogEvent::Wait(dt) => { t += dt; },
-                TrainLogEvent::Move(dt,action, DistanceVelocity {dx, v }) => {
+                TrainLogEvent::Edge(a,b) => {
+                    edge_x = 0.0;
+                    if let Some(b) = b {
+                        current_edge_pos = Some((*dgraph.mileage.get(a).unwrap(),
+                                            *dgraph.mileage.get(b).unwrap(),
+                                            edge_length(&dgraph.rolling_inf, *a, *b).unwrap()));
+                    } else {
+                        let sign = segments.last().map(|s:&TrainGraphSegment| 
+                                (s.kms[3] - s.kms[0]).signum()).unwrap_or(1.);
+                        current_edge_pos = Some((*dgraph.mileage.get(a).unwrap(),
+                                            dgraph.mileage.get(a).unwrap() + sign*1000.0,
+                                            1000.0));
+                    }
+                },
+                TrainLogEvent::Move(dt,action,DistanceVelocity { dx, v }) => {
                     let acc = if *dt > 0.0 { (*v - prev_v)/dt } else { 0.0 };
-                    segments.push(TrainGraphSegment { 
-                        start_time: t,
-                        start_pos: x,
-                        start_vel: prev_v,
-                        dt: *dt,
-                        acc: acc });
+                    if let Some((pos1,pos2,edge_length)) = current_edge_pos {
+
+                        let mut kms = [0.;4];
+                        let (mut sample_x, mut sample_v) = (edge_x, prev_v);
+                        for i in 0..=3 {
+                            kms[i] = glm::lerp_scalar(pos1, pos2, sample_x/edge_length);
+                            let dt = dt / 3.0;
+                            sample_x += sample_v * dt + 0.5 * acc * dt * dt;
+                            sample_v += acc * dt;
+                        }
+
+                        segments.push(TrainGraphSegment { 
+                            start_time: t,
+                            start_vel: prev_v,
+                            dt: *dt,
+                            kms: kms,
+                            acc: acc });
+                    }
                     t += dt;
-                    x += dx;
                     prev_v = *v;
+                    edge_x += dx;
                 },
                 _ => {},
             }
