@@ -10,6 +10,7 @@ use crate::dispatch::*;
 use backend_glfw::imgui::*;
 use crate::model::*;
 use nalgebra_glm as glm;
+use ordered_float::OrderedFloat;
 
 pub enum DiagramAction {
     None,
@@ -81,9 +82,10 @@ impl Diagram {
                         if let Some((t,_cmd)) = d.0.get_mut(cmd_idx) {
                             if *t != mousepos.y as f64 {
                                 *t = mousepos.y as f64;
-                                doc.set_model(new_model);
                             }
                         }
+                        d.0.sort_by_key(|(t,_)| OrderedFloat(*t));
+                        doc.set_model(new_model);
                     }
                 },
             };
