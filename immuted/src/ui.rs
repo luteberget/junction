@@ -46,7 +46,8 @@ pub fn in_root_window(f :impl FnOnce()) {
             | ImGuiWindowFlags__ImGuiWindowFlags_NoResize
             | ImGuiWindowFlags__ImGuiWindowFlags_NoMove
             | ImGuiWindowFlags__ImGuiWindowFlags_NoBringToFrontOnFocus
-            | ImGuiWindowFlags__ImGuiWindowFlags_NoNavFocus;
+            | ImGuiWindowFlags__ImGuiWindowFlags_NoNavFocus
+            | ImGuiWindowFlags__ImGuiWindowFlags_MenuBar;
         igBegin(const_cstr!("root").as_ptr(), ptr::null_mut(), win_flags as _);
         f();
         igEnd();

@@ -20,6 +20,8 @@ mod diagram;
 mod dispatch;
 
 mod colors;
+mod mainmenu;
+mod debug;
 
 use matches::matches;
 
@@ -42,6 +44,7 @@ fn main() {
 
     // TODO 
     let mut splitsize = 500.0;
+    let mut show_debug = false;
 
     // Main loop GUI
     backend_glfw::backend("glrail", |action| {
@@ -57,9 +60,9 @@ fn main() {
             }
         }
 
-        // Draw canvas in the whole window
-        ui::in_root_window(|| {
 
+        ui::in_root_window(|| {
+            mainmenu::main_menu(&mut show_debug);
             if canvas.active_dispatch.is_some() {
                 ui::Splitter::vertical(&mut splitsize)
                     .left(const_cstr!("canvas").as_ptr(), || { 
@@ -71,6 +74,10 @@ fn main() {
                 canvas.draw(&mut doc);
             }
         });
+
+        if show_debug {
+            debug::debug_window(&mut show_debug);
+        }
 
         // Continue running.
         !matches!(action, backend_glfw::SystemAction::Close)
