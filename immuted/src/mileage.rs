@@ -58,7 +58,6 @@ pub fn auto(node_ids :&HashMap<NodeId,Pt>, inf :&StaticInfrastructure) -> HashMa
     // a list of edges,
     // and a map from original NodeIds to unknown variables
 
-    //println!("KM0 {:?}", km0);
     //println!("edges {:?}", edges);
 
     let mut varmap : HashMap<NodeId, usize> = HashMap::new();
@@ -76,17 +75,20 @@ pub fn auto(node_ids :&HashMap<NodeId,Pt>, inf :&StaticInfrastructure) -> HashMa
     //println!("varmap {:?}", varmap);
     //println!("fixed {:?}", fixed);
     //println!("rhs {:?}", rhs);
+    //for (n,var) in &varmap {
+        //println!("var {:03}/{:03} km {:.3}", n, var, km0[n]);
+    //}
 
      let params = lsqr::Params {
          damp: 0.0,
-         rel_mat_err: 1e-2,
-         rel_rhs_err: 1e-2,
+         rel_mat_err: 1e-6,
+         rel_rhs_err: 1e-6,
          condlim :0.0,
          iterlim: inf.nodes.len(), 
      };
 
     // Now we have a first guess of the km, indexed by actual variables to solve
-     let sol = lsqr::lsqr(|msg| {}, //println!("{}", msg),
+     let (sol,stats) = lsqr::lsqr(|msg| {}, //println!("{}", msg),
                 edges.len() + fixed.len(), varmap.len(), 
                 params,
                 |prod| {
@@ -137,8 +139,18 @@ pub fn auto(node_ids :&HashMap<NodeId,Pt>, inf :&StaticInfrastructure) -> HashMa
      //println!("sol {:?}", sol);
 
      // This should be our solution, now we can map back to node kms
-     let km = km0.into_iter().map(|(n,_)| (n, sol[varmap[&uf.find_mut(n)]])).collect();
-     //println!("km {:?}", km);
+     let km :HashMap<NodeId,f64> = km0.into_iter().map(|(n,_)| (n, sol[varmap[&uf.find_mut(n)]])).collect();
+
+     let mut v = km.iter().collect::<Vec<_>>();
+     v.sort_by_key(|a| a.0);
+     for (n,k) in v {
+         if n%2 == 0 {
+             //println!("node {:03} km {:.3}", n, k);
+         }
+     }
+
+     //println!("solver stats {:#?}", stats);
+
      km
 }
 
