@@ -5,18 +5,18 @@ authors = ["Bjørnar Luteberget <bjlut@railcomplete.no>"]
 edition = "2018"
 
 [dependencies]
-matches = "*"
-ordered-float = "*"
-itertools = "*"
-const-cstr = "*"
-threadpool = "*"
+matches = "0.1"
+ordered-float = "1.0"
+itertools = "0.8"
+const-cstr = "0.3"
+threadpool = "1.7"
 num = "0.2"
 num-derive = "0.2"
 
 im = "13.0"
-nalgebra = "*"
-nalgebra-glm = "*"
-petgraph = "*"
+nalgebra = "0.18"
+nalgebra-glm = "0.4"
+petgraph = "0.4"
 
 backend_glfw = { path = "../lib/backend_glfw" }
 rolling = { path = "../../trainspotting/rolling" }
