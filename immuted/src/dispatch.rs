@@ -10,6 +10,7 @@ use nalgebra_glm as glm;
 pub struct DispatchView {
     pub history :History,
     pub time_interval :(f32,f32),
+    pub max_t :f32,
     pub pos_interval :(f32,f32),
     pub instant :Instant,
     pub diagram :Diagram, 
@@ -21,8 +22,12 @@ fn pos_range(diagram :&Diagram) -> (f32,f32) {
         for seg in &t.segments {
             pmin = pmin.min(seg.kms[0] as f32);
             pmin = pmin.min(seg.kms[3] as f32);
+            pmin = pmin.min(seg.end_kms[0] as f32);
+            pmin = pmin.min(seg.end_kms[3] as f32);
             pmax = pmax.max(seg.kms[0] as f32);
             pmax = pmax.max(seg.kms[3] as f32);
+            pmax = pmax.max(seg.end_kms[0] as f32);
+            pmax = pmax.max(seg.end_kms[3] as f32);
         }
     }
     (pmin,pmax)
@@ -39,6 +44,7 @@ impl DispatchView {
         DispatchView {
             history: history,
             time_interval: (-0.1*t, 1.1*t),
+            max_t: t,
             pos_interval: (pos1-0.1*pos_diff,pos2+0.1*pos_diff),
             instant: instant,
             diagram: diagram,
@@ -143,9 +149,18 @@ pub struct TrainGraph {
 pub struct TrainGraphSegment {
     pub start_time :f64,
     pub kms :[f64;4],
+    pub end_kms :[f64;4],
     pub start_vel :f64,
     pub dt: f64,
     pub acc :f64,
+}
+
+pub fn get_km(dgraph :&DGraph, a :rolling_inf::NodeId, b :rolling_inf::NodeId, offset :f64) -> Option<f64> {
+    let edge_length = edge_length(&dgraph.rolling_inf, a, b)?;
+    let km1 = dgraph.mileage.get(&a)?;
+    let km2 = dgraph.mileage.get(&b)?;
+    let param = glm::clamp_scalar(offset / edge_length, 0.0, 1.0);
+    Some(glm::lerp_scalar(*km1,*km2,param))
 }
 
 fn plot_blocks(history :&History, dgraph :&DGraph) -> Vec<BlockGraph> {
@@ -199,7 +214,44 @@ fn plot_blocks(history :&History, dgraph :&DGraph) -> Vec<BlockGraph> {
         }
     }
 
+    // Any boxes that are still reserved or occupied should also be painted
+    for (tvd, (reserved_t, (occupied_t, occ_node))) in occupied {
+        if let Some(tvd_interval) = tvd_max_pos_interval(dgraph, tvd) {
+            output.push(BlockGraph {
+                pos: tvd_interval,
+                reserved: (reserved_t, t),
+                occupied: (occupied_t,t),
+                train: 0,
+                info: format!("info"), // TODO
+            });
+        }
+    }
+    for (tvd, (reserved_t, (occupied_t, occ_node), (vac_t, vac_node))) in vacant {
+        if let Some(pos1) = dgraph.mileage.get(&occ_node) {
+            if let Some(pos2) = dgraph.mileage.get(&vac_node) {
+                output.push(BlockGraph {
+                    pos: (pos1.min(*pos2), pos1.max(*pos2)),
+                    reserved: (reserved_t, t),
+                    occupied: (occupied_t,vac_t),
+                    train: 0,
+                    info: format!("info"), // TODO
+                });
+            }
+        }
+    }
+
     output
+}
+
+pub fn tvd_max_pos_interval(dgraph :&DGraph, tvd :rolling_inf::ObjectId) -> Option<(f64,f64)> {
+    let (mut a, mut b) = (std::f64::INFINITY, -std::f64::INFINITY);
+    for node_id in dgraph.tvd_entry_nodes.get(&tvd)?.iter() {
+        if let Some(km) = dgraph.mileage.get(node_id) {
+            a = a.min(*km);
+            b = b.max(*km);
+        }
+    }
+    Some((a,b))
 }
 
 
@@ -213,35 +265,60 @@ fn plot_trains(history :&History, dgraph :&DGraph) -> Vec<TrainGraph> {
         let mut t = 0.0;
         let mut current_edge_pos = None;
         let mut prev_v = 0.0; // TODO allow train v0 != 0
+        let mut edges_occupied = Vec::new();
         for e in events {
             match e {
                 //TODO sight?
                 TrainLogEvent::Wait(dt) => { t += dt; },
                 TrainLogEvent::Edge(a,b) => {
+                    edges_occupied.push(((*a,*b), 0.0, 0.0)); 
                     edge_x = 0.0;
                     if let Some(b) = b {
                         current_edge_pos = Some((*dgraph.mileage.get(a).unwrap(),
                                             *dgraph.mileage.get(b).unwrap(),
                                             edge_length(&dgraph.rolling_inf, *a, *b).unwrap()));
                     } else {
-                        let sign = segments.last().map(|s:&TrainGraphSegment| 
+                        let km_dir = segments.last().map(|s:&TrainGraphSegment| 
                                 (s.kms[3] - s.kms[0]).signum()).unwrap_or(1.);
                         current_edge_pos = Some((*dgraph.mileage.get(a).unwrap(),
-                                            dgraph.mileage.get(a).unwrap() + sign*1000.0,
+                                            dgraph.mileage.get(a).unwrap() + km_dir*1000.0,
                                             1000.0));
                     }
                 },
                 TrainLogEvent::Move(dt,action,DistanceVelocity { dx, v }) => {
                     let acc = if *dt > 0.0 { (*v - prev_v)/dt } else { 0.0 };
                     if let Some((pos1,pos2,edge_length)) = current_edge_pos {
-
                         let mut kms = [0.;4];
+                        let mut end_kms = [0.;4];
                         let (mut sample_x, mut sample_v) = (edge_x, prev_v);
                         for i in 0..=3 {
+                            //println!("pos {}-{}-{}", pos1,pos2,edge_length);
+                            //println!("i {}", i);
+                            //println!("edge_list {:?}", edges_occupied);
                             kms[i] = glm::lerp_scalar(pos1, pos2, sample_x/edge_length);
+                            let km_dir = (pos2 - pos1).signum();
+                            let end_km = get_end_km(dgraph, params.length, &edges_occupied, km_dir);
+                            if let Some(end_km) = end_km {
+                                end_kms[i] = end_km;
+                            } else {
+                                println!("Warning: could not calculate train rear end position.");
+                            }
+
+                            //println!("front_km {:?}", kms[i]);
+                            //println!("back_km {:?}", end_kms[i]);
+                            //println!("---");
+
+                            if i < 3 {
+
+
+                            // TODO use dynamic_update from rolling instead of calculating
                             let dt = dt / 3.0;
-                            sample_x += sample_v * dt + 0.5 * acc * dt * dt;
+                            let dx = sample_v * dt + 0.5 * acc * dt * dt;
+                            sample_x += dx;
+                            edges_occupied.last_mut().unwrap().2 += dx;
+                            truncate_edge_list(&mut edges_occupied, params.length);
                             sample_v += acc * dt;
+                            }
                         }
 
                         segments.push(TrainGraphSegment { 
@@ -249,6 +326,7 @@ fn plot_trains(history :&History, dgraph :&DGraph) -> Vec<TrainGraph> {
                             start_vel: prev_v,
                             dt: *dt,
                             kms: kms,
+                            end_kms: end_kms,
                             acc: acc });
                     }
                     t += dt;
@@ -341,6 +419,20 @@ pub fn pline_section(p :&Vec<PtC>, a :f32, b :f32) -> Vec<(PtC,PtC)> {
     output
 }
 
+
+fn get_end_km(dgraph :&DGraph, train_length: f64, edges :&[((usize,Option<usize>), f64, f64)], km_dir: f64) -> Option<f64> {
+    let total_length = edges.iter().map(|(_,a,b)| (b-a).abs()).sum::<f64>();
+    let add = -km_dir * (train_length - total_length);
+    let ((a,b),offset,_) = edges.iter().cloned().next()?;
+    let pos_a = dgraph.mileage.get(&a)?;
+    if let Some(b) = b {
+        let edge_length = edge_length(&dgraph.rolling_inf, a, b)?;
+        let pos_b = dgraph.mileage.get(&b)?;
+        Some(glm::lerp_scalar(*pos_a, *pos_b, glm::clamp_scalar(offset / edge_length, 0.0, 1.0)) + add)
+    } else {
+        Some(pos_a + km_dir * offset + add)
+    }
+}
 
 fn truncate_edge_list(e :&mut Vec<((usize, Option<usize>), f64, f64)>, mut l :f64) {
     let mut del = false;

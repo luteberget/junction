@@ -365,7 +365,7 @@ impl Canvas {
         let (route,route_nodes) = &il.routes[route_idx];
 
         for sec in route.resources.sections.iter() {
-            if let Some(edges) = dgraph.tvd_sections.get(sec) {
+            if let Some(edges) = dgraph.tvd_edges.get(sec) {
                 for (a,b) in edges.iter() {
                     if let Some(v) = Self::get_symm(&dgraph.edge_lines, (*a,*b)) {
                         for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {

@@ -18,8 +18,9 @@ pub struct DGraph {
     pub rolling_inf :rolling_inf::StaticInfrastructure, 
     pub node_ids :HashMap<rolling_inf::NodeId, Pt>,
     pub object_ids :HashMap<rolling_inf::ObjectId, PtA>,
-    pub tvd_sections :HashMap<rolling_inf::ObjectId, 
+    pub tvd_edges :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
+    pub tvd_entry_nodes :HashMap<rolling_inf::ObjectId, Vec<rolling_inf::NodeId>>,
     pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
     pub mileage :HashMap<rolling_inf::NodeId, f64>,
 }
@@ -116,7 +117,7 @@ impl DGraphBuilder {
                 detector_nodes.insert((node_idx, node.other_node));
             }
         }
-        let tvd_sections = route_finder::detectors_to_sections(&mut m.dgraph, &detector_nodes)
+        let (tvd_edges,tvd_entry_nodes) = route_finder::detectors_to_sections(&mut m.dgraph, &detector_nodes)
             .expect("could not calc tvd sections.");
 
         let mut edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>
@@ -136,7 +137,8 @@ impl DGraphBuilder {
             rolling_inf: m.dgraph,
             node_ids: node_ids,
             object_ids: object_ids,
-            tvd_sections: tvd_sections,
+            tvd_edges: tvd_edges,
+            tvd_entry_nodes: tvd_entry_nodes,
             edge_lines: edge_lines,
             mileage: mileage,
         })

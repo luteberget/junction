@@ -3,6 +3,8 @@ use crate::viewmodel::*;
 use crate::ui;
 use crate::ui::col;
 use crate::util::*;
+use crate::interlocking::Interlocking;
+use crate::dgraph::DGraph;
 use crate::canvas::*;
 use crate::dispatch::*;
 use backend_glfw::imgui::*;
@@ -30,7 +32,7 @@ impl Diagram {
         unsafe {
             let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
             let view = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
-            *time = time.max(view.time_interval.0).min(view.time_interval.1);
+            *time = time.max(0.0).min(view.max_t);
 
             if igButton(if *play { const_cstr!("pause").as_ptr() } else { const_cstr!("play").as_ptr() },
                         ImVec2 { x: 0.0, y: 0.0 }) {
@@ -94,7 +96,10 @@ impl Diagram {
 
             Self::time_slider(*time as f64, &dispatch, draw_list, pos, size);
 
-            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, 
+            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size);
+
+            let il = doc.get_data().interlocking.as_ref()?;
+            Self::command_icons(il, dgraph, &dispatch, dispatch_spec, draw_list, pos, size, 
                                   &mut move_command, &mut delete_command);
 
 
@@ -104,9 +109,9 @@ impl Diagram {
             // 2. back of train (km) (and fill between?)
             // 3. color for identifying trains?
             // 4. color for accel/brake/coast
-            // 5. route activation status?
+            // 5. X route activation status?
             // 6. X editable events (train requested, route requested)
-            // 7. detection section blocked
+            // 7. x detection section blocked
             // 8. scroll/zoom/pan axes
             // 9. signal aspect and sight area
             //
@@ -151,7 +156,7 @@ impl Diagram {
     }
 
 
-    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize> ) {
+    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2 ) {
 
         for block in &view.diagram.blocks {
             unsafe {
@@ -191,18 +196,35 @@ impl Diagram {
                                  pos + Self::to_screen(view, &size, s.start_time, s.kms[0]),
                                  pos + Self::to_screen(view, &size, s.start_time + 1./3.*s.dt , s.kms[1]),
                                  pos + Self::to_screen(view, &size, s.start_time + 2./3.*s.dt , s.kms[2]),
-                                 pos + Self::to_screen(view, &size, s.start_time + 3./3.*s.dt , s.kms[3])
+                                 pos + Self::to_screen(view, &size, s.start_time + 3./3.*s.dt , s.kms[3]),
+                                 col::unselected()
+                                 );
+                draw_interpolate(draw_list,
+                                 pos + Self::to_screen(view, &size, s.start_time, s.end_kms[0]),
+                                 pos + Self::to_screen(view, &size, s.start_time + 1./3.*s.dt , s.end_kms[1]),
+                                 pos + Self::to_screen(view, &size, s.start_time + 2./3.*s.dt , s.end_kms[2]),
+                                 pos + Self::to_screen(view, &size, s.start_time + 3./3.*s.dt , s.end_kms[3]),
+                                 col::unselected_transparent()
                                  );
             }
         }
+    }
 
+    pub fn command_icons(il :&Interlocking, dgraph :&DGraph, view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize> ) {
 
         for (idx,(t,cmd)) in dispatch.0.iter().enumerate() {
-            let km = 0.0; // TODO take entry point and map to abspos 
+
+            let node = match cmd { Command::Route { route, .. } | Command::Train { route, .. } => {
+                il.routes.get(*route).and_then(|r| (r.1).first()).map(|(a,b)| a)
+            }};
+            let km = node.and_then(|n| dgraph.mileage.get(n).cloned()).unwrap_or(0.0);
+
             unsafe {
                 let mouse = (*igGetIO()).MousePos;
                 let p = pos + Self::to_screen(view, &size, *t, km);
-                ImDrawList_AddCircleFilled(draw_list, p, 3.0, ui::col::error(), 4);
+                let half_icon_size = ImVec2 { x: 4.0, y: 4.0 };
+                ImDrawList_AddRectFilled(draw_list, p-half_icon_size, p+half_icon_size, 
+                                         ui::col::greenicon(), 0.0, 0);
                 if igIsItemHovered(0) && (p-mouse).length_sq() < 5.*5. {
                     igBeginTooltip();
                     ui::show_text(&format!("@{:.3}: {:?}", t, cmd));
@@ -211,14 +233,12 @@ impl Diagram {
                     if igIsKeyPressed('D' as _, false ) { 
                         *delete_command = Some(idx);
                     }
-                }
 
-                if igIsMouseDragging(0,-1.0) {
-                    let mouse = (*igGetIO()).MouseClickedPos[0];
-                    if (p-mouse).length_sq() < 5.*5. {
+                    if igIsMouseDown(0) {
                         *move_command = Some(idx);
                     }
                 }
+
             }
         }
     }
@@ -231,12 +251,12 @@ impl Diagram {
     }
 }
 
-pub fn draw_interpolate(draw_list :*mut ImDrawList, p0 :ImVec2, y1 :ImVec2, y2 :ImVec2, p3 :ImVec2) {
+pub fn draw_interpolate(draw_list :*mut ImDrawList, p0 :ImVec2, y1 :ImVec2, y2 :ImVec2, p3 :ImVec2, col:u32) {
     // https://web.archive.org/web/20131225210855/http://people.sc.fsu.edu/~jburkardt/html/bezier_interpolation.html
     let p1 = (-5.0*p0 + 18.0*y1 - 9.0*y2 + 2.0*p3) / 6.0;
     let p2 = (-5.0*p3 + 18.0*y2 - 9.0*y1 + 2.0*p0) / 6.0;
     unsafe {
-    ImDrawList_AddBezierCurve(draw_list, p0,p1,p2,p3, ui::col::unselected(), 2.0, 0);
+    ImDrawList_AddBezierCurve(draw_list, p0,p1,p2,p3, col, 2.0, 0);
     }
 }
 
