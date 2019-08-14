@@ -37,9 +37,9 @@ impl Diagram {
                 *play = !*play;
             }
 
-            let format = const_cstr!("%.3f").as_ptr();
-            igSliderFloat(const_cstr!("Time").as_ptr(), time,
-                          view.time_interval.0, view.time_interval.1, format, 1.0);
+            //let format = const_cstr!("%.3f").as_ptr();
+            //igSliderFloat(const_cstr!("Time").as_ptr(), time,
+                          //view.time_interval.0, view.time_interval.1, format, 1.0);
             Some(())
         }
     }
@@ -64,10 +64,14 @@ impl Diagram {
         ui::canvas(size, const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
 
             let mousepos = self.mouse_pos(doc,canvas,pos,size)?;
-            let (dispatch_idx,time,play) = canvas.active_dispatch.as_ref()?;
+            let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
 
             match self.action {
-                DiagramAction::None => {},
+                DiagramAction::None => {
+                    if igIsItemHovered(0) && igIsMouseDown(0) {
+                        *time = mousepos.y;
+                    }
+                },
                 DiagramAction::DraggingCommand(cmd_idx) => {
                     if !igIsMouseDragging(0,-1.) { self.action = DiagramAction::None; }
                     let mut new_model = doc.get_undoable().get().clone();
@@ -82,13 +86,18 @@ impl Diagram {
                 },
             };
 
+
             // Load data for displaying
-            let (dispatch_idx,time,play) = canvas.active_dispatch.as_ref()?;
             let dgraph = doc.get_data().dgraph.as_ref()?;
             let dispatch_spec = doc.get_undoable().get().dispatches.get(*dispatch_idx)?;
             let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
+
+            Self::time_slider(*time as f64, &dispatch, draw_list, pos, size);
+
             Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, 
                                   &mut move_command, &mut delete_command);
+
+
 
             // Things to draw:
             // 1. X front of train (km)
@@ -123,6 +132,23 @@ impl Diagram {
 
         Some(())
     } }
+
+    pub fn time_slider(time :f64, view :&DispatchView, draw_list :*mut ImDrawList, pos: ImVec2, size :ImVec2) {
+        unsafe {
+
+            // Draw the line
+            ImDrawList_AddLine(draw_list,
+                               pos + Self::to_screen(view, &size, time, view.pos_interval.0 as f64),
+                               pos + Self::to_screen(view, &size, time, view.pos_interval.1 as f64 ),
+                               col::selected(), 2.0);
+
+            let text = format!("t = {:.3}", time);
+            ImDrawList_AddText(draw_list, 
+                               pos + Self::to_screen(view, &size, time, view.pos_interval.0 as f64),
+                               col::unselected(),
+                               text.as_ptr() as _ , text.as_ptr().offset(text.len() as isize) as _ );
+        }
+    }
 
 
     pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize> ) {
