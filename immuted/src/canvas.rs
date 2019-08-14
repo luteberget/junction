@@ -5,6 +5,7 @@ use crate::ui;
 use crate::objects::*;
 use crate::util;
 use crate::dispatch;
+use crate::dispatch::*;
 use crate::view::*;
 use crate::interlocking::*;
 use crate::viewmodel::*;
@@ -273,6 +274,9 @@ impl Canvas {
                 self.draw_route(&doc, draw_list, pos, size, idx);
             }
 
+            // Draw occupied sections and signal aspects // TODO switch psoitions
+            self.draw_inf_state(&doc, draw_list, pos, size);
+
             // Draw train locations
             self.draw_trains(&doc, draw_list, pos, size);
 
@@ -342,10 +346,34 @@ impl Canvas {
         None
     }
 
+    pub fn draw_inf_state(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) -> Option<()> {
+        let (idx,time,_play) = self.active_dispatch.as_ref()?;
+        let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
+
+        for (_tvd, status, lines) in instant.infrastructure.sections.iter() {
+            let color = match status {
+                SectionStatus::Occupied => col::greenicon(),
+                SectionStatus::Reserved => col::error(),
+                _ => col::selected(),
+            };
+
+            for (p1,p2) in lines.iter() {
+                unsafe {
+                    ImDrawList_AddLine(draw_list,
+                                       pos + self.view.world_ptc_to_screen(*p1),
+                                       pos + self.view.world_ptc_to_screen(*p2),
+                                       color, 4.0);
+                }
+            }
+        }
+
+        Some(())
+    }
+
     pub fn draw_trains(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) ->Option<()> {
         let (idx,time,_play) = self.active_dispatch.as_ref()?;
         let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
-        for t in instant.draw.iter() {
+        for t in instant.trains.iter() {
             for (p1,p2) in t.iter() {
                 unsafe {
                 ImDrawList_AddLine(draw_list,

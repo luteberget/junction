@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::viewmodel::*;
 use crate::model::*;
 use crate::dgraph::*;
 use crate::util::VecMap;
 use rolling::input::staticinfrastructure as rolling_inf;
+use rolling_inf::{ObjectId};
 use nalgebra_glm as glm;
 
 #[derive(Debug)]
@@ -88,16 +89,33 @@ impl InstantCache {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum SignalAspect { Stop, Proceed }
+#[derive(Debug, Copy, Clone)]
+pub enum SectionStatus { Free, Reserved, Occupied }
+#[derive(Debug, Copy, Clone)]
+pub enum SwitchStatus { Left, Right, Unknown }
 
 #[derive(Debug)]
 pub struct Instant {
     pub time :f32,
-    pub draw :Vec<Vec<(PtC,PtC)>>,
+    pub trains :Vec<Vec<(PtC,PtC)>>,
+    pub infrastructure: InfrastructureState,
+}
+
+#[derive(Debug)]
+pub struct InfrastructureState {
+    pub signals :HashMap<PtA, SignalAspect>,
+    //pub sections :HashMap<ObjectId, SectionStatus>,
+    pub sections :Vec<(ObjectId, SectionStatus, Vec<(PtC,PtC)>)>,
+    pub switches :HashMap<Pt, SwitchStatus>,
+    // TODO sight lines
 }
 
 impl Instant {
     pub fn from(time :f32, history :&History, dgraph :&DGraph) -> Instant {
-        Instant { time:time, draw: draw_train(time as f64,history,dgraph) }
+        Instant { time:time, trains: draw_train(time as f64,history,dgraph),
+        infrastructure: draw_infrastructure(time as f64, history, dgraph)}
     }
 }
 
@@ -340,6 +358,60 @@ fn plot_trains(history :&History, dgraph :&DGraph) -> Vec<TrainGraph> {
     }
     output
 }
+
+pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> InfrastructureState  {
+    let mut signals :HashMap<PtA, SignalAspect> = HashMap::new();
+    let mut sections :HashMap<ObjectId, SectionStatus> = HashMap::new();
+    let switches :HashMap<Pt, SwitchStatus> = HashMap::new();
+
+    let mut reserved : HashSet<ObjectId> = HashSet::new();
+    let mut occupied : HashSet<ObjectId> = HashSet::new();
+
+    let mut t = 0.0;
+    for infevent in &history.inf {
+        use rolling::output::history::*;
+        match infevent {
+            InfrastructureLogEvent::Wait(dt) => { t += dt; if t > time { break; } },
+            InfrastructureLogEvent::Authority(sig_d,l) => {
+                if let Some(pta) = dgraph.object_ids.get(sig_d) {
+                    match l {
+                        Some(_) => signals.insert(*pta, SignalAspect::Proceed),
+                        None => signals.insert(*pta, SignalAspect::Proceed),
+                    };
+                }
+            },
+            InfrastructureLogEvent::Reserved(tvd,b) => {
+                if *b { reserved.insert(*tvd); } else { reserved.remove(tvd); }
+            },
+            InfrastructureLogEvent::Occupied(tvd,b,_,_) => {
+                if *b { occupied.insert(*tvd); } else { occupied.remove(tvd); }
+            },
+            _ => {}, // TODO switches
+        }
+    }
+
+    for tvd in reserved { sections.insert(tvd, SectionStatus::Reserved); }
+    for tvd in occupied { sections.insert(tvd, SectionStatus::Occupied); }
+
+    let mut sections_vec = Vec::new();
+    for (tvd,status) in sections {
+        let mut section_lines = Vec::new();
+        if let Some(edges) = dgraph.tvd_edges.get(&tvd) {
+            for edge in edges.iter() {
+                if let Some(lines) = dgraph.edge_lines.get(edge) {
+                    for (p1,p2) in lines.iter().zip(lines.iter().skip(1)) {
+                        section_lines.push((*p1,*p2));
+                    }
+                }
+            }
+        }
+        sections_vec.push((tvd,status,section_lines));
+    }
+
+    InfrastructureState { signals, sections: sections_vec, switches }
+}
+
+
 
 
 pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<Vec<(PtC,PtC)>> {

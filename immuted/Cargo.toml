@@ -12,6 +12,7 @@ const-cstr = "0.3"
 threadpool = "1.7"
 num = "0.2"
 num-derive = "0.2"
+num-traits = "0.2"
 
 im = "13.0"
 nalgebra = "0.18"

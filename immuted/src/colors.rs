@@ -1,6 +1,6 @@
 use num_derive::FromPrimitive;
 
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, Debug, PartialEq, Eq, Copy, Clone)]
 pub enum RailUIColor {
     TVDFree,
     TVDOccupied,
@@ -8,7 +8,13 @@ pub enum RailUIColor {
 }
 
 
-pub fn colr_no(x :usize) -> RailUIColor {
-    x.into().unwrap()
+#[test]
+pub fn colr_no() {
+    use num_traits::FromPrimitive;
+    let x = RailUIColor::from_usize(2);
+    dbg!(x.unwrap());
+    assert_eq!(x.unwrap(), RailUIColor::TVDReserved);
 }
+
+
 
