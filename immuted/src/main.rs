@@ -19,6 +19,8 @@ mod history;
 mod diagram;
 mod dispatch;
 
+mod colors;
+
 use matches::matches;
 
 fn main() {
