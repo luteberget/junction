@@ -1,4 +1,5 @@
 //use rolling::input::staticinfrastructure as rolling_inf;
+use log::*;
 use threadpool::ThreadPool;
 use std::sync::mpsc::*;
 use crate::model::*;
@@ -76,12 +77,15 @@ impl ViewModel {
         let (tx,rx) = channel();
         self.get_data = Some(rx);
         self.thread_pool.execute(move || {
+            info!("Background thread starting");
             let model = model;  // move model into thread
             let tx = tx;        // move sender into thread
 
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
             let dgraph = DGraphBuilder::convert(&model,&topology).expect("dgraph conversion failed");
             let dgraph = Arc::new(dgraph);
+
+            info!("Dgraph {:?}", dgraph);
 
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
             if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
@@ -121,6 +125,7 @@ impl ViewModel {
     }
 
     pub fn set_model(&mut self, m :Model) {
+        info!("Updating model");
         self.model.set(m);
         self.update();
     }

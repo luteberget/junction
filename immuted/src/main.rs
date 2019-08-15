@@ -7,6 +7,7 @@ use const_cstr::*;
 mod model;
 mod canvas;
 mod ui;
+mod logview;
 mod util;
 mod view;
 mod objects;
@@ -24,9 +25,15 @@ mod mainmenu;
 mod debug;
 
 use matches::matches;
+use log::*;
 
 fn main() {
     use crate::model::*;
+
+    // init logging
+    let logstring = logview::StringLogger::init(log::LevelFilter::Trace).unwrap();
+    info!("Starting application");
+
 
     // Stores lines(tracks), node data, objects, vehicles and dispatches
     // in persistent datastructures, in an undo/redo stack.
@@ -48,6 +55,7 @@ fn main() {
     let mut splitsize = 500.0;
     let mut show_debug = false;
     let mut show_config = false;
+    let mut show_log = false;
 
     // Main loop GUI
     backend_glfw::backend("glrail", |action| {
@@ -65,7 +73,7 @@ fn main() {
 
 
         ui::in_root_window(|| {
-            mainmenu::main_menu(&mut show_config, &mut show_debug);
+            mainmenu::main_menu(&mut show_config, &mut show_debug, &mut show_log);
             if canvas.active_dispatch.is_some() {
                 ui::Splitter::vertical(&mut splitsize)
                     .left(const_cstr!("canvas").as_ptr(), || { 
@@ -84,7 +92,12 @@ fn main() {
 
         if show_config {
             config::edit_config_window(&mut show_config, &mut config);
+
         }
+        if show_log {
+            logview::view_log(&mut show_log, &logstring);
+        }
+
         // Continue running.
         !matches!(action, backend_glfw::SystemAction::Close)
     }).unwrap();

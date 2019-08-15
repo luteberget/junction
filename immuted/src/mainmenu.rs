@@ -1,7 +1,7 @@
 use backend_glfw::imgui::*;
 use const_cstr::*;
 
-pub fn main_menu(show_config :&mut bool, show_debug :&mut bool) {
+pub fn main_menu(show_config :&mut bool, show_debug :&mut bool, show_log :&mut bool) {
     unsafe {
         if igBeginMenuBar() {
 
@@ -12,6 +12,9 @@ pub fn main_menu(show_config :&mut bool, show_debug :&mut bool) {
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("View").as_ptr(), true) {
+                if igMenuItemBool(const_cstr!("Log window").as_ptr(), std::ptr::null(), *show_log, true) {
+                    *show_log = !*show_log;
+                }
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("Tools").as_ptr(), true) {

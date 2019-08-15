@@ -5,6 +5,7 @@ authors = ["Bjørnar Luteberget <bjlut@railcomplete.no>"]
 edition = "2018"
 
 [dependencies]
+log = "0.4"
 lazy_static = "1.3"
 matches = "0.1"
 ordered-float = "1.0"
