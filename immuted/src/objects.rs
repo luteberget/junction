@@ -1,6 +1,7 @@
 use crate::ui::*;
 use crate::view::*;
 use crate::model::*;
+use crate::config::*;
 use crate::util::*;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
@@ -42,7 +43,7 @@ impl Symbol {
         }
     }
 
-    pub fn draw(&self, pos :ImVec2, view :&View, draw_list :*mut ImDrawList, c :u32) {
+    pub fn draw(&self, pos :ImVec2, view :&View, draw_list :*mut ImDrawList, c :u32, state :&[ObjectState], config :&Config) {
         unsafe {
             let p = pos + view.world_ptc_to_screen(self.loc);
             let scale = 5.0;
@@ -59,9 +60,24 @@ impl Symbol {
                 Shape::Signal => {
                     ImDrawList_AddLine(draw_list, p, p + tangent, c, 2.0);
                     ImDrawList_AddLine(draw_list, p + normal, p - normal, c, 2.0);
+                    for s in state.iter() {
+                        match s {
+                            ObjectState::SignalStop => {
+                                let c = config.color_u32(RailUIColorName::CanvasSignalStop);
+                                ImDrawList_AddCircleFilled(draw_list, p + tangent + tangent, scale, c, 8);
+                            },
+                            ObjectState::SignalProceed => {
+                                let c = config.color_u32(RailUIColorName::CanvasSignalProceed);
+                                ImDrawList_AddCircleFilled(draw_list, p + tangent + tangent, scale, c, 8);
+                            },
+                        };
+                    }
                     ImDrawList_AddCircle(draw_list, p + tangent + tangent, scale, c, 8, 2.0);
                 },
             }
         }
     }
 }
+
+
+

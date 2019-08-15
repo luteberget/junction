@@ -86,6 +86,9 @@ pub struct Object {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Function { MainSignal, Detector }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ObjectState { SignalStop, SignalProceed }
+
 impl Object {
     pub fn has_function(&self, f: &Function) -> bool {
         // TODO replace with function list outside symbol/shape

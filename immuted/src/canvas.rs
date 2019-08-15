@@ -252,7 +252,7 @@ impl Canvas {
                 },
                 Action::InsertObject(Some(obj)) => {
                     let moved = obj.symbol.move_to(doc.get_undoable().get(),pointer_ingrid);
-                    obj.symbol.draw(pos,&self.view,draw_list,config.color_u32(RailUIColorName::CanvasSymbol));
+                    obj.symbol.draw(pos,&self.view,draw_list,config.color_u32(RailUIColorName::CanvasSymbol),&[],config);
                     if let Some(err) = moved {
                         let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
                         let window = ImVec2 { x: 4.0, y: 4.0 };
@@ -430,6 +430,14 @@ impl Canvas {
     }
 
     pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, config :&Config) {
+        let empty_state = HashMap::new();
+        let mut object_states :&HashMap<PtA,Vec<ObjectState>> = &empty_state;
+        if let Some((idx,time,_play)) = self.active_dispatch.as_ref() {
+            if let Some(instant) = self.instant_cache.get_cached_instant(vm, *idx, *time) {
+                object_states = &instant.infrastructure.object_state;
+            }
+        }
+
         let m = vm.get_undoable().get();
         let d = vm.get_data();
 
@@ -512,7 +520,9 @@ impl Canvas {
                          util::point_in_rect(self.view.
                                  world_ptc_to_screen(unround_coord(*pta)),a,b)).unwrap_or(false);
                 let col = if selected || preview { color_obj_selected } else { color_obj };
-                obj.symbol.draw(pos, &self.view, draw_list, col);
+                let empty = vec![];
+                let state = object_states.get(pta).unwrap_or(&empty);
+                obj.symbol.draw(pos, &self.view, draw_list, col, state, config);
             }
         }
     }

@@ -1,3 +1,4 @@
+use matches::matches;
 use std::collections::{HashMap, HashSet};
 use crate::viewmodel::*;
 use crate::model::*;
@@ -87,6 +88,10 @@ impl InstantCache {
         if !self.is_cached(idx,time) { self.update(vm,idx,time); }
         self.data.vecmap_get(idx)
     }
+
+    pub fn get_cached_instant<'a>(&'a self, vm :&ViewModel, idx :usize, time :f32) -> Option<&'a Instant> {
+        self.data.vecmap_get(idx)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -109,6 +114,7 @@ pub struct InfrastructureState {
     //pub sections :HashMap<ObjectId, SectionStatus>,
     pub sections :Vec<(ObjectId, SectionStatus, Vec<(PtC,PtC)>)>,
     pub switches :HashMap<Pt, SwitchStatus>,
+    pub object_state :HashMap<PtA, Vec<ObjectState>>,
     // TODO sight lines
 }
 
@@ -360,7 +366,15 @@ fn plot_trains(history :&History, dgraph :&DGraph) -> Vec<TrainGraph> {
 }
 
 pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> InfrastructureState  {
+    let mut object_state = HashMap::new();
     let mut signals :HashMap<PtA, SignalAspect> = HashMap::new();
+
+    for (obj_id, pta) in dgraph.object_ids.iter() {
+        if matches!(dgraph.rolling_inf.objects[*obj_id], rolling_inf::StaticObject::Signal) {
+            object_state.insert(*pta, vec![ObjectState::SignalStop]);
+        }
+    }
+
     let mut sections :HashMap<ObjectId, SectionStatus> = HashMap::new();
     let switches :HashMap<Pt, SwitchStatus> = HashMap::new();
 
@@ -375,8 +389,14 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
             InfrastructureLogEvent::Authority(sig_d,l) => {
                 if let Some(pta) = dgraph.object_ids.get(sig_d) {
                     match l {
-                        Some(_) => signals.insert(*pta, SignalAspect::Proceed),
-                        None => signals.insert(*pta, SignalAspect::Proceed),
+                        Some(_) => {
+                            signals.insert(*pta, SignalAspect::Proceed);
+                            object_state.insert(*pta, vec![ObjectState::SignalProceed]);
+                        }
+                        None => {
+                            signals.insert(*pta, SignalAspect::Stop);
+                            object_state.insert(*pta, vec![ObjectState::SignalStop]);
+                        }
                     };
                 }
             },
@@ -408,7 +428,7 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
         sections_vec.push((tvd,status,section_lines));
     }
 
-    InfrastructureState { signals, sections: sections_vec, switches }
+    InfrastructureState { signals, sections: sections_vec, switches, object_state }
 }
 
 
