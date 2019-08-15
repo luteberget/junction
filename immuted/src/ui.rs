@@ -9,6 +9,7 @@ pub fn in_root_window(f :impl FnOnce()) {
         let io = igGetIO();
         igSetNextWindowPos(zero, ImGuiCond__ImGuiCond_Always as _ , zero);
         igSetNextWindowSize((*io).DisplaySize, ImGuiCond__ImGuiCond_Always as _);
+        igPushStyleVarFloat(ImGuiStyleVar__ImGuiStyleVar_WindowRounding as _, 0.0);
         let win_flags = ImGuiWindowFlags__ImGuiWindowFlags_NoTitleBar
             | ImGuiWindowFlags__ImGuiWindowFlags_NoCollapse
             | ImGuiWindowFlags__ImGuiWindowFlags_NoResize
@@ -19,6 +20,7 @@ pub fn in_root_window(f :impl FnOnce()) {
         igBegin(const_cstr!("root").as_ptr(), ptr::null_mut(), win_flags as _);
         f();
         igEnd();
+        igPopStyleVar(1);
     }
 }
 
