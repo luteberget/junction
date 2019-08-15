@@ -4,12 +4,12 @@ use std::collections::{HashSet, HashMap};
 use crate::ui;
 use crate::objects::*;
 use crate::util;
+use crate::config::*;
 use crate::dispatch;
 use crate::dispatch::*;
 use crate::view::*;
 use crate::interlocking::*;
 use crate::viewmodel::*;
-use crate::ui::col;
 use crate::ui::ImVec2;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
@@ -198,13 +198,14 @@ impl Canvas {
         }
     }
 
-    pub fn draw(&mut self, doc :&mut ViewModel) {
+    pub fn draw(&mut self, doc :&mut ViewModel, config :&Config) {
         self.toolbar(doc);
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
         use backend_glfw::imgui::*;
         let size = unsafe { igGetContentRegionAvail_nonUDT2().into() };
-        ui::canvas(size, const_cstr!("railwaycanvas").as_ptr(), |draw_list, pos| { unsafe {
+        ui::canvas(size, config.color_u32(RailUIColorName::CanvasBackground),
+                   const_cstr!("railwaycanvas").as_ptr(), |draw_list, pos| { unsafe {
 
             // TODO move keyboard shortcuts out of Canvas
             // Hotkeys
@@ -241,21 +242,23 @@ impl Canvas {
             match &mut self.action {
                 Action::Normal(normal) => {
                     let normal = *normal;
-                    self.normalstate(normal, doc, draw_list, pointer_ingrid, pos);
+                    self.normalstate(normal, doc, draw_list, pointer_ingrid, pos, config);
                 }
                 Action::DrawingLine(from) => {
                     let from = *from;
-                    self.drawingline(doc,from,pos,pointer_ongrid,draw_list);
+                    self.drawingline(doc,from,pos,pointer_ongrid,draw_list, config);
                 }
                 Action::InsertObject(None) => {
                 },
                 Action::InsertObject(Some(obj)) => {
                     let moved = obj.symbol.move_to(doc.get_undoable().get(),pointer_ingrid);
-                    obj.symbol.draw(pos,&self.view,draw_list,col::unselected());
+                    obj.symbol.draw(pos,&self.view,draw_list,config.color_u32(RailUIColorName::CanvasSymbol));
                     if let Some(err) = moved {
                         let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
                         let window = ImVec2 { x: 4.0, y: 4.0 };
-                        ImDrawList_AddRect(draw_list, p - window, p + window, col::error(), 0.0,0,4.0);
+                        ImDrawList_AddRect(draw_list, p - window, p + window,
+                                           config.color_u32(RailUIColorName::CanvasSymbol),
+                                           0.0,0,4.0);
                     } else  {
                         if igIsMouseReleased(0) {
                             let mut m = doc.get_undoable().get().clone();
@@ -267,18 +270,18 @@ impl Canvas {
             };
 
             // Draw background
-            self.draw_background(&doc, draw_list, pos, size);
+            self.draw_background(&doc, draw_list, pos, size, config);
 
             // Draw highlightred route
             if let Some(idx) = preview_route {
-                self.draw_route(&doc, draw_list, pos, size, idx);
+                self.draw_route(&doc, draw_list, pos, size, idx, config);
             }
 
             // Draw occupied sections and signal aspects // TODO switch psoitions
-            self.draw_inf_state(&doc, draw_list, pos, size);
+            self.draw_inf_state(&doc, draw_list, pos, size, config);
 
             // Draw train locations
-            self.draw_trains(&doc, draw_list, pos, size);
+            self.draw_trains(&doc, draw_list, pos, size, config);
 
             Some(())
         }});
@@ -346,15 +349,15 @@ impl Canvas {
         None
     }
 
-    pub fn draw_inf_state(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) -> Option<()> {
+    pub fn draw_inf_state(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2,config :&Config) -> Option<()> {
         let (idx,time,_play) = self.active_dispatch.as_ref()?;
         let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
 
         for (_tvd, status, lines) in instant.infrastructure.sections.iter() {
             let color = match status {
-                SectionStatus::Occupied => col::greenicon(),
-                SectionStatus::Reserved => col::error(),
-                _ => col::selected(),
+                SectionStatus::Occupied => config.color_u32(RailUIColorName::CanvasTVDOccupied),
+                SectionStatus::Reserved => config.color_u32(RailUIColorName::CanvasTVDReserved),
+                _ => config.color_u32(RailUIColorName::CanvasTVDFree),
             };
 
             for (p1,p2) in lines.iter() {
@@ -370,27 +373,30 @@ impl Canvas {
         Some(())
     }
 
-    pub fn draw_trains(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) ->Option<()> {
+    pub fn draw_trains(&mut self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, config :&Config) ->Option<()> {
         let (idx,time,_play) = self.active_dispatch.as_ref()?;
         let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
+        let color = config.color_u32(RailUIColorName::CanvasTrain);
         for t in instant.trains.iter() {
             for (p1,p2) in t.iter() {
                 unsafe {
                 ImDrawList_AddLine(draw_list,
                                    pos + self.view.world_ptc_to_screen(*p1),
                                    pos + self.view.world_ptc_to_screen(*p2),
-                                   col::selected(), 7.0);
+                                   color, 7.0);
                 }
             }
         }
         Some(())
     }
 
-    pub fn draw_route(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, route_idx: usize) -> Option<()> {
+    pub fn draw_route(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, route_idx: usize, config :&Config) -> Option<()> {
         unsafe {
         let il = vm.get_data().interlocking.as_ref()?;
         let dgraph = vm.get_data().dgraph.as_ref()?;
         let (route,route_nodes) = &il.routes[route_idx];
+        let color_path = config.color_u32(RailUIColorName::CanvasRoutePath);
+        let color_section = config.color_u32(RailUIColorName::CanvasRouteSection);
 
         for sec in route.resources.sections.iter() {
             if let Some(edges) = dgraph.tvd_edges.get(sec) {
@@ -400,7 +406,7 @@ impl Canvas {
                             ImDrawList_AddLine(draw_list,
                                                pos + self.view.world_ptc_to_screen(*pt_a),
                                                pos + self.view.world_ptc_to_screen(*pt_b),
-                                               col::selected(), 3.5);
+                                               color_section, 3.5);
                         }
                     }
                 }
@@ -413,7 +419,7 @@ impl Canvas {
                     ImDrawList_AddLine(draw_list,
                                        pos + self.view.world_ptc_to_screen(*pt_a),
                                        pos + self.view.world_ptc_to_screen(*pt_b),
-                                       col::error(), 6.0);
+                                       color_path, 6.0);
                 }
             }
         }
@@ -423,7 +429,7 @@ impl Canvas {
         }
     }
 
-    pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2) {
+    pub fn draw_background(&self, vm :&ViewModel, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, config :&Config) {
         let m = vm.get_undoable().get();
         let d = vm.get_data();
 
@@ -434,13 +440,16 @@ impl Canvas {
             } else { None };
 
             let (lo,hi) = self.view.points_in_view(size);
+            let color_grid = config.color_u32(RailUIColorName::CanvasGridPoint);
             for x in lo.x..=hi.x {
                 for y in lo.y..=hi.y {
                     let pt = self.view.world_pt_to_screen(glm::vec2(x,y));
-                    ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, col::gridpoint(), 4);
+                    ImDrawList_AddCircleFilled(draw_list, pos+pt, 3.0, color_grid, 4);
                 }
             }
 
+            let color_line = config.color_u32(RailUIColorName::CanvasTrack);
+            let color_line_selected = config.color_u32(RailUIColorName::CanvasTrackSelected);
             for l in &m.linesegs {
                 let p1 = self.view.world_pt_to_screen(l.0);
                 let p2 = self.view.world_pt_to_screen(l.1);
@@ -448,17 +457,20 @@ impl Canvas {
                 let preview = sel_window
                     .map(|(a,b)| util::point_in_rect(p1,a,b) || util::point_in_rect(p2,a,b))
                     .unwrap_or(false) ;
-                let col = if selected || preview { col::selected() } else { col::unselected() };
+                let col = if selected || preview { color_line_selected } else { color_line };
                 ImDrawList_AddLine(draw_list, pos + p1, pos + p2, col, 2.0);
             }
 
+            let color_node = config.color_u32(RailUIColorName::CanvasNode);
+            let color_node_selected = config.color_u32(RailUIColorName::CanvasNodeSelected);
             if let Some(topo) = d.topology.as_ref() {
                 use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
                 for (pt0,(t,vc)) in &topo.locations {
                     let selected = self.selection.contains(&Ref::Node(*pt0));
                     let preview = sel_window.map(|(a,b)| 
                              util::point_in_rect(self.view.world_pt_to_screen(*pt0),a,b)).unwrap_or(false);
-                    let col = if selected || preview { col::selected() } else { col::unselected() };
+                    let col = if selected || preview { color_node_selected } 
+                                else { color_node };
 
                     let pt :PtC = vec2(pt0.x as _ ,pt0.y as _ );
                     let tangent :PtC = vec2(vc.x as _ ,vc.y as _ );
@@ -491,12 +503,15 @@ impl Canvas {
             }
 
 
+            let color_obj = config.color_u32(RailUIColorName::CanvasSymbol);
+            let color_obj_selected = config.color_u32(RailUIColorName::CanvasSymbolSelected);
+
             for (pta,obj) in &m.objects {
                 let selected = self.selection.contains(&Ref::Object(*pta));
                 let preview = sel_window.map(|(a,b)| 
                          util::point_in_rect(self.view.
                                  world_ptc_to_screen(unround_coord(*pta)),a,b)).unwrap_or(false);
-                let col = if selected || preview { col::selected() } else { col::unselected() };
+                let col = if selected || preview { color_obj_selected } else { color_obj };
                 obj.symbol.draw(pos, &self.view, draw_list, col);
             }
         }
@@ -534,7 +549,7 @@ impl Canvas {
     }
 
     pub fn normalstate(&mut self, state: NormalState, doc :&mut ViewModel,
-                       draw_list :*mut ImDrawList, pointer_ingrid :PtC, pos :ImVec2) {
+                       draw_list :*mut ImDrawList, pointer_ingrid :PtC, pos :ImVec2, config :&Config) {
         unsafe {
         let io = igGetIO();
         match state {
@@ -542,7 +557,8 @@ impl Canvas {
                 let b = a + igGetMouseDragDelta_nonUDT2(0,-1.0).into();
                 if igIsMouseDragging(0,-1.0) {
                     ImDrawList_AddRect(draw_list, pos + a, pos + b,
-                                       col::selected(),0.0, 0, 1.0);
+                                       config.color_u32(RailUIColorName::CanvasSelectionWindow),
+                                       0.0, 0, 1.0);
                 } else {
                     self.set_selection_window(doc, a,b);
                     self.action = Action::Normal(NormalState::Default);
@@ -594,15 +610,16 @@ impl Canvas {
     }
 
     pub fn drawingline(&mut self,  doc :&mut ViewModel, from :Option<Pt>,
-                       pos :ImVec2, pointer_ongrid :Pt, draw_list :*mut ImDrawList
+                       pos :ImVec2, pointer_ongrid :Pt, draw_list :*mut ImDrawList, config :&Config
                        ) {
         unsafe {
+            let color = config.color_u32(RailUIColorName::CanvasTrackDrawing);
         // Draw preview
         if let Some(pt) = from {
             for (p1,p2) in util::route_line(pt, pointer_ongrid) {
                 ImDrawList_AddLine(draw_list, pos + self.view.world_pt_to_screen(p1),
                                               pos + self.view.world_pt_to_screen(p2), 
-                                              col::selected(), 2.0);
+                                              color, 2.0);
             }
 
             if !igIsMouseDown(0) {

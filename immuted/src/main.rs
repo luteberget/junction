@@ -19,7 +19,7 @@ mod history;
 mod diagram;
 mod dispatch;
 
-mod colors;
+mod config;
 mod mainmenu;
 mod debug;
 
@@ -33,6 +33,8 @@ fn main() {
     let m : Undoable<Model> = Undoable::new();
     let thread_pool = threadpool::ThreadPool::new(2);
 
+    let mut config = config::Config::default();
+
     // Embed the model into a viewmodel that calculates derived data
     // in the background.
     let mut doc = viewmodel::ViewModel::new(m, thread_pool.clone());
@@ -45,6 +47,7 @@ fn main() {
     // TODO 
     let mut splitsize = 500.0;
     let mut show_debug = false;
+    let mut show_config = false;
 
     // Main loop GUI
     backend_glfw::backend("glrail", |action| {
@@ -62,16 +65,16 @@ fn main() {
 
 
         ui::in_root_window(|| {
-            mainmenu::main_menu(&mut show_debug);
+            mainmenu::main_menu(&mut show_config, &mut show_debug);
             if canvas.active_dispatch.is_some() {
                 ui::Splitter::vertical(&mut splitsize)
                     .left(const_cstr!("canvas").as_ptr(), || { 
-                        canvas.draw(&mut doc); })
+                        canvas.draw(&mut doc, &config); })
                     .right(const_cstr!("graph").as_ptr(), || { 
-                        diagram.draw(&mut doc, &mut canvas); });
+                        diagram.draw(&mut doc, &mut canvas, &config); });
 
             } else {
-                canvas.draw(&mut doc);
+                canvas.draw(&mut doc, &config);
             }
         });
 
@@ -79,6 +82,9 @@ fn main() {
             debug::debug_window(&mut show_debug);
         }
 
+        if show_config {
+            config::edit_config_window(&mut show_config, &mut config);
+        }
         // Continue running.
         !matches!(action, backend_glfw::SystemAction::Close)
     }).unwrap();

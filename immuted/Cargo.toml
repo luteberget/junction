@@ -5,6 +5,7 @@ authors = ["Bjørnar Luteberget <bjlut@railcomplete.no>"]
 edition = "2018"
 
 [dependencies]
+lazy_static = "1.3"
 matches = "0.1"
 ordered-float = "1.0"
 itertools = "0.8"
@@ -13,6 +14,8 @@ threadpool = "1.7"
 num = "0.2"
 num-derive = "0.2"
 num-traits = "0.2"
+palette = "0.4"
+enum-map = "0.6"
 
 im = "13.0"
 nalgebra = "0.18"

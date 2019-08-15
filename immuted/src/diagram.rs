@@ -1,7 +1,7 @@
 use const_cstr::*;
 use crate::viewmodel::*;
 use crate::ui;
-use crate::ui::col;
+use crate::config::*;
 use crate::util::*;
 use crate::interlocking::Interlocking;
 use crate::dgraph::DGraph;
@@ -59,12 +59,13 @@ impl Diagram {
         }
     }
 
-    pub fn draw(&mut self, doc :&mut ViewModel, canvas: &mut Canvas) -> Option<()> { unsafe {
+    pub fn draw(&mut self, doc :&mut ViewModel, canvas: &mut Canvas, config :&Config) -> Option<()> { unsafe {
         self.toolbar(doc, canvas);
         let mut move_command = None;
         let mut delete_command = None;
         let size = igGetContentRegionAvail_nonUDT2().into();
-        ui::canvas(size, const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
+        ui::canvas(size, config.color_u32(RailUIColorName::GraphBackground),
+                   const_cstr!("diagramcanvas").as_ptr(), |draw_list, pos| { 
 
             let mousepos = self.mouse_pos(doc,canvas,pos,size)?;
             let (dispatch_idx,time,play) = canvas.active_dispatch.as_mut()?;
@@ -96,13 +97,13 @@ impl Diagram {
             let dispatch_spec = doc.get_undoable().get().dispatches.get(*dispatch_idx)?;
             let dispatch = doc.get_data().dispatch.vecmap_get(*dispatch_idx)?;
 
-            Self::time_slider(*time as f64, &dispatch, draw_list, pos, size);
+            Self::time_slider(*time as f64, &dispatch, draw_list, pos, size, config);
 
-            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size);
+            Self::draw_background(&dispatch, dispatch_spec, draw_list, pos, size, config);
 
             let il = doc.get_data().interlocking.as_ref()?;
             Self::command_icons(il, dgraph, &dispatch, dispatch_spec, draw_list, pos, size, 
-                                  &mut move_command, &mut delete_command);
+                                  &mut move_command, &mut delete_command, config);
 
 
 
@@ -140,25 +141,34 @@ impl Diagram {
         Some(())
     } }
 
-    pub fn time_slider(time :f64, view :&DispatchView, draw_list :*mut ImDrawList, pos: ImVec2, size :ImVec2) {
+    pub fn time_slider(time :f64, view :&DispatchView, draw_list :*mut ImDrawList, pos: ImVec2, size :ImVec2, config :&Config) {
         unsafe {
+            let c1 = config.color_u32(RailUIColorName::GraphTimeSlider);
+            let c2 = config.color_u32(RailUIColorName::GraphTimeSliderText);
 
             // Draw the line
             ImDrawList_AddLine(draw_list,
                                pos + Self::to_screen(view, &size, time, view.pos_interval.0 as f64),
                                pos + Self::to_screen(view, &size, time, view.pos_interval.1 as f64 ),
-                               col::selected(), 2.0);
+                               c1, 2.0);
 
             let text = format!("t = {:.3}", time);
             ImDrawList_AddText(draw_list, 
                                pos + Self::to_screen(view, &size, time, view.pos_interval.0 as f64),
-                               col::unselected(),
+                               c2,
                                text.as_ptr() as _ , text.as_ptr().offset(text.len() as isize) as _ );
         }
     }
 
 
-    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2 ) {
+    pub fn draw_background(view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, config :&Config) {
+
+        let col_res = config.color_u32(RailUIColorName::GraphBlockReserved);
+        let col_box = config.color_u32(RailUIColorName::GraphBlockBorder);
+        let col_occ = config.color_u32(RailUIColorName::GraphBlockOccupied);
+
+        let col_train_front = config.color_u32(RailUIColorName::GraphTrainFront);
+        let col_train_rear = config.color_u32(RailUIColorName::GraphTrainRear);
 
         for block in &view.diagram.blocks {
             unsafe {
@@ -167,30 +177,32 @@ impl Diagram {
                     ImDrawList_AddRectFilled(draw_list, 
                                              pos + Self::to_screen(view,&size,block.reserved.0, block.pos.0),
                                              pos + Self::to_screen(view,&size,block.occupied.0, block.pos.1),
-                                             col::block_a(), 0.0, 0);
+                                             col_res, 0.0, 0);
                  }
 
                 // Occupied
                 ImDrawList_AddRectFilled(draw_list, 
                                          pos + Self::to_screen(view,&size,block.occupied.0, block.pos.0),
                                          pos + Self::to_screen(view,&size,block.occupied.1, block.pos.1),
-                                         col::block_b(), 0.0, 0);
+                                         col_occ, 0.0, 0);
 
                 // Reserved after
                 if block.reserved.1 > block.occupied.1 {
                     ImDrawList_AddRectFilled(draw_list, 
                                              pos + Self::to_screen(view,&size,block.occupied.1, block.pos.0),
                                              pos + Self::to_screen(view,&size,block.reserved.1, block.pos.1),
-                                             col::block_a(), 0.0, 0);
+                                             col_res, 0.0, 0);
 
                 }
 
                     ImDrawList_AddRect(draw_list, 
                                              pos + Self::to_screen(view,&size,block.reserved.0, block.pos.0),
                                              pos + Self::to_screen(view,&size,block.reserved.1, block.pos.1),
-                                             col::unselected(), 0.0, 0, 1.0);
+                                             col_box, 0.0, 0, 1.0);
             }
         }
+
+
 
         for graph in &view.diagram.trains {
             for s in &graph.segments {
@@ -199,20 +211,20 @@ impl Diagram {
                                  pos + Self::to_screen(view, &size, s.start_time + 1./3.*s.dt , s.kms[1]),
                                  pos + Self::to_screen(view, &size, s.start_time + 2./3.*s.dt , s.kms[2]),
                                  pos + Self::to_screen(view, &size, s.start_time + 3./3.*s.dt , s.kms[3]),
-                                 col::unselected()
+                                 col_train_front
                                  );
                 draw_interpolate(draw_list,
                                  pos + Self::to_screen(view, &size, s.start_time, s.end_kms[0]),
                                  pos + Self::to_screen(view, &size, s.start_time + 1./3.*s.dt , s.end_kms[1]),
                                  pos + Self::to_screen(view, &size, s.start_time + 2./3.*s.dt , s.end_kms[2]),
                                  pos + Self::to_screen(view, &size, s.start_time + 3./3.*s.dt , s.end_kms[3]),
-                                 col::unselected_transparent()
+                                 col_train_rear
                                  );
             }
         }
     }
 
-    pub fn command_icons(il :&Interlocking, dgraph :&DGraph, view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize> ) {
+    pub fn command_icons(il :&Interlocking, dgraph :&DGraph, view :&DispatchView, dispatch :&Dispatch, draw_list :*mut ImDrawList, pos :ImVec2, size :ImVec2, move_command :&mut Option<usize>, delete_command :&mut Option<usize>, config :&Config ) {
 
         for (idx,(t,cmd)) in dispatch.0.iter().enumerate() {
 
@@ -221,12 +233,13 @@ impl Diagram {
             }};
             let km = node.and_then(|n| dgraph.mileage.get(n).cloned()).unwrap_or(0.0);
 
+            let col = config.color_u32(RailUIColorName::GraphCommand);
             unsafe {
                 let mouse = (*igGetIO()).MousePos;
                 let p = pos + Self::to_screen(view, &size, *t, km);
                 let half_icon_size = ImVec2 { x: 4.0, y: 4.0 };
                 ImDrawList_AddRectFilled(draw_list, p-half_icon_size, p+half_icon_size, 
-                                         ui::col::greenicon(), 0.0, 0);
+                                         col, 0.0, 0);
                 if igIsItemHovered(0) && (p-mouse).length_sq() < 5.*5. {
                     igBeginTooltip();
                     ui::show_text(&format!("@{:.3}: {:?}", t, cmd));
