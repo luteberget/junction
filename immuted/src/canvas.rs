@@ -18,6 +18,7 @@ use matches::matches;
 use rolling::input::staticinfrastructure as rolling_inf;
 
 
+#[derive(Debug)]
 pub struct Canvas {
     pub action :Action,
     pub selection :HashSet<Ref>,
@@ -72,10 +73,6 @@ impl Canvas {
             'D' as _, matches!(&self.action, Action::DrawingLine(_))) {
             self.action = Action::DrawingLine(None);
         }
-
-        // Is background thread running
-        igSameLine(0.0,-1.0);
-        ui::show_text(&format!(" threads:{} ", vm.busy()));
 
         // select active dispatch
         igSameLine(0.0,-1.0);

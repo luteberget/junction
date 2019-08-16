@@ -40,6 +40,12 @@ pub enum SetData {
 }
 
 impl ViewModel {
+    pub fn info(&self) -> String {
+        format!("Threads running={} queued={}", 
+        self.thread_pool.active_count() ,
+        self.thread_pool.queued_count() )
+    }
+
     pub fn new(model :Undoable<Model>, 
                thread_pool: ThreadPool) -> ViewModel {
         ViewModel {
@@ -62,11 +68,6 @@ impl ViewModel {
                 },
             }
         }
-    }
-
-    pub fn busy(&self) -> usize {
-        self.thread_pool.active_count() + 
-        self.thread_pool.queued_count() 
     }
 
     fn update(&mut self) {

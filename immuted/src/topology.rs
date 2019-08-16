@@ -5,6 +5,7 @@ use crate::util::*;
 use crate::objects::*;
 use ordered_float::OrderedFloat;
 
+#[derive(Debug)]
 pub struct Topology {
     pub tracks : Vec<(f64,(Pt,Port),(Pt,Port))>,
     pub locations : HashMap<Pt,(NDType,Vc)>,

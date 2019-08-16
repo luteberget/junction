@@ -2,6 +2,7 @@ use crate::model::{Pt,PtC};
 use crate::ui::ImVec2;
 use nalgebra_glm as glm;
 
+#[derive(Debug)]
 pub struct View {
     scale :usize,
     translation :ImVec2,

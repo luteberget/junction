@@ -27,6 +27,41 @@ mod debug;
 use matches::matches;
 use log::*;
 
+pub struct AllState<'a> {
+    fileinfo :&'a FileInfo,
+    viewmodel :&'a viewmodel::ViewModel,
+    canvas :&'a canvas::Canvas,
+    diagram :&'a diagram::Diagram,
+    config :&'a config::Config,
+}
+
+#[derive(Debug)]
+pub struct FileInfo {
+    pub filename :Option<String>,
+    pub unsaved :bool,
+}
+
+impl FileInfo {
+    pub fn empty() -> Self {
+        FileInfo {
+            filename :None,
+            unsaved :false,
+        }
+    }
+
+    pub fn set_unsaved(&mut self, ctx :&mut backend_glfw::Ctx) {
+        if !self.unsaved {
+            self.unsaved = true;
+            ctx.set_window_title(&self.window_title());
+        }
+    }
+
+    pub fn window_title(&self) -> String {
+        format!("{}{} - Junction", if self.unsaved {"*"}  else { "" },
+                                   self.filename.as_ref().map(|x| x.as_str()).unwrap_or("Untitled"))
+    }
+}
+
 fn main() {
     use crate::model::*;
 
@@ -41,6 +76,7 @@ fn main() {
     let thread_pool = threadpool::ThreadPool::new(2);
 
     let mut config = config::Config::default();
+    let mut fileinfo = FileInfo::empty();
 
     // Embed the model into a viewmodel that calculates derived data
     // in the background.
@@ -58,7 +94,8 @@ fn main() {
     let mut show_log = false;
 
     // Main loop GUI
-    backend_glfw::backend("glrail", |action| {
+    backend_glfw::backend("glrail", |ctx, action| {
+        fileinfo.set_unsaved(ctx);
 
         // Check for updates in background thread
         doc.receive(&mut canvas.instant_cache); // TODO avoid explicit cache clearing
@@ -87,7 +124,14 @@ fn main() {
         });
 
         if show_debug {
-            debug::debug_window(&mut show_debug);
+            let state = AllState {
+                fileinfo: &fileinfo,
+                viewmodel: &doc,
+                canvas: &canvas,
+                diagram: &diagram,
+                config: &config,
+            };
+            debug::debug_window(&mut show_debug, state);
         }
 
         if show_config {

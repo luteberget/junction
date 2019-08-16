@@ -31,6 +31,9 @@ pub struct Undoable<T> {
 }
 
 impl<T : Clone + Default> Undoable<T> {
+    pub fn info(&self) -> String {
+        format!("Undo stack {}/{}", self.pointer, self.stack.len())
+    }
 
     pub fn new() -> Undoable<T> {
         Undoable {

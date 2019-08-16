@@ -12,11 +12,13 @@ use crate::model::*;
 use nalgebra_glm as glm;
 use ordered_float::OrderedFloat;
 
+#[derive(Debug)]
 pub enum DiagramAction {
     None,
     DraggingCommand(usize)
 }
 
+#[derive(Debug)]
 pub struct Diagram { 
     action :DiagramAction,
 }

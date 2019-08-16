@@ -54,6 +54,7 @@ impl DispatchView {
     }
 }
 
+#[derive(Debug)]
 pub struct InstantCache {
     data :Vec<Option<Instant>>,
 }
