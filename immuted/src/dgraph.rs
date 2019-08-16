@@ -341,18 +341,20 @@ impl Cursor {
                         output.push((Cursor::Edge((a0,b0),nd0-d), l)); // Done: Full length achieved
                     } else {
                         if edge_multiplicity(&dg.nodes[b0].edges) > 1 {
-                            output.push((Cursor::Edge((a0,b0),0.0), l - (d - nd0))); // Done: Trailing switch, truncate path here
+                            // Done: Trailing switch, truncate path here
+                            output.push((Cursor::Node(b0), l - (d - nd0)));
                         } else {
-                            let a = dg.nodes[b0].other_node;
-                            for (b,nd) in out_edges(dg,&a)  {
-                                cursors.push((Cursor::Edge((a,b),nd), d - nd0));
-                            }
+                            cursors.push((Cursor::Node(dg.nodes[b0].other_node), d - nd0));
                         }
                     }
                 },
                 Cursor::Node(a) => {
-                    for (b,nd) in out_edges(dg, &a) {
-                        cursors.push((Cursor::Edge((a,b),nd), d));
+                    if edge_multiplicity(&dg.nodes[a].edges) > 0 {
+                        for (b,nd) in out_edges(dg, &a) {
+                            cursors.push((Cursor::Edge((a,b),nd), d));
+                        }
+                    } else {
+                        output.push((Cursor::Node(a), l-d));
                     }
                 },
             };
