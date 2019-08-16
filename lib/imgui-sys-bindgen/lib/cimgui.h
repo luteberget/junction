@@ -2036,3 +2036,4 @@ CIMGUI_API bool igSplitter(bool split_vertically, float thickness, float* size1,
 CIMGUI_API void igTextSlice(const char* begin,const char *end);
 
 
+CIMGUI_API void ImGuiStyleCorporateGray();

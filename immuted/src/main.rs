@@ -69,7 +69,6 @@ fn main() {
     let logstring = logview::StringLogger::init(log::LevelFilter::Trace).unwrap();
     info!("Starting application");
 
-
     // Stores lines(tracks), node data, objects, vehicles and dispatches
     // in persistent datastructures, in an undo/redo stack.
     let m : Undoable<Model> = Undoable::new();
