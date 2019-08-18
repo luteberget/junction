@@ -118,13 +118,31 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         trackobjects.insert(tracks.len()-1, Vec::new());
     }
 
+    fn get_dir_from_side((a,b) :&(Pt,Pt), pt :PtC) -> AB {
+        let (pt_on_line,_param) = project_to_line(pt, glm::vec2(a.x as _, a.y as _),
+                                                      glm::vec2(b.x as _, b.y as _));
+        let tangent = glm::vec2(b.x as f32 - a.x as f32, b.y as f32 - a.y as f32);
+        let normal = glm::vec2(-tangent.y, tangent.x);
+        let a = glm::angle(&(pt_on_line - pt), &normal);
+        if glm::angle(&(pt_on_line - pt), &normal) > glm::half_pi() {
+            AB::B
+        } else { AB::A }
+    }
+
+    let get_from_piece_map = |a :(i32,i32), b :(i32,i32)| -> Option<&(usize,f64,f64)> {
+        let get1 = piece_map.get(&(a,b));
+        if get1.is_some() { return get1; }
+        piece_map.get(&(b,a));
+        None
+    };
+
     for &(id,Object { symbol }) in model.objects.iter() {
         if let Some((pt,param,_)) = model.get_closest_lineseg(symbol.loc) {
-            if let Some((track_idx,pos_start,length)) = piece_map.get(&(((pt.0.x,pt.0.y),(pt.1.x,pt.1.y)))) {
+            if let Some((track_idx,pos_start,length)) = get_from_piece_map((pt.0.x,pt.0.y), (pt.1.x,pt.1.y)) {
                 let pos = pos_start + (param as f64) *length;
                 let (func,dir) = match symbol.shape {
                     Shape::Detector => (Function::Detector, None),
-                    Shape::Signal   => (Function::MainSignal, None),
+                    Shape::Signal   => (Function::MainSignal, Some(get_dir_from_side(&pt,symbol.loc))),
                 };
                 trackobjects.entry(*track_idx).or_insert(Vec::new()).push((pos, id, func, dir));
             } else {

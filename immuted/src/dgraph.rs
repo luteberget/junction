@@ -86,10 +86,11 @@ impl DGraphBuilder {
                     match func {
                         Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
                         Function::MainSignal => { 
+                            println!("signal with dir {:?}", dir);
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
 
-                            let (_cursor, obj) = dg.insert_object(cursor, 
+                            let (_cursor, obj) = dg.insert_object(c, 
                                                                   rolling_inf::StaticObject::Signal);
                             static_signals.insert(id, obj);
                             object_ids.insert(obj, id);
@@ -125,7 +126,7 @@ impl DGraphBuilder {
             .map(|(edge,Interval { track_idx, start, end })| 
                  (edge, topology.interval_map(track_idx,start,end))).collect();
 
-        let rev_edge_lines = edge_lines.iter().map(|((a,b),v)| ((*b,*a),v.clone())).collect::<Vec<_>>();
+        let rev_edge_lines = edge_lines.iter().map(|((a,b),v)| ((*b,*a),{ let mut v= v.clone(); v.reverse(); v })).collect::<Vec<_>>();
         edge_lines.extend(rev_edge_lines.into_iter());
 
         let mileage = mileage::auto(&node_ids, &m.dgraph);
