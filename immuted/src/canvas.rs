@@ -254,7 +254,7 @@ impl Canvas {
                         let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
                         let window = ImVec2 { x: 4.0, y: 4.0 };
                         ImDrawList_AddRect(draw_list, p - window, p + window,
-                                           config.color_u32(RailUIColorName::CanvasSymbol),
+                                           config.color_u32(RailUIColorName::CanvasSymbolLocError),
                                            0.0,0,4.0);
                     } else  {
                         if igIsMouseReleased(0) {
@@ -499,7 +499,14 @@ impl Canvas {
                             let p3 = p1 + util::to_imvec(15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
                             ImDrawList_AddTriangleFilled(draw_list, p1,p2,p3, col);
                         },
-                        _ =>{
+                        NDType::Err =>{
+                            let p = pos + self.view.world_ptc_to_screen(pt);
+                            let window = ImVec2 { x: 4.0, y: 4.0 };
+                            ImDrawList_AddRect(draw_list, p - window, p + window,
+                                               config.color_u32(RailUIColorName::CanvasNodeError),
+                                               0.0,0,4.0);
+                        },
+                        NDType::Crossing | _ =>{ // TODO buffer stop and crossing
                             ImDrawList_AddCircleFilled(draw_list, 
                                 pos + self.view.world_ptc_to_screen(pt), 4.0, col, 8);
                         },

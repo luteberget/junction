@@ -53,9 +53,10 @@ impl Topology {
 //pub fn convert(model :&Model, def_len :f64) -> Result<(Tracks,Locations,TrackObjects,im::HashMap<Pt,NDType>), ()>{
 pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
 
+    type TrackEnd = (usize, AB);
 
     let mut tracks :Vec<(Pt,Pt,f64)> = Vec::new();
-    let mut locs :HashMap<(i32,i32), Vec<((usize,AB),Pt)>> = HashMap::new();
+    let mut locs :HashMap<(i32,i32), Vec<(TrackEnd,Pt)>> = HashMap::new();
     let mut interval_lines = Vec::new();
 
     let mut pieces = SymSet::new();
@@ -161,80 +162,115 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         AB::B => tp[i].1 = val,
     };
 
+
+    fn recognize_open_end_node(node_pt: Pt, track_end :TrackEnd, next_pt :Pt, 
+                     mut set_trackend :impl FnMut(TrackEnd, (Pt,Port)),
+                     mut set_node :impl FnMut(Pt, NDType, Pt)) {
+        set_trackend(track_end, (node_pt, Port::End));
+        set_node(node_pt, NDType::OpenEnd, next_pt - node_pt);
+    }
+
+    fn recognize_continuation_node(node_pt: Pt, connections :&[(TrackEnd,Pt)],
+                                   mut set_trackend :impl FnMut(TrackEnd, (Pt,Port)),
+                                   mut set_node :impl FnMut(Pt, NDType, Pt)) {
+        set_trackend(connections[0].0, (node_pt, Port::ContA));
+        set_trackend(connections[1].0, (node_pt, Port::ContB));
+        set_node(node_pt, NDType::Cont, connections[0].1 - node_pt);
+    }
+
+    fn try_recognize_switch_node(node_pt :Pt, connections :&[(TrackEnd,Pt)],
+                                   mut set_trackend :impl FnMut(TrackEnd, (Pt,Port)),
+                                   mut set_node :impl FnMut(Pt, NDType, Pt)) -> Result<(),()> {
+
+        let track_ends = [connections[0].0, connections[1].0, connections[2].0];
+        let qs         = [connections[0].1, connections[1].1, connections[2].1];
+        let angle =      [v_angle(node_pt-qs[0]), v_angle(node_pt-qs[1]), v_angle(node_pt-qs[2])];
+        let permutations = &[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+        let mut found = false;
+        for pm in permutations {
+            let angle_diff = modu(angle[pm[2]] - angle[pm[1]], 8);
+            if !(angle[pm[0]] % 4 == angle[pm[1]] % 4 && (angle_diff == 1 || angle_diff == 7)) {
+                continue;
+            } else {
+                found = true;
+            }
+
+            let side = if angle_diff == 1 { Side::Left } else { Side::Right };
+            set_trackend(track_ends[pm[0]], (node_pt, Port::Trunk));
+            set_trackend(track_ends[pm[1]], (node_pt, side_to_port(opposite(side))));
+            set_trackend(track_ends[pm[2]], (node_pt, side_to_port(side)));
+            set_node(node_pt, NDType::Sw(side), qs[pm[1]] - node_pt);
+            break;
+        }
+        if found { Ok(()) } else { Err(()) }
+    }
+
+    fn try_recognize_crossing_node(node_pt :Pt, connections :&[(TrackEnd,Pt)],
+                                   mut set_trackend :impl FnMut(TrackEnd, (Pt,Port)),
+                                   mut set_node :impl FnMut(Pt, NDType, Pt)) -> Result<(),()> {
+
+        type Conn = (TrackEnd,Pt);
+        type Pair = (Conn,Conn);
+        let mut pairs : [Option<Result<Pair,Conn>>; 4] = [None,None,None,None];
+        for c in connections {
+            let q = c.1;
+            let angle = modu(v_angle(node_pt-q), 4) as usize;
+            match pairs[angle] {
+                None => { pairs[angle] = Some(Err(*c)); },
+                Some(Err(c0)) => { pairs[angle] = Some(Ok((c0,*c))); },
+                _ => { return Err(()); }
+            };
+        }
+
+        let connect_pairs = pairs.into_iter().filter_map(|p| match *p {
+            Some(Ok(x)) => Some(x),
+            _ => None,
+        }).collect::<Vec<Pair>>();
+
+        if connect_pairs.len() != 2 { return Err(()); }
+
+        for (n,((t1,q1),(t2,q2))) in connect_pairs.into_iter().enumerate() {
+            set_trackend(t1, (node_pt, Port::Cross(AB::A, n)));
+            set_trackend(t2, (node_pt, Port::Cross(AB::B, n)));
+            if n == 0 { set_node(node_pt, NDType::Crossing, q1 - node_pt); }
+        }
+        Ok(())
+    }
+
+
+
+
     let mut locx :HashMap<Pt,(NDType,Vc)> = HashMap::new();
 
     for (p,conns) in locs.into_iter() {
         let p = to_vec(p);
+        let mut ok = true;
         match conns.as_slice() {
             [(t,q)] => {
-                settr(*t, Some((p, Port::End)));
-                locx.insert(p,(NDType::OpenEnd, *q - p));
+                recognize_open_end_node(p, *t, *q, |t,p| settr(t,Some(p)), |p,n,q| { locx.insert(p,(n,q)); } );
             },
-            [(t1,q1),(t2,q2)] => {
-                settr(*t1, Some((p, Port::ContA)));
-                settr(*t2, Some((p, Port::ContB)));
-                locx.insert(p,(NDType::Cont, *q1 - p));
+            cs if cs.len() == 2 => {
+                recognize_continuation_node(p, cs, |t,p| settr(t,Some(p)), |p,n,q| { locx.insert(p,(n,q)); });
             },
-            [(t1,q1),(t2,q2),(t3,q3)] => {
-                let track_idxs = [*t1,*t2,*t3];
-                let qs = [*q1,*q2,*q3];
-                let angle = [v_angle(p-*q1), v_angle(p-*q2), v_angle(p-*q3)];
-                let permutations = &[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
-                let mut found = false;
-                for pm in permutations {
-                    let angle_diff = modu(angle[pm[2]] - angle[pm[1]], 8);
-                    if !(angle[pm[0]] % 4 == angle[pm[1]] % 4 && (angle_diff == 1 || angle_diff == 7)) {
-                        continue;
-                    } else {
-                        found = true;
-                    }
-
-                    let side = if angle_diff == 1 { Side::Left } else { Side::Right };
-                    settr(track_idxs[pm[0]], Some((p, Port::Trunk)));
-                    settr(track_idxs[pm[1]], Some((p, side_to_port(opposite(side)))));
-                    settr(track_idxs[pm[2]], Some((p, side_to_port(side))));
-                    locx.insert(p,(NDType::Sw(side), qs[pm[1]] - p));
-                    break;
-                }
-                if !found { panic!("error in switch"); } // TODO report err
+            cs if cs.len() == 3 => {
+                let rec = try_recognize_switch_node(p, cs, |t,p| settr(t,Some(p)), |p,n,q| { locx.insert(p,(n,q)); });
+                if rec.is_err() { ok = false; }
             },
-            more if more.len() == 4 => {
-                let mut pairs = [None,None,None,None];
-                for (t,q) in more {
-                    let angle = modu(v_angle(p-*q), 4) as usize;
-                    match pairs[angle] {
-                        None => { pairs[angle] = Some(Err((*t,*q))); },
-                        Some(Err((t0,q0))) => { pairs[angle] = Some(Ok(((t0,q0),(*t,*q)))); },
-                        _ => panic!(), // TODO report err
-                    };
-                }
-                let mut n = 0;
-                let mut maindir = None;
-                for x in &pairs {
-                    match x {
-                        None => {},
-                        Some(Ok(((t1,q1),(t2,q2)))) => {
-                            // OK
-                            if n == 0 { 
-                                maindir = Some(*q1 - p); 
-                            }
-                            settr(*t1, Some((p, Port::Cross(AB::A,n))));
-                            settr(*t2, Some((p, Port::Cross(AB::B,n))));
-
-                            n += 1;
-                        },
-                        Some(Err(_)) => { panic!() }, // TODO report err
-                    };
-                }
-
-                if n == 2 {
-                    locx.insert(p, (NDType::Crossing, maindir.unwrap()));
-                }
+            cs if cs.len() == 4 => {
+                let rec = try_recognize_crossing_node(p, cs, |t,p| settr(t,Some(p)), |p,n,q| { locx.insert(p,(n,q)); });
+                if rec.is_err() { ok = false ; }
             },
             _ => {
-                locx.insert(p,(NDType::Err, glm::zero()));
+                ok = false;
             },
         };
+
+
+        if !ok {
+            for (end,_p) in conns.as_slice() { settr(*end, Some((p, Port::Err))); }
+            locx.insert(p, (NDType::Err, glm::zero()));
+        }
+
     }
 
 

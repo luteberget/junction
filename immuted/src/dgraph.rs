@@ -86,7 +86,6 @@ impl DGraphBuilder {
                     match func {
                         Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
                         Function::MainSignal => { 
-                            println!("signal with dir {:?}", dir);
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
 
@@ -281,6 +280,7 @@ impl DGraphBuilder {
                     self.dgraph.nodes[ports[&(*pt, Port::Trunk)]].edges =
                         rolling_inf::Edges::Switchable(sw_obj);
                 },
+                NDType::Err => {},
                 _ => unimplemented!(),
             }
         }
