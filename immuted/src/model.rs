@@ -107,10 +107,10 @@ impl Object {
 #[derive(Debug)]
 pub struct Vehicle {
     pub name :String,
-    pub length: f64,
-    pub max_acc :f64,
-    pub max_brk :f64,
-    pub max_vel :f64,
+    pub length: f32,
+    pub max_acc :f32,
+    pub max_brk :f32,
+    pub max_vel :f32,
 }
 
 #[derive(Debug,Copy,Clone, PartialEq, Eq)]
@@ -168,7 +168,6 @@ pub struct Model {
     pub vehicles :im::Vector<Vehicle>,
     pub dispatches :im::Vector<Dispatch>,
 }
-
 
 #[derive(Hash,PartialEq,Eq)]
 #[derive(Copy,Clone)]

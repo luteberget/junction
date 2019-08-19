@@ -125,6 +125,12 @@ impl ViewModel {
         &self.derived
     }
 
+    pub fn edit_model(&mut self, mut f :impl FnMut(&mut Model)) {
+        let mut new_model = self.get_undoable().get().clone();
+        f(&mut new_model);
+        self.set_model(new_model);
+    }
+
     pub fn set_model(&mut self, m :Model) {
         info!("Updating model");
         self.model.set(m);

@@ -3,6 +3,7 @@ use const_cstr::const_cstr;
 use backend_glfw::imgui::*;
 use palette;
 use num_derive::FromPrimitive;
+use log::*;
 use enum_map::{enum_map, Enum, EnumMap};
 
 type Color = palette::rgb::Rgba;
@@ -60,7 +61,9 @@ impl Config {
                                                  &Properties::new()).ok()?;
         match font {
             Handle::Path { path, font_index } => {
-                Some(path.to_string_lossy().to_string())
+                info!("Using font {:?}", path);
+                let f = path.to_string_lossy().to_string();
+                Some(f)
             },
             _ => { None }
         }

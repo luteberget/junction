@@ -1,7 +1,7 @@
 use backend_glfw::imgui::*;
 use const_cstr::*;
 
-pub fn main_menu(show_config :&mut bool, show_debug :&mut bool, show_log :&mut bool) {
+pub fn main_menu(show_config :&mut bool, show_debug :&mut bool, show_log :&mut bool, show_vehicles :&mut bool) {
     unsafe {
         if igBeginMenuBar() {
 
@@ -9,6 +9,9 @@ pub fn main_menu(show_config :&mut bool, show_debug :&mut bool, show_log :&mut b
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("Edit").as_ptr(), true) {
+                if igMenuItemBool(const_cstr!("Edit vehicles").as_ptr(), std::ptr::null(), *show_vehicles, true) {
+                    *show_vehicles = !*show_vehicles;
+                }
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("View").as_ptr(), true) {

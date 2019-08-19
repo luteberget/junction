@@ -19,6 +19,7 @@ mod topology;
 mod history;
 mod diagram;
 mod dispatch;
+mod vehicles;
 
 mod config;
 mod mainmenu;
@@ -91,6 +92,7 @@ fn main() {
     let mut show_debug = false;
     let mut show_config = false;
     let mut show_log = false;
+    let mut show_vehicles = false;
 
     // Main loop GUI
     backend_glfw::backend("glrail", config.get_font_filename().as_ref().map(|x| x.as_str()), |ctx, action| {
@@ -109,7 +111,7 @@ fn main() {
 
 
         ui::in_root_window(|| {
-            mainmenu::main_menu(&mut show_config, &mut show_debug, &mut show_log);
+            mainmenu::main_menu(&mut show_config, &mut show_debug, &mut show_log, &mut show_vehicles);
             if canvas.active_dispatch.is_some() {
                 ui::Splitter::vertical(&mut splitsize)
                     .left(const_cstr!("canvas").as_ptr(), || { 
@@ -139,6 +141,10 @@ fn main() {
         }
         if show_log {
             logview::view_log(&mut show_log, &logstring);
+        }
+
+        if show_vehicles {
+            vehicles::edit_vehicles_window(&mut show_vehicles, &mut doc);
         }
 
         // Continue running.
