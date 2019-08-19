@@ -232,7 +232,7 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         for (n,((t1,q1),(t2,q2))) in connect_pairs.into_iter().enumerate() {
             set_trackend(t1, (node_pt, Port::Cross(AB::A, n)));
             set_trackend(t2, (node_pt, Port::Cross(AB::B, n)));
-            if n == 0 { set_node(node_pt, NDType::Crossing, q1 - node_pt); }
+            if n == 0 { set_node(node_pt, NDType::Crossing(CrossingType::Crossover), q1 - node_pt); }
         }
         Ok(())
     }

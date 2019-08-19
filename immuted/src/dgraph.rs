@@ -285,14 +285,18 @@ impl DGraphBuilder {
                     self.dgraph.nodes[ports[&(*pt, Port::Trunk)]].edges =
                         rolling_inf::Edges::Switchable(sw_obj);
                 },
-                NDType::Crossing => {
-                    for n in 0..2 { // Two tracks connected
-                        self.connect_linear(ports[&(*pt, Port::Cross(AB::A, n))],
-                                            ports[&(*pt, Port::Cross(AB::B, n))], 0.0);
-                    }
-                    crossing_edges.insert((ports[&(*pt, Port::Cross(AB::A, 0))],
-                                           ports[&(*pt, Port::Cross(AB::A, 1))]));
-
+                NDType::Crossing(type_) => {
+                    match type_ {
+                        CrossingType::Crossover => {
+                            for n in 0..2 { // Two tracks connected
+                                self.connect_linear(ports[&(*pt, Port::Cross(AB::A, n))],
+                                                    ports[&(*pt, Port::Cross(AB::B, n))], 0.0);
+                            }
+                            crossing_edges.insert((ports[&(*pt, Port::Cross(AB::A, 0))],
+                                                   ports[&(*pt, Port::Cross(AB::A, 1))]));
+                        },
+                        _ => { unimplemented!() },
+                    };
                 },
                 NDType::Err => {},
             }

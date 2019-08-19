@@ -506,7 +506,7 @@ impl Canvas {
                                                config.color_u32(RailUIColorName::CanvasNodeError),
                                                0.0,0,4.0);
                         },
-                        NDType::Crossing | _ =>{ // TODO buffer stop and crossing
+                        NDType::Crossing(_) | _ => { // TODO buffer stop and crossing
                             ImDrawList_AddCircleFilled(draw_list, 
                                 pos + self.view.world_ptc_to_screen(pt), 4.0, col, 8);
                         },

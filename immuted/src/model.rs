@@ -114,7 +114,14 @@ pub struct Vehicle {
 }
 
 #[derive(Debug,Copy,Clone)]
-pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Crossing, Err }
+pub enum CrossingType { 
+    Crossover,
+    SingleSlip(Side), // LEft means switching left when traveling with increasing X coord.
+    DoubleSlip,
+}
+
+#[derive(Debug,Copy,Clone)]
+pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Crossing(CrossingType), Err }
 // TODO crossing switchable, crossing orthogonal?, what settings does a crossing have?
 // Assuming non-switched crossing for now.
 
