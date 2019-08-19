@@ -73,7 +73,7 @@ impl DGraphBuilder {
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
         let mut object_ids = HashMap::new();
-        let node_ids = m.create_network(
+        let (node_ids, crossing_edges) = m.create_network(
             tracks, &locs, 
             |track_idx,mut cursor,dg| {
                 let mut last_pos = 0.0;
@@ -117,7 +117,9 @@ impl DGraphBuilder {
                 detector_nodes.insert((node_idx, node.other_node));
             }
         }
-        let (tvd_edges,tvd_entry_nodes) = route_finder::detectors_to_sections(&mut m.dgraph, &detector_nodes)
+        let (tvd_edges,tvd_entry_nodes) = route_finder::detectors_to_sections(&mut m.dgraph, 
+                                                                              &detector_nodes,
+                                                                              &crossing_edges)
             .expect("could not calc tvd sections.");
 
         let mut edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>
@@ -239,9 +241,12 @@ impl DGraphBuilder {
     pub fn create_network(&mut self,
         tracks: &[(f64, (Pt, Port), (Pt, Port))], // track length and line pieces
         nodes: &HashMap<Pt,(NDType, Vc)>,
-        mut each_track: impl FnMut(usize,Cursor,&mut Self)) -> HashMap<rolling_inf::NodeId, Pt> {
+        mut each_track: impl FnMut(usize,Cursor,&mut Self)) -> 
+        (HashMap<rolling_inf::NodeId, Pt>,
+         HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)>) {
 
         let mut node_ids = HashMap::new();
+        let mut crossing_edges = HashSet::new();
         let mut ports :HashMap<(Pt,Port), rolling_inf::NodeId>  = HashMap::new();
         for (i,(len,a,b)) in tracks.iter().enumerate() {
             let (start_a,start_b) = self.new_node_pair();
@@ -280,11 +285,19 @@ impl DGraphBuilder {
                     self.dgraph.nodes[ports[&(*pt, Port::Trunk)]].edges =
                         rolling_inf::Edges::Switchable(sw_obj);
                 },
+                NDType::Crossing => {
+                    for n in 0..2 { // Two tracks connected
+                        self.connect_linear(ports[&(*pt, Port::Cross(AB::A, n))],
+                                            ports[&(*pt, Port::Cross(AB::B, n))], 0.0);
+                    }
+                    crossing_edges.insert((ports[&(*pt, Port::Cross(AB::A, 0))],
+                                           ports[&(*pt, Port::Cross(AB::A, 1))]));
+
+                },
                 NDType::Err => {},
-                _ => unimplemented!(),
             }
         }
-        node_ids
+        (node_ids, crossing_edges)
     }
 }
 

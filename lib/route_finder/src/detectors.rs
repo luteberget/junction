@@ -2,7 +2,8 @@ use petgraph;
 use rolling::input::staticinfrastructure::*;
 use std::collections::{HashSet, HashMap};
 
-pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&HashSet<(NodeId,NodeId)>) 
+pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&HashSet<(NodeId,NodeId)>,
+                             add_edges :&HashSet<(NodeId,NodeId)>) 
     -> Result<(HashMap<ObjectId, Vec<(NodeId,NodeId)>>,
                HashMap<ObjectId, Vec<NodeId>>), String> {
     let is_boundary_idx = 0;
@@ -18,6 +19,9 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
         if !is_detector {
             sets.union(i +1, n.other_node +1);
         }
+
+        // Join node pairs which are not related by DGraph (e.g. level crossings between tracks)
+        for (a,b) in add_edges.iter() { sets.union(a+1,b+1); }
         
         // Join edges
         match n.edges {
