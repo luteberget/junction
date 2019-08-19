@@ -91,3 +91,15 @@ impl Splitter {
 }
 
 
+
+pub fn radio_select<'a, T>(choices: &'a [(*const i8, bool, T)]) -> Option<&'a T> {
+    let mut choice = None;
+    for (name,selected,value) in choices.iter() {
+        unsafe {
+        if igRadioButtonBool(*name, *selected) { choice = Some(value); }
+        }
+    }
+    choice
+}
+
+

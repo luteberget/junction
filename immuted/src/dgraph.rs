@@ -286,17 +286,36 @@ impl DGraphBuilder {
                         rolling_inf::Edges::Switchable(sw_obj);
                 },
                 NDType::Crossing(type_) => {
-                    match type_ {
-                        CrossingType::Crossover => {
-                            for n in 0..2 { // Two tracks connected
-                                self.connect_linear(ports[&(*pt, Port::Cross(AB::A, n))],
-                                                    ports[&(*pt, Port::Cross(AB::B, n))], 0.0);
-                            }
-                            crossing_edges.insert((ports[&(*pt, Port::Cross(AB::A, 0))],
-                                                   ports[&(*pt, Port::Cross(AB::A, 1))]));
-                        },
-                        _ => { unimplemented!() },
-                    };
+                    let left_drivable  = matches!(type_, CrossingType::DoubleSlip | CrossingType::SingleSlip(Side::Left));
+                    let right_drivable = matches!(type_, CrossingType::DoubleSlip | CrossingType::SingleSlip(Side::Right));
+
+                    for (dir,drivable) in &[(AB::A, left_drivable), (AB::B, right_drivable)] {
+                        if *drivable {
+                            let sw_a = self.new_object(rolling_inf::StaticObject::Switch { 
+                                left_link:  (ports[&(*pt, Port::Cross(dir.other(), 1))], 0.0),
+                                right_link: (ports[&(*pt, Port::Cross(dir.other(), 0))], 0.0),
+                                branch_side: Side::Left,
+                            });
+                            let sw_b = self.new_object(rolling_inf::StaticObject::Switch { 
+                                left_link:  (ports[&(*pt, Port::Cross(*dir, 1))], 0.0),
+                                right_link: (ports[&(*pt, Port::Cross(*dir, 0))], 0.0),
+                                branch_side: Side::Right,
+                            });
+
+                            self.dgraph.nodes[ports[&(*pt, Port::Cross(*dir, 0))]].edges = rolling_inf::Edges::Switchable(sw_a);
+                            self.dgraph.nodes[ports[&(*pt, Port::Cross(dir.other(), 1))]].edges = rolling_inf::Edges::Switchable(sw_b);
+                        } else {
+                            self.dgraph.nodes[ports[&(*pt, Port::Cross(*dir, 0))]].edges = 
+                                rolling_inf::Edges::Single(ports[&(*pt, Port::Cross(dir.other(), 0))], 0.0);
+                            self.dgraph.nodes[ports[&(*pt, Port::Cross(dir.other(), 1))]].edges = 
+                                rolling_inf::Edges::Single(ports[&(*pt, Port::Cross(*dir, 1))], 0.0);
+                        }
+                    }
+
+                    if !left_drivable && !right_drivable {
+                        crossing_edges.insert((ports[&(*pt, Port::Cross(AB::A, 0))], ports[&(*pt, Port::Cross(AB::A, 1))]));
+                    }
+
                 },
                 NDType::Err => {},
             }

@@ -113,14 +113,14 @@ pub struct Vehicle {
     pub max_vel :f64,
 }
 
-#[derive(Debug,Copy,Clone)]
+#[derive(Debug,Copy,Clone, PartialEq, Eq)]
 pub enum CrossingType { 
     Crossover,
     SingleSlip(Side), // LEft means switching left when traveling with increasing X coord.
     DoubleSlip,
 }
 
-#[derive(Debug,Copy,Clone)]
+#[derive(Debug,Copy,Clone, PartialEq, Eq)]
 pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Crossing(CrossingType), Err }
 // TODO crossing switchable, crossing orthogonal?, what settings does a crossing have?
 // Assuming non-switched crossing for now.
@@ -131,6 +131,15 @@ pub enum Port { End, ContA, ContB, Left, Right, Trunk, Err, Cross(AB,usize) }
 
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum AB { A, B }
+
+impl AB {
+    pub fn other(&self) -> AB {
+        match self {
+            AB::A => AB::B,
+            AB::B => AB::A,
+        }
+    }
+}
 
 #[derive(Copy, Clone)]
 #[derive(Debug)]

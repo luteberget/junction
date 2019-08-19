@@ -222,12 +222,17 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
             };
         }
 
-        let connect_pairs = pairs.into_iter().filter_map(|p| match *p {
+        let mut connect_pairs = pairs.into_iter().filter_map(|p| match *p {
             Some(Ok(x)) => Some(x),
             _ => None,
         }).collect::<Vec<Pair>>();
 
         if connect_pairs.len() != 2 { return Err(()); }
+
+        if modu(v_angle(node_pt - (connect_pairs[1].1).1) - 
+                v_angle(node_pt - (connect_pairs[0].1).1), 8) != 1 {
+            connect_pairs.reverse();
+        }
 
         for (n,((t1,q1),(t2,q2))) in connect_pairs.into_iter().enumerate() {
             set_trackend(t1, (node_pt, Port::Cross(AB::A, n)));
@@ -273,6 +278,11 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
 
     }
 
+    for (pt,x) in model.node_data.iter() {
+        if let Some((ndtype,tangent)) = locx.get_mut(pt) {
+            *ndtype = *x;
+        }
+    }
 
     Ok(
         Topology {

@@ -100,6 +100,51 @@ impl Canvas {
 
     } }
 
+    pub fn node_editor(doc :&mut ViewModel, pt :Pt) -> Option<()> {
+        let (nd,_tangent) = doc.get_data().topology.as_ref()?.locations.get(&pt)?;
+        unsafe {
+        match nd {
+            NDType::OpenEnd | NDType::BufferStop => {
+                if let Some(new_value) = 
+                    ui::radio_select(&[(const_cstr!("Open end").as_ptr(), *nd == NDType::OpenEnd, NDType::OpenEnd),
+                                       (const_cstr!("Buffer stop").as_ptr(), *nd == NDType::BufferStop, NDType::BufferStop)]) {
+                    let mut new_model = doc.get_undoable().get().clone();
+                    new_model.node_data.insert(pt, *new_value);
+                    doc.set_model(new_model);
+                }
+            },
+            NDType::Sw(side) => {
+                ui::show_text(&format!("Switch ({:?})", side));
+
+                // TODO 
+                let mut speed = 60.0;
+                igInputFloat(const_cstr!("Deviating speed restr.").as_ptr(), &mut speed, 1.0, 10.0, 
+                             const_cstr!("%.1f").as_ptr(), 0 as _);
+            },
+            NDType::Crossing(type_) => {
+                ui::show_text(&format!("Crossing ({:?})", type_));
+                if let Some(new_value) = 
+                    ui::radio_select(&[(const_cstr!("Crossover").as_ptr(), *type_ == CrossingType::Crossover, CrossingType::Crossover),
+                                       (const_cstr!("Single slip (above)").as_ptr(), *type_ == CrossingType::SingleSlip(Side::Left), CrossingType::SingleSlip(Side::Left)),
+                                       (const_cstr!("Single slip (below)").as_ptr(), *type_ == CrossingType::SingleSlip(Side::Right), CrossingType::SingleSlip(Side::Right)),
+                                       (const_cstr!("Double slip").as_ptr(), *type_ == CrossingType::DoubleSlip, CrossingType::DoubleSlip)]) {
+
+                    let mut new_model = doc.get_undoable().get().clone();
+                    new_model.node_data.insert(pt, NDType::Crossing(*new_value));
+                    doc.set_model(new_model);
+                }
+
+                // TODO 
+                let mut speed = 60.0;
+                igInputFloat(const_cstr!("Deviating speed restr.").as_ptr(), &mut speed, 1.0, 10.0, 
+                             const_cstr!("%.1f").as_ptr(), 0 as _);
+            }
+            _ => {},
+        }
+        }
+        Some(())
+    }
+
     pub fn context_menu_contents(&mut self, doc :&mut ViewModel, preview_route :&mut Option<usize>) {
         unsafe {
             ui::show_text(&format!("selection: {:?}", self.selection));
@@ -107,6 +152,12 @@ impl Canvas {
             // TODO cache some info about selection? In case it is very big and we need to know
             // every frame whether it contains a Node or not.
             // 
+
+            if self.selection.len() == 1 {
+                if let Some(Ref::Node(pt)) = self.selection.iter().cloned().nth(0) {
+                    Self::node_editor(doc, pt);
+                }
+            }
 
             igSeparator();
             if !self.selection.is_empty() {
@@ -506,9 +557,51 @@ impl Canvas {
                                                config.color_u32(RailUIColorName::CanvasNodeError),
                                                0.0,0,4.0);
                         },
-                        NDType::Crossing(_) | _ => { // TODO buffer stop and crossing
-                            ImDrawList_AddCircleFilled(draw_list, 
-                                pos + self.view.world_ptc_to_screen(pt), 4.0, col, 8);
+                        NDType::BufferStop => {
+                            let tangent = util::to_imvec(normalize(&tangent));
+                            let normal = ImVec2 { x: -tangent.y, y: tangent.x };
+
+                            let node = pos + self.view.world_ptc_to_screen(pt);
+                            let pline :&[ImVec2] = &[node + 8.0*normal + 4.0 * tangent,
+                                                  node + 8.0*normal,
+                                                  node - 8.0*normal,
+                                                  node - 8.0*normal + 4.0 * tangent];
+
+                            ImDrawList_AddPolyline(draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0);
+
+                        },
+                        NDType::Crossing(type_) => {
+                            let left_conn  = matches!(type_, CrossingType::DoubleSlip | CrossingType::SingleSlip(Side::Left));
+                            let right_conn = matches!(type_, CrossingType::DoubleSlip | CrossingType::SingleSlip(Side::Right));
+
+                            let tangenti = util::to_imvec(normalize(&tangent));
+                            let normal = ImVec2 { x: tangenti.y, y: tangenti.x };
+
+                            if right_conn {
+                                let base = pos + self.view.world_ptc_to_screen(pt) - 4.0*normal - 2.0f32.sqrt()*2.0*tangenti;
+                                let pline :&[ImVec2] = &[base - 8.0*tangenti,
+                                                         base,
+                                                         base + 8.0*util::to_imvec(rotate_vec2(&tangent, radians(&vec1(45.0)).x))];
+                                ImDrawList_AddPolyline(draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0);
+                            }
+
+                            if left_conn {
+                                let base = pos + self.view.world_ptc_to_screen(pt) + 4.0*normal + 2.0f32.sqrt()*2.0*tangenti;
+                                let pline :&[ImVec2] = &[base + 8.0*tangenti,
+                                                         base,
+                                                         base - 8.0*util::to_imvec(rotate_vec2(&tangent, radians(&vec1(45.0)).x))];
+                                ImDrawList_AddPolyline(draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0);
+                            }
+
+                            if left_conn || right_conn {
+                                let p = pos + self.view.world_ptc_to_screen(pt);
+                                let pa = util::to_imvec(15.0*normalize(&tangent));
+                                let pb = util::to_imvec(15.0*rotate_vec2(&normalize(&tangent), radians(&vec1(45.0)).x));
+                                ImDrawList_AddTriangleFilled(draw_list,p,p+pa,p+pb,col);
+                                ImDrawList_AddTriangleFilled(draw_list,p,p-pa,p-pb,col);
+                            } else {
+                                ImDrawList_AddCircleFilled(draw_list, pos + self.view.world_ptc_to_screen(pt), 4.0, col, 8);
+                            }
                         },
                     }
                 }
