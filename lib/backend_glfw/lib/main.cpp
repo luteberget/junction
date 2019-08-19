@@ -96,7 +96,7 @@ void CorporateGray()
 	style.WindowBorderSize = 1;
 	style.ChildBorderSize  = 1;
 	style.PopupBorderSize  = 1;
-	style.FrameBorderSize  = is3D;
+	style.FrameBorderSize  = (float)is3D;
 
 	style.WindowRounding    = 3;
 	style.ChildRounding     = 3;
@@ -137,11 +137,12 @@ void glfw_opengl3_SetWindowTitle(const char* win_name) {
 	glfwSetWindowTitle(window, win_name);
 }
 
-void glfw_opengl3_Init(const char* win_name) {
+void glfw_opengl3_Init(const char* win_name, const char* font_filename) {
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return;
+
 
     // Decide GL+GLSL versions
 #if __APPLE__
@@ -207,7 +208,10 @@ void glfw_opengl3_Init(const char* win_name) {
     // - Read 'misc/fonts/README.txt' for more instructions and details.
     // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
     //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+    if (font_filename != nullptr) {
+      io.Fonts->AddFontFromFileTTF(font_filename, 18.0f);
+    }
+    //
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);

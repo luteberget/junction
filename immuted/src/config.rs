@@ -47,6 +47,26 @@ pub struct Config {
 }
 
 impl Config {
+
+    pub fn get_font_filename(&self) -> Option<String> {
+        use font_kit::source::SystemSource;
+        use font_kit::family_name::FamilyName;
+        use font_kit::properties::Properties;
+        use font_kit::handle::Handle;
+        let font = SystemSource::new().select_best_match(&[
+                                                 FamilyName::Title("Segoe UI".to_string()),
+                                                 FamilyName::SansSerif],
+                                                 &Properties::new()).ok()?;
+        match font {
+            Handle::Path { path, font_index } => {
+                Some(path.to_string_lossy().to_string())
+            },
+            _ => { None }
+        }
+
+    }
+
+
     pub fn default() -> Config {
         use palette::named;
         let c = |nm :palette::Srgb<u8>| {

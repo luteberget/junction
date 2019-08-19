@@ -23,6 +23,8 @@ nalgebra = "0.18"
 nalgebra-glm = "0.4"
 petgraph = "0.4"
 
+font-kit = "0.4"
+
 backend_glfw = { path = "../lib/backend_glfw" }
 rolling = { path = "../../trainspotting/rolling" }
 route_finder = { path = "../lib/route_finder" }

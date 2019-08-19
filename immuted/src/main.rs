@@ -93,7 +93,7 @@ fn main() {
     let mut show_log = false;
 
     // Main loop GUI
-    backend_glfw::backend("glrail", |ctx, action| {
+    backend_glfw::backend("glrail", config.get_font_filename().as_ref().map(|x| x.as_str()), |ctx, action| {
         fileinfo.set_unsaved(ctx);
 
         // Check for updates in background thread
