@@ -7,6 +7,7 @@ members = [
 	"lib/backend_glfw",
 	"lib/imgui-sys-opengl", 
 	"lib/route_finder", 
+	"lib/railmlio", 
 	"synthesis_tests",
 	"gridlinesedit",
 	"immuted",
