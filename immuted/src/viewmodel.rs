@@ -10,6 +10,7 @@ use crate::canvas::unround_coord;
 use crate::util;
 use crate::history;
 use crate::dispatch;
+use crate::file;
 use std::sync::Arc;
 use nalgebra_glm as glm;
 use crate::util::VecMap;
@@ -27,6 +28,7 @@ pub struct Derived {
 
 pub struct ViewModel {
     model: Undoable<Model>,
+    pub fileinfo: file::FileInfo,
     derived :Derived,
     thread_pool :ThreadPool,
     get_data :Option<Receiver<SetData>>,
@@ -47,13 +49,17 @@ impl ViewModel {
     }
 
     pub fn new(model :Undoable<Model>, 
+               fileinfo :file::FileInfo,
                thread_pool: ThreadPool) -> ViewModel {
-        ViewModel {
+        let mut vm = ViewModel {
             model: model,
+            fileinfo: fileinfo,
             derived: Default::default(),
             thread_pool: thread_pool,
             get_data: None,
-        }
+        };
+        vm.update();
+        vm
     }
 
     pub fn receive(&mut self, cache :&mut dispatch::InstantCache) {
@@ -134,6 +140,7 @@ impl ViewModel {
     pub fn set_model(&mut self, m :Model) {
         info!("Updating model");
         self.model.set(m);
+        self.fileinfo.set_unsaved();
         self.update();
     }
 

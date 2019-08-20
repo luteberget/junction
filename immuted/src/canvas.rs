@@ -159,14 +159,14 @@ impl Canvas {
                 }
             }
 
-            igSeparator();
+            ui::sep();
             if !self.selection.is_empty() {
                 if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, util::to_imvec(glm::zero())) {
                     self.delete_selection(doc);
                 }
             }
 
-            igSeparator();
+            ui::sep();
             let mut dispatch_action = None;
             if self.selection.len() == 1 {
                 if let Some(il) = doc.get_data().interlocking.as_ref() {

@@ -3,20 +3,34 @@ use crate::objects::*;
 use crate::util::*;
 use crate::canvas::*;
 use ordered_float::OrderedFloat;
+use serde::{Serialize,Deserialize};
 
-pub use rolling::input::staticinfrastructure::SwitchPosition as Side;
-
-pub fn opposite(side :Side) -> Side {
-    match side {
-        Side::Left => Side::Right,
-        Side::Right => Side::Left,
-    }
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize,Deserialize)]
+pub enum Side {
+    Left, Right
 }
 
-pub fn side_to_port(side :Side) -> Port {
-    match side {
-        Side::Left => Port::Right,
-        Side::Right => Port::Left,
+impl Side {
+    pub fn opposite(&self) -> Side {
+        match self {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        }
+    }
+
+    pub fn as_port(&self) -> Port {
+        match self {
+            Side::Left => Port::Right,
+            Side::Right => Port::Left,
+        }
+    }
+
+    pub fn as_switch_position(&self) -> rolling::input::staticinfrastructure::SwitchPosition {
+        match self {
+            Side::Left => rolling::input::staticinfrastructure::SwitchPosition::Left,
+            Side::Right => rolling::input::staticinfrastructure::SwitchPosition::Right,
+        }
     }
 }
 
@@ -36,8 +50,12 @@ impl<T : Clone + Default> Undoable<T> {
     }
 
     pub fn new() -> Undoable<T> {
+        Self::from(Default::default())
+    }
+
+    pub fn from(x :T) -> Undoable<T> {
         Undoable {
-            stack: vec![Default::default()],
+            stack: vec![x],
             pointer: 0,
         }
     }
@@ -81,6 +99,7 @@ impl<T : Clone + Default> Undoable<T> {
 
 #[derive(Copy, Clone)]
 #[derive(Debug)]
+#[derive(Serialize,Deserialize)]
 pub struct Object {
     pub symbol :Symbol,
     // TODO "semantics" (list of functions? main, distant, detector, etc.)
@@ -105,6 +124,7 @@ impl Object {
 
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(Serialize,Deserialize)]
 pub struct Vehicle {
     pub name :String,
     pub length: f32,
@@ -114,6 +134,7 @@ pub struct Vehicle {
 }
 
 #[derive(Debug,Copy,Clone, PartialEq, Eq)]
+#[derive(Serialize,Deserialize)]
 pub enum CrossingType { 
     Crossover,
     SingleSlip(Side), // LEft means switching left when traveling with increasing X coord.
@@ -121,6 +142,7 @@ pub enum CrossingType {
 }
 
 #[derive(Debug,Copy,Clone, PartialEq, Eq)]
+#[derive(Serialize,Deserialize)]
 pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Crossing(CrossingType), Err }
 // TODO crossing switchable, crossing orthogonal?, what settings does a crossing have?
 // Assuming non-switched crossing for now.
@@ -143,11 +165,13 @@ impl AB {
 
 #[derive(Copy, Clone)]
 #[derive(Debug)]
+#[derive(Serialize,Deserialize)]
 pub enum Command {
     Train { route :usize, vehicle :usize },
     Route { route: usize },
 }
 
+#[derive(Serialize,Deserialize)]
 #[derive(Debug, Default, Clone)]
 pub struct Dispatch(pub Vec<(f64,Command)>);
 
@@ -161,6 +185,7 @@ impl Dispatch {
 
 #[derive(Clone, Default)]
 #[derive(Debug)]
+#[derive(Serialize,Deserialize)]
 pub struct Model {
     pub linesegs: im::HashSet<(Pt,Pt)>,
     pub objects: im::HashMap<PtA, Object>,

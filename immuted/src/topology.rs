@@ -197,8 +197,8 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
 
             let side = if angle_diff == 1 { Side::Left } else { Side::Right };
             set_trackend(track_ends[pm[0]], (node_pt, Port::Trunk));
-            set_trackend(track_ends[pm[1]], (node_pt, side_to_port(opposite(side))));
-            set_trackend(track_ends[pm[2]], (node_pt, side_to_port(side)));
+            set_trackend(track_ends[pm[1]], (node_pt, side.opposite().as_port()));
+            set_trackend(track_ends[pm[2]], (node_pt, side.as_port()));
             set_node(node_pt, NDType::Sw(side), qs[pm[1]] - node_pt);
             break;
         }

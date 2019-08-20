@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use crate::ui::*;
 use crate::view::*;
 use crate::model::*;
@@ -7,6 +8,7 @@ use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
 
 #[derive(Copy,Clone,Debug)]
+#[derive(Serialize,Deserialize)]
 pub struct Symbol {
     pub loc :PtC,
     pub tangent :Vc,
@@ -14,6 +16,7 @@ pub struct Symbol {
 }
 
 #[derive(Copy,Clone,Debug)]
+#[derive(Serialize,Deserialize)]
 pub enum Shape {
     Detector, Signal,
 }

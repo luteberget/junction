@@ -18,12 +18,15 @@ num-traits = "0.2"
 palette = "0.4"
 enum-map = "0.6"
 
-im = "13.0"
-nalgebra = "0.18"
+im = { version = "13.0", features = ["serde"] }
+nalgebra = { version = "0.18", features = ["serde-serialize"] }
 nalgebra-glm = "0.4"
 petgraph = "0.4"
+serde =  { version = "1.0", features = ["derive"] }
+serde_cbor = "0.10"
 
 font-kit = "0.4"
+tinyfiledialogs = "3.3.6"
 
 backend_glfw = { path = "../lib/backend_glfw" }
 rolling = { path = "../../trainspotting/rolling" }

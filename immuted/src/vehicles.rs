@@ -3,7 +3,6 @@ use crate::ui;
 use const_cstr::*;
 use crate::viewmodel::*;
 use backend_glfw::imgui::*;
-use std::ffi::CString;
 
 pub fn edit_vehicles(vm :&mut ViewModel) {
     unsafe {
@@ -13,16 +12,20 @@ pub fn edit_vehicles(vm :&mut ViewModel) {
         igPushIDInt(i as _);
 
         let mut name = v.name.clone().into_bytes();
-        name.reserve(100);
+        for i in 0..3 { name.push('#' as _); } 
         name.push(0);
         if igCollapsingHeader(name.as_ptr() as _, 0) {
+            for i in 0..(3+1) { name.pop(); }
+            name.extend((0..15).map(|_| 0));
             igInputText(const_cstr!("Name").as_ptr(),
                 name.as_ptr() as *mut _, 
-                name.capacity(),
+                name.len(),
                 0 as _, None, std::ptr::null_mut());
 
             if igIsItemEdited() {
-                let s = CString::from_vec_unchecked(name).into_string().unwrap();
+                let terminator = name.iter().position(|&c| c == 0).unwrap();
+                name.truncate(terminator);
+                let s = String::from_utf8_unchecked(name);
                 new_model.vehicles[i].name = s;
                 modified = true;
             }

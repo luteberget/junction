@@ -56,7 +56,7 @@ impl Config {
         use font_kit::properties::Properties;
         use font_kit::handle::Handle;
         let font = SystemSource::new().select_best_match(&[
-                                                 FamilyName::Title("Segoe UI".to_string()),
+                                                 //FamilyName::Title("Segoe UI".to_string()),
                                                  FamilyName::SansSerif],
                                                  &Properties::new()).ok()?;
         match font {

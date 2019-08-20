@@ -63,18 +63,15 @@ extern "C" {
     fn glfw_opengl3_SetWindowTitle(name :*const i8);
 }
 
-pub struct Ctx(());
-impl Ctx {
-    pub fn set_window_title(&mut self, name :&str) {
-        use std::ffi::CString;
-        let c_string = CString::new(name).unwrap();
-        unsafe { glfw_opengl3_SetWindowTitle(c_string.as_ptr()); }
-    }
+pub fn set_window_title(name :&str) {
+    use std::ffi::CString;
+    let c_string = CString::new(name).unwrap();
+    unsafe { glfw_opengl3_SetWindowTitle(c_string.as_ptr()); }
 }
 
 pub fn backend(window_name :&str, 
                font_name :Option<&str>,
-               mut handle :impl FnMut(&mut Ctx, SystemAction) -> bool) -> Result<(), String> {
+               mut handle :impl FnMut(SystemAction) -> bool) -> Result<(), String> {
     let window_name = std::ffi::CString::new(window_name).map_err(|e| format!("{:?}", e))?;
     let font_name_string = {
         match font_name {
@@ -95,7 +92,7 @@ pub fn backend(window_name :&str,
             false => SystemAction::Draw,
             true => SystemAction::Close,
         };
-        if !handle(&mut Ctx(()), action) { break; }
+        if !handle(action) { break; }
         unsafe { glfw_opengl3_EndFrame(); }
     }
     unsafe { glfw_opengl3_Destroy(); } // Extern call to modified imgui example code.

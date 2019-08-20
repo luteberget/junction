@@ -275,7 +275,7 @@ impl DGraphBuilder {
                     let sw_obj = self.new_object(rolling_inf::StaticObject::Switch {
                         left_link:  (ports[&(*pt,Port::Left)], 0.0),
                         right_link: (ports[&(*pt,Port::Right)], 0.0),
-                        branch_side: *side,
+                        branch_side: side.as_switch_position(),
                     });
 
                     self.dgraph.nodes[ports[&(*pt, Port::Left)]].edges  = 
@@ -294,12 +294,12 @@ impl DGraphBuilder {
                             let sw_a = self.new_object(rolling_inf::StaticObject::Switch { 
                                 left_link:  (ports[&(*pt, Port::Cross(dir.other(), 1))], 0.0),
                                 right_link: (ports[&(*pt, Port::Cross(dir.other(), 0))], 0.0),
-                                branch_side: Side::Left,
+                                branch_side: Side::Left.as_switch_position(),
                             });
                             let sw_b = self.new_object(rolling_inf::StaticObject::Switch { 
                                 left_link:  (ports[&(*pt, Port::Cross(*dir, 1))], 0.0),
                                 right_link: (ports[&(*pt, Port::Cross(*dir, 0))], 0.0),
-                                branch_side: Side::Right,
+                                branch_side: Side::Right.as_switch_position(),
                             });
 
                             self.dgraph.nodes[ports[&(*pt, Port::Cross(*dir, 0))]].edges = rolling_inf::Edges::Switchable(sw_a);

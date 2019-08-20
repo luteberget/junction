@@ -103,3 +103,11 @@ pub fn radio_select<'a, T>(choices: &'a [(*const i8, bool, T)]) -> Option<&'a T>
 }
 
 
+
+pub fn sep() {
+    unsafe {
+        igSpacing();
+        igSeparator();
+        igSpacing();
+    }
+}

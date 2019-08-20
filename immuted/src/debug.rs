@@ -11,7 +11,7 @@ pub fn debug_window(popen :&mut bool, allstate :AllState) {
     let defaultopen = ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen;
 
     if igTreeNodeExStr(const_cstr!("Application state").as_ptr(), defaultopen as _) {
-        ui::show_text(&format!("{:#?}", allstate.fileinfo));
+        ui::show_text(&format!("{:#?}", allstate.viewmodel.fileinfo));
         ui::show_text(&allstate.viewmodel.info());
 
         if igTreeNodeStr(const_cstr!("Canvas").as_ptr()) {
