@@ -50,6 +50,7 @@ pub struct Config {
 
 impl Config {
 
+    pub fn get_font_size(&self) -> f32 { 16.0 }
     pub fn get_font_filename(&self) -> Option<String> {
         use font_kit::source::SystemSource;
         use font_kit::family_name::FamilyName;

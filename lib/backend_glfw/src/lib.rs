@@ -55,7 +55,7 @@ pub enum SystemAction {
 }
 
 extern "C" { 
-    fn glfw_opengl3_Init(window_name :*const i8, font_name :*const i8);  
+    fn glfw_opengl3_Init(window_name :*const i8, font_name :*const i8, font_size :f32);  
     fn glfw_opengl3_StartFrame();  
     fn glfw_opengl3_EndFrame(); 
     fn glfw_opengl3_HandleEvents(close :*mut bool); 
@@ -71,6 +71,7 @@ pub fn set_window_title(name :&str) {
 
 pub fn backend(window_name :&str, 
                font_name :Option<&str>,
+               font_size :f32,
                mut handle :impl FnMut(SystemAction) -> bool) -> Result<(), String> {
     let window_name = std::ffi::CString::new(window_name).map_err(|e| format!("{:?}", e))?;
     let font_name_string = {
@@ -82,7 +83,8 @@ pub fn backend(window_name :&str,
 
     // Extern call to modified imgui example code.
     unsafe { glfw_opengl3_Init(window_name.as_ptr(), 
-                               font_name_string.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null())); }
+                   font_name_string.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
+                   font_size); }
 
     loop {
         let mut close = false;

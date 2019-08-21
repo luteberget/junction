@@ -138,7 +138,7 @@ void glfw_opengl3_SetWindowTitle(const char* win_name) {
 	glfwSetWindowTitle(window, win_name);
 }
 
-void glfw_opengl3_Init(const char* win_name, const char* font_filename) {
+void glfw_opengl3_Init(const char* win_name, const char* font_filename, float font_size) {
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -210,7 +210,7 @@ void glfw_opengl3_Init(const char* win_name, const char* font_filename) {
     // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
     //io.Fonts->AddFontDefault();
     if (font_filename != nullptr) {
-      io.Fonts->AddFontFromFileTTF(font_filename, 18.0f);
+      io.Fonts->AddFontFromFileTTF(font_filename, font_size);
     }
     //
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);

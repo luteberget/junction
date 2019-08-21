@@ -75,7 +75,9 @@ fn main() {
 
     // Main loop GUI
     backend_glfw::backend(&doc.fileinfo.window_title(), 
-                          config.get_font_filename().as_ref().map(|x| x.as_str()), |action| {
+                          config.get_font_filename().as_ref().map(|x| x.as_str()), 
+                          config.get_font_size(),
+                          |action| {
         if matches!(action, backend_glfw::SystemAction::Close) {
             show_windows.quit = true;
         }
