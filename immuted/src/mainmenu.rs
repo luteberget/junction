@@ -3,6 +3,7 @@ use const_cstr::*;
 use crate::{file, viewmodel, canvas, diagram, model};
 use log::*;
 use crate::ui;
+use crate::import;
 
 pub struct ShowWindows {
     pub config :bool,
@@ -10,6 +11,7 @@ pub struct ShowWindows {
     pub log :bool,
     pub vehicles :bool,
     pub quit :bool,
+    pub import :import::ImportWindow,
 }
 
 pub fn main_menu(show :&mut ShowWindows,
@@ -54,6 +56,7 @@ pub fn main_menu(show :&mut ShowWindows,
                 ui::sep();
 
                 if igMenuItemBool(const_cstr!("Import from railML...").as_ptr(), std::ptr::null(), false, true) {
+                    show.import.open();
                 }
                 if igMenuItemBool(const_cstr!("Export to railML...").as_ptr(), std::ptr::null(), false, true) {
                 }

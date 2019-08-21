@@ -26,6 +26,8 @@ mod mainmenu;
 mod debug;
 mod file;
 
+mod import;
+
 use matches::matches;
 use log::*;
 
@@ -68,6 +70,7 @@ fn main() {
         log: false,
         vehicles :false,
         quit: false,
+        import: import::ImportWindow::new(thread_pool.clone()),
     };
 
     // Main loop GUI
@@ -79,6 +82,7 @@ fn main() {
 
         // Check for updates in background thread
         doc.receive(&mut canvas.instant_cache); // TODO avoid explicit cache clearing
+        show_windows.import.update();
 
         // forward time if playing
         if let Some((_,time,play)) = &mut canvas.active_dispatch {
@@ -125,6 +129,10 @@ fn main() {
 
         if show_windows.vehicles {
             vehicles::edit_vehicles_window(&mut show_windows.vehicles, &mut doc);
+        }
+
+        if show_windows.import.open {
+            show_windows.import.draw(&mut doc);
         }
 
 

@@ -9,6 +9,8 @@ use std::sync::Mutex;
 pub fn view_log(popen :&mut bool, logstring :&Arc<Mutex<VecDeque<u8>>>) {
     unsafe {
         igBegin(const_cstr!("Log").as_ptr(), popen as _, 0 as _);
+        igPushTextWrapPos(0.0);
+
         ui::show_text("Log:");
         {
         let buf = logstring.lock().unwrap();
@@ -16,10 +18,15 @@ pub fn view_log(popen :&mut bool, logstring :&Arc<Mutex<VecDeque<u8>>>) {
         let begin = s1.as_ptr() as *const i8;
         let end = begin.offset(s1.len() as isize);
         igTextUnformatted(begin,end);
+
+        igSameLine(0.0,-1.0);
+
         let begin = s2.as_ptr() as *const i8;
         let end = begin.offset(s2.len() as isize);
         igTextUnformatted(begin,end);
         }
+
+        igPopTextWrapPos();
         igEnd();
     }
 

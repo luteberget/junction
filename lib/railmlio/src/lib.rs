@@ -1,6 +1,6 @@
-mod model;
-mod topo;
-mod xml;
+pub mod model;
+pub mod topo;
+pub mod xml;
 
 #[cfg(test)]
 mod tests {
@@ -10,7 +10,7 @@ mod tests {
     #[test]
     fn it_works() {
         println!("Reading xml");
-        let s = std::fs::read_to_string("railml_tutorial_tracks.railml").unwrap();
+        let s = std::fs::read_to_string("eidsvoll.railml").unwrap();
         let railml = xml::parse_railml(&s).expect("railml parse failed");
         println!(" Found railml {:#?}", railml);
 
