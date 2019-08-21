@@ -7,10 +7,16 @@
                 <trackBegin pos="0.0" id="tb1">
                     <openEnd id="b1" />
                 </trackBegin>
-                <trackEnd pos="1000.0" id="tb2">
+                <trackEnd pos="1000.0" id="te1">
                     <openEnd id="b2" />
                 </trackEnd>
                 <connections>
+			<switch id="sw1" pos="250.0">
+			<connection id="sw1c" ref="tb2c" course="left" orientation="outgoing" />
+			</switch>
+			<switch id="sw2" pos="755.0">
+				<connection id="sw2c" ref="te2c" course="right" orientation="incoming" />
+			</switch>
                 </connections>
             </trackTopology>
             <ocsElements>
@@ -27,6 +33,18 @@
                     <trainDetector id="d4" name="detector 2" pos="390.0" />
                 </trainDetectionElements>
             </ocsElements>
+        </track>
+        <track name="SP2" id="track1">
+            <trackTopology>
+                <trackBegin pos="0.0" id="tb2">
+                    <connection id="tb2c" ref="sw1c" />
+                </trackBegin>
+                <trackEnd pos="500.0" id="te2">
+                    <connection id="te2c" ref="sw2c" />
+                </trackEnd>
+                <connections>
+                </connections>
+            </trackTopology>
         </track>
     </tracks>
   </infrastructure>

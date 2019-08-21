@@ -236,14 +236,15 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
 
             while let Some(((node,port),pos,dir)) = stack.pop() {
 
+                let sw_factor = if matches!(port, topo::Port::Trunk) { 1 } else { -1 };
                 if let Some((node_dir,pos)) = km0.get(&node) {
-                    if *node_dir != dir { 
+                    if (*node_dir)*sw_factor != dir {
                         return Err(ImportState::SourceFileError(format!(
         "Inconsistent directions on tracks, need to insert mileage direction change.")));
-                    } else { continue; }
+                    } else { continue;  }
                 }
 
-                km0.insert(node,(dir,pos));
+                km0.insert(node,(sw_factor*dir,pos));
 
                 for (other_port,next_dir) in port.other_ports() {
                     let dir = dir*next_dir;

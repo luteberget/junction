@@ -192,12 +192,15 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
                 named_node_ports.insert(sw_info.connref, (nd, sw_info.deviating_side.to_port()));
                 let (mut a_port, mut b_port) = (Port::Trunk, sw_info.deviating_side.opposite().to_port());
                 if sw_info.dir == AB::B { std::mem::swap(&mut a_port, &mut b_port); }
+
+                topo.connections.push(((track_idx,AB::B), (nd, a_port)));
                 
                 track_idx = new_track(&mut topo, TopoTrack {
                     objects: Objects::empty(),
                     offset: sw_info.pos,
                     length: 0.0
                 });
+                topo.connections.push(((track_idx,AB::A), (nd, b_port)));
                 current_offset = sw_info.pos;
             }
 
@@ -207,6 +210,9 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
     }
 
     // Match track ports with node ports.
+    println!("now matching named node track ports");
+    println!("node ports {:?}", named_node_ports);
+    println!("track ports {:?}", named_track_ports);
 
     for ((c,r),nd_port) in named_node_ports {
         let x = (r,c);
@@ -218,6 +224,11 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
     // TODO track contiunations,i .e. connetions track->track.
     if let Some(((c,r),_)) = named_track_ports.into_iter().next() {
         return Err(TopoConvErr::UnmatchedConnection(c,r));
+    }
+
+    println!("CONNECTIONS {:?}", topo.connections);
+    for c in &topo.connections {
+        println!("{:?}", c);
     }
 
     Ok(topo)
