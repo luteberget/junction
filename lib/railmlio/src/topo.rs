@@ -14,26 +14,49 @@ pub type TopoConnection = ((usize, AB), (usize,Port));
 
 #[derive(Debug)]
 pub struct Topological {
-    tracks :Vec<TopoTrack>,
-    nodes :Vec<TopoNode>,
-    connections :Vec<TopoConnection>,
+    pub tracks :Vec<TopoTrack>,
+    pub nodes :Vec<TopoNode>,
+    pub connections :Vec<TopoConnection>,
 }
 
 #[derive(Debug)]
 pub struct TopoTrack {
-    objects :Objects,
-    length: f64,
-    offset :f64,
+    pub objects :Objects,
+    pub length: f64,
+    pub offset :f64,
 }
 
-#[derive(Copy,Clone,PartialEq,Eq)]
+#[derive(Copy,Clone,PartialEq,Eq,Hash)]
 #[derive(Debug)]
 pub enum AB { A, B }
+
+impl AB {
+    pub fn opposite(&self) -> AB {
+        match self {
+            AB::A => AB::B,
+            AB::B => AB::A,
+        }
+    }
+}
+
 #[derive(Debug)]
+#[derive(Copy,Clone,PartialEq,Eq,Hash)]
 pub enum Port {
     Trunk, Left, Right,
     Crossing(AB, usize),
     Single,
+}
+
+impl Port {
+    pub fn other_ports(&self) -> Vec<(Port,isize)> {
+        match self {
+            Port::Trunk => vec![(Port::Left,1), (Port::Right,1)],
+            Port::Left => vec![(Port::Right,-1), (Port::Trunk,1)],
+            Port::Right => vec![(Port::Left,-1), (Port::Trunk,1)],
+            Port::Single => vec![],
+            Port::Crossing(_,_) => unimplemented!(), 
+        }
+    }
 }
 
 #[derive(Copy,Clone)]

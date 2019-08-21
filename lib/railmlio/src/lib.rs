@@ -16,5 +16,6 @@ mod tests {
 
         let topo = topo::convert_railml_topo(railml).expect("topo conversion failed");
         println!(" Found topology {:#?}", topo);
+        println!(" Found topology {:?}", topo);
     }
 }

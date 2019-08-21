@@ -39,7 +39,6 @@ pub enum DocErr {
 }
 
 fn parse_track(track :&xml::Node) -> Result<Track, DocErr> {
-    println!("parsing track {:?}", track);
     let topo = track.children().find(|c| c.has_tag_name("trackTopology"))
         .ok_or(DocErr::ElementMissing("trackTopology", track.range().start))?;
 
