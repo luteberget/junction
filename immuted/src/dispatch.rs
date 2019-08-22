@@ -372,7 +372,9 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
 
     for (obj_id, pta) in dgraph.object_ids.iter() {
         if let rolling_inf::StaticObject::Signal { has_distant } = dgraph.rolling_inf.objects[*obj_id] {
-            object_state.insert(*pta, vec![ObjectState::SignalStop]);
+            let mut v = vec![ObjectState::SignalStop];
+            if has_distant { v.push(ObjectState::DistantStop); }
+            object_state.insert(*pta, v);
         }
     }
 
