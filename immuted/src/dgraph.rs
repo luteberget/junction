@@ -379,7 +379,7 @@ impl Cursor {
                     } else {
                         if edge_multiplicity(&dg.nodes[b0].edges) > 1 {
                             // Done: Trailing switch, truncate path here
-                            output.push((Cursor::Node(dg.nodes[b0].other_node), l - (d - nd0)));
+                            output.push((Cursor::Edge((a0,b0), 0.0), l - (d - nd0)));
                         } else {
                             cursors.push((Cursor::Node(dg.nodes[b0].other_node), d - nd0));
                         }
