@@ -22,6 +22,14 @@ pub fn main_menu(show :&mut ShowWindows,
 
             if igBeginMenu(const_cstr!("File").as_ptr(), true) {
 
+                // TODO warn about saving file when doing new file / load file
+                if igMenuItemBool(const_cstr!("New file").as_ptr(), std::ptr::null(), false, true) {
+                    *doc = viewmodel::ViewModel::new(model::Undoable::from(Default::default()), 
+                                                     file::FileInfo::empty(), thread_pool.clone());
+                    *canvas = canvas::Canvas::new();
+                    *diagram = diagram::Diagram::new();
+                }
+
                 if igMenuItemBool(const_cstr!("Load file...").as_ptr(), std::ptr::null(), false, true) {
                     let mut fileinfo = doc.fileinfo.clone();
                     if let Ok(Some(m)) = file::load_doc(&mut fileinfo) {
