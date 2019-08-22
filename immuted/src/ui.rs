@@ -112,3 +112,20 @@ pub fn sep() {
         igSpacing();
     }
 }
+
+pub fn long_text(s :&str) {
+    unsafe {
+        let num_lines = s.lines().count();
+        let clipper = ImGuiListClipper_ImGuiListClipper(num_lines as i32, -1.0);
+        
+        while ImGuiListClipper_Step(clipper) {
+            let start_idx = (*clipper).DisplayStart as usize;
+            let end_idx = (*clipper).DisplayEnd as usize;
+            for l in s.lines().skip(start_idx).take(end_idx - start_idx) {
+                show_text(l);
+            }
+        }
+
+        ImGuiListClipper_End(clipper);
+    }
+}

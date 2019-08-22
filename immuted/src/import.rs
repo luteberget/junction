@@ -4,8 +4,10 @@ use matches::*;
 use const_cstr::const_cstr;
 use crate::model;
 use crate::model::Model;
+use crate::model::Pt;
 use crate::viewmodel::ViewModel;
 use crate::file;
+use crate::ui;
 use std::sync::mpsc;
 
 pub enum ImportError {
@@ -46,7 +48,7 @@ impl ImportWindow {
 
     pub fn update(&mut self) {
         while let Some(Ok(msg)) = self.thread.as_mut().map(|rx| rx.try_recv()) {
-            info!("Import window got message  from background thread: {:?}", msg);
+            self.state = msg;
         }
     }
 
@@ -77,7 +79,7 @@ impl ImportWindow {
                     self.close();
                 }
             },
-            _ => {}, // TODO
+            _ => { ui::show_text("Running solver"); }, // TODO
         }
 
         igEnd();
@@ -150,8 +152,8 @@ pub fn load_railml_file(filename :String, tx :mpsc::Sender<ImportState>)  {
     let solver = railplotlib::solvers::LevelsSatSolver {
         criteria: vec![
             railplotlib::solvers::Goal::Bends,
-            railplotlib::solvers::Goal::Width,
             railplotlib::solvers::Goal::Height,
+            railplotlib::solvers::Goal::Width,
         ],
         nodes_distinct: false,
     };
@@ -218,14 +220,14 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
 
             let track_connections :HashMap<(usize,topo::AB),(usize,topo::Port)> = 
                 topo.connections.iter().cloned().collect();
-            println!("Track connections {:?}", track_connections);
+            debug!("Track connections {:?}", track_connections);
             let node_connections :HashMap<(usize,topo::Port),(usize,topo::AB)> = 
                 topo.connections.iter().map(|(a,b)| (*b,*a)).collect();
-            println!("Node connections {:?}", node_connections);
+            debug!("Node connections {:?}", node_connections);
 
             let mut km0 : HashMap<NodeId, (isize, f64)> = HashMap::new();
             km0.insert(start_node,(1,0.0));
-            println!("start node {:?}", start_node);
+            debug!("start node {:?}", start_node);
             let (start_track,start_trackend) = node_connections.get(&(start_node, topo::Port::Single))
                         .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
             let start_l = topo.tracks[*start_track].length;
@@ -246,22 +248,24 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
 
                 km0.insert(node,(sw_factor*dir,pos));
 
+                    debug!("Iterating ports");
                 for (other_port,next_dir) in port.other_ports() {
+                    debug!(" port");
                     let dir = dir*next_dir;
-                    println!("Going to  {:?}", (other_port,dir));
+                    debug!("    Going to  {:?}", (other_port,dir));
                     let (track_idx,end) = node_connections.get(&(node,other_port))
                         .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
                     let l = topo.tracks[*track_idx].length;
-                    println!("Track to  {:?}", (track_idx,end,l));
+                    debug!("    Track to  {:?}", (track_idx,end,l));
                     let other_node_port = track_connections.get(&(*track_idx,end.opposite()))
                         .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
-                    println!(" ... other node  {:?}", (other_node_port));
+                    debug!("    ... other node  {:?}", (other_node_port));
 
                     stack.push((*other_node_port, pos + (dir as f64)*l, dir));
                 }
             }
 
-            println!("KM0 in mileage estimation in raiml import\n{:?}", km0);
+            debug!("KM0 in mileage estimation in raiml import\n{:?}", km0);
 
             // now we have roughly estimated mileages and have switch orientations
             // (incoming/outgoing = increasing/decreasing milage)
@@ -299,6 +303,10 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                 });
             }
 
+            for (i,n) in model.nodes.iter().enumerate() {
+                debug!("Node {} {:?}", i, n);
+            }
+
             for (track_idx,_) in topo.tracks.iter().enumerate() {
                 let mut na = track_connections.get(&(track_idx,topo::AB::A))
                     .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
@@ -321,11 +329,12 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
 
                 let pa = convert_port(*na);
                 let pb = convert_port(*nb);
-                model.edges.push(plot::Edge {
-                    a :(format!("n{}", na.0), pa),
-                    b :(format!("n{}", nb.0), pb),
-                    objects :Vec::new(),
-                });
+                let a = (format!("n{}", na.0), pa);
+                let b = (format!("n{}", nb.0), pb);
+
+                debug!("Edge {} {:?} {:?}", model.edges.len(), a,b);
+
+                model.edges.push(plot::Edge { a,b, objects :Vec::new() });
             }
 
 
@@ -335,10 +344,69 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
 }
 
 
+pub fn round_pt_tol((x,y) :(f64,f64)) -> Result<Pt,()> {
+    use nalgebra_glm as glm;
+    let tol = 0.05;
+    if (x.round() - x).abs() > tol { return Err(()); }
+    if (y.round() - y).abs() > tol { return Err(()); }
+    Ok(glm::vec2(x.round() as _, (-20.0 + y.round()) as _))
+}
+
 pub fn convert_junction(plot :railplotlib::solvers::SchematicOutput<()>) -> Result<Model, ImportState> {
+    debug!("Starting conversion of railplotlib schematic output");
+    for (e,pts) in &plot.lines {
+        debug!("Line {:?}", pts);
+        let pts = pts.iter().map(|x| round_pt_tol(*x)).collect::<Result<Vec<_>,()>>()
+            .map_err(|_| ImportState::PlotError(format!("Solution contains point not on grid")))?;
+        for (p1,p2) in pts.iter().zip(pts.iter().skip(1)) {
+            let segs = line_segments(*p1,*p2).unwrap();
+            debug!("Segments {:?}", segs);
+        }
+    }
 
-    unimplemented!()
+    let mut model :Model = Default::default();
 
+    for (n,pt) in plot.nodes {
+        let pt = round_pt_tol(pt)
+            .map_err(|_| ImportState::PlotError(format!("Solution contains point not on grid, {:?}", pt)))?;
+        // use railplotlib::model::Shape;
+        //model.node_data.insert(pt,match n.shape {
+            //Shape::Begin | Shape::End =>
+        //});
+        // TODO
+    }
+
+    for (e,pts) in plot.lines {
+        let pts = pts.into_iter().map(|x| round_pt_tol(x)).collect::<Result<Vec<_>,()>>()
+            .map_err(|_| ImportState::PlotError(format!("Solution contains point not on grid")))?;
+        for (p1,p2) in pts.iter().zip(pts.iter().skip(1)) {
+            let segs = line_segments(*p1,*p2)
+                .map_err(|_| ImportState::PlotError(format!("Line segment conversion failed")))?;
+            for (p1,p2) in segs {
+                model.linesegs.insert((p1,p2));
+            }
+        }
+    }
+
+    Ok(model)
+
+}
+
+pub fn line_segments(a :Pt, b :Pt) -> Result<Vec<(Pt,Pt)>, ()> {
+    use nalgebra_glm as glm;
+    let mut out = Vec::new();
+    let diff = b-a;
+    if diff == glm::zero() { return Err(()); }
+    let segs = diff.x.abs().max(diff.y.abs());
+    let step_vector = glm::vec2(diff.x.signum(), diff.y.signum());
+    assert_eq!(a + segs*step_vector, b);
+    let mut x = a;
+    for i in 0..segs {
+        let y = x+step_vector;
+        out.push((x,y));
+        x = y;
+    }
+    Ok(out)
 }
 
 

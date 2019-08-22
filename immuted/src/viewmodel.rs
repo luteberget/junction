@@ -92,7 +92,7 @@ impl ViewModel {
             let dgraph = DGraphBuilder::convert(&model,&topology).expect("dgraph conversion failed");
             let dgraph = Arc::new(dgraph);
 
-            info!("Dgraph {:?}", dgraph);
+            info!("Dgraph successful with {:?} nodes", dgraph.rolling_inf.nodes.len());
 
             let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
             if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
@@ -108,6 +108,7 @@ impl ViewModel {
                 // calc interlocking from dgraph
             let send_ok = tx.send(SetData::Interlocking(interlocking.clone()));
             if !send_ok.is_ok() { println!("job canceled after interlocking"); return; }
+            info!("Interlocking successful with {:?} routes", interlocking.routes.len());
 
             for (i,dispatch) in model.dispatches.iter().enumerate() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
@@ -115,6 +116,7 @@ impl ViewModel {
                                                    &dgraph.rolling_inf,
                                                    interlocking.routes.iter().map(|(r,_)| r),
                                                    &(dispatch.0)).unwrap();
+                info!("Simulation successful {:?}", &dispatch.0);
                 let view = dispatch::DispatchView::from_history(&dgraph, history);
                 let send_ok = tx.send(SetData::Dispatch(i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }

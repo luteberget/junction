@@ -3,6 +3,7 @@
 use ordered_float::OrderedFloat;
 use crate::model::*;
 use std::collections::HashMap;
+use log::*;
 
 
 //
@@ -72,8 +73,8 @@ impl Side {
 
     pub fn to_port(&self) -> Port {
         match self {
-            Side::Left => Port::Right,
-            Side::Right => Port::Left,
+            Side::Left => Port::Left,
+            Side::Right => Port::Right,
         }
     }
 }
@@ -117,6 +118,7 @@ pub enum TopoConvErr {
     UnmatchedConnection(String,String),
 }
 
+#[derive(Debug)]
 pub struct TopoSwitchInfo {
     connref: (Id,IdRef),
     deviating_side :Side,
@@ -185,7 +187,9 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
                 Switch::Switch { pos, .. } | Switch::Crossing { pos, .. } => OrderedFloat(pos.offset) });
 
             for sw in track.switches {
+                debug!("Switch info a. {:?} ", sw);
                 let sw_info = switch_info(sw)?;
+                debug!("Switch info b. {:?}", sw_info);
                 topo.tracks[track_idx].length = sw_info.pos - current_offset;
 
                 let nd = new_node(&mut topo, TopoNode::Switch(sw_info.deviating_side));
@@ -226,9 +230,9 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
         return Err(TopoConvErr::UnmatchedConnection(c,r));
     }
 
-    println!("CONNECTIONS {:?}", topo.connections);
+    debug!("CONNECTIONS {:?}", topo.connections);
     for c in &topo.connections {
-        println!("{:?}", c);
+        debug!("{:?}", c);
     }
 
     Ok(topo)

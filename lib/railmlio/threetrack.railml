@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<railml xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.railml.org/schemas/2013">
+  <infrastructure>
+    <tracks>
+        <track name="SP1" id="track1">
+            <trackTopology>
+                <trackBegin pos="0.0" id="tb1">
+                    <openEnd id="b1" />
+                </trackBegin>
+                <trackEnd pos="1000.0" id="te1">
+                    <openEnd id="b2" />
+                </trackEnd>
+                <connections>
+			<switch id="sw1" pos="250.0">
+				<connection id="sw1c" ref="tb2c" course="left" orientation="outgoing" />
+			</switch>
+			<switch id="sw3" pos="300.0">
+				<connection id="sw3c" ref="tb3c" course="right" orientation="outgoing" />
+			</switch>
+			<switch id="sw4" pos="750.0">
+				<connection id="sw4c" ref="te3c" course="left" orientation="incoming" />
+			</switch>
+			<switch id="sw2" pos="755.0">
+				<connection id="sw2c" ref="te2c" course="right" orientation="incoming" />
+			</switch>
+                </connections>
+            </trackTopology>
+            <ocsElements>
+                <signals>
+                    <signal id="sig1" name="Signal 1" pos="50.0" type="main"  dir="up"/>
+                    <signal id="sig2" name="Signal 2" pos="250.0" type="main" dir="up"/>
+                    <signal id="sig3" name="Signal 3" pos="350.0" type="main" dir="up"/>
+                </signals>
+                <trainDetectionElements>
+                    <trainDetector id="d0" name="detector 1" pos="10.0" />
+                    <trainDetector id="d1" name="detector 1" pos="50.0" />
+                    <trainDetector id="d2" name="detector 2" pos="250.0" />
+                    <trainDetector id="d3" name="detector 2" pos="350.0" />
+                    <trainDetector id="d4" name="detector 2" pos="390.0" />
+                </trainDetectionElements>
+            </ocsElements>
+        </track>
+        <track name="SP2" id="track2">
+            <trackTopology>
+                <trackBegin pos="0.0" id="tb2">
+                    <connection id="tb2c" ref="sw1c" />
+                </trackBegin>
+                <trackEnd pos="500.0" id="te2">
+                    <connection id="te2c" ref="sw2c" />
+                </trackEnd>
+                <connections>
+                </connections>
+            </trackTopology>
+        </track>
+        <track name="SP2" id="track3">
+            <trackTopology>
+                <trackBegin pos="0.0" id="tb3">
+                    <connection id="tb3c" ref="sw3c" />
+                </trackBegin>
+                <trackEnd pos="500.0" id="te3">
+                    <connection id="te3c" ref="sw4c" />
+                </trackEnd>
+                <connections>
+                </connections>
+            </trackTopology>
+        </track>
+    </tracks>
+  </infrastructure>
+</railml>

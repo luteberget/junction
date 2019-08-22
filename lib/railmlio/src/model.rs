@@ -93,8 +93,8 @@ impl SwitchConnectionCourse {
 
     pub fn to_side(&self) -> Option<Side> {
         match self {
-            SwitchConnectionCourse::Left => Some(Side::Right),
-            SwitchConnectionCourse::Right => Some(Side::Left),
+            SwitchConnectionCourse::Left => Some(Side::Left),
+            SwitchConnectionCourse::Right => Some(Side::Right),
             _ => None,
         }
     }

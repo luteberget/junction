@@ -272,10 +272,14 @@ impl Canvas {
 
             // Context menu 
             let mut preview_route = None;
+
+            //igPushStyleVarColor(ImGuiStyleVar__ImGuiStyleVar_Alpha, 0.5);
+
             if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
                 self.context_menu_contents(doc, &mut preview_route);
                 igEndPopup();
             }
+            //igPopStyleVar(1);
 
             if igIsItemHovered(0) && igIsMouseClicked(1,false) {
                 if let Some((r,_)) = doc.get_closest(pointer_ingrid) {

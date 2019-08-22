@@ -1,0 +1,696 @@
+<?xml version="1.0" encoding="utf-8"?>
+<railml version="2.2" xmlns="http://www.railml.org/schemas/2013">
+  <metadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <creator xmlns="http://purl.org/dc/elements/1.1/">Bjørnar Luteberget</creator>
+    <date xmlns="http://purl.org/dc/elements/1.1/">08/21/2019 09:52:40</date>
+    <description xmlns="http://purl.org/dc/elements/1.1/" />
+    <format xmlns="http://purl.org/dc/elements/1.1/">railML v2.2</format>
+    <source xmlns="http://purl.org/dc/elements/1.1/">RailCOMPLETE v0.12.7.0</source>
+    <title xmlns="http://purl.org/dc/elements/1.1/">Drawing1.dwg</title>
+  </metadata>
+  <infrastructure xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="inf_0" name="Drawing1.dwg infrastructure" xmlns="http://www.railml.org/schemas/2013">
+    <infraAttrGroups>
+      <infraAttributes id="spp_0">
+        <speeds>
+          <speed etcsTrainCategory="0" vMax="130" />
+          <speed etcsTrainCategory="1" vMax="130" />
+          <speed etcsTrainCategory="2" vMax="130" />
+        </speeds>
+        <generalInfraAttributes />
+      </infraAttributes>
+      <infraAttributes id="spp_1">
+        <speeds>
+          <speed etcsTrainCategory="0" vMax="120" />
+          <speed etcsTrainCategory="1" vMax="120" />
+          <speed etcsTrainCategory="2" vMax="120" />
+        </speeds>
+        <generalInfraAttributes />
+      </infraAttributes>
+      <infraAttributes id="spp_2">
+        <speeds>
+          <speed etcsTrainCategory="0" vMax="160" />
+          <speed etcsTrainCategory="1" vMax="160" />
+          <speed etcsTrainCategory="2" vMax="160" />
+        </speeds>
+        <generalInfraAttributes />
+      </infraAttributes>
+      <infraAttributes id="spp_3">
+        <speeds>
+          <speed etcsTrainCategory="0" vMax="80" />
+          <speed etcsTrainCategory="1" vMax="80" />
+          <speed etcsTrainCategory="2" vMax="80" />
+        </speeds>
+        <generalInfraAttributes />
+      </infraAttributes>
+      <infraAttributes id="spp_4">
+        <speeds>
+          <speed etcsTrainCategory="0" vMax="100" />
+          <speed etcsTrainCategory="1" vMax="100" />
+          <speed etcsTrainCategory="2" vMax="100" />
+        </speeds>
+        <generalInfraAttributes />
+      </infraAttributes>
+    </infraAttrGroups>
+    <tracks>
+      <track id="tr_0" code="CROSSING 17-24" name="[CROSSING 17-24]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_0" pos="0" absPos="462446">
+            <geoCoord coord="305014.272589321 6703153.96978674 10.6763753673346" />
+            <connection id="co_10" ref="co_11" />
+          </trackBegin>
+          <trackEnd id="end_0" pos="98" absPos="462544">
+            <geoCoord coord="304940.84923037561 6703088.9072110113 11.504571245836241" />
+            <connection id="co_0" ref="co_1" />
+          </trackEnd>
+        </trackTopology>
+        <trackElements>
+          <gradientChanges>
+            <gradientChange id="grc_0" name="LBP" pos="0" absPos="462446" slope="8.796" />
+            <gradientChange id="grc_1" name="HBP" pos="44" absPos="462490" slope="5.023" />
+            <gradientChange id="grc_2" name="LBP" pos="54" absPos="462499" slope="8.796" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_0" name="Start" pos="0" absPos="462446" radius="-500.050294" />
+            <radiusChange id="rc_1" name="KP" pos="42" absPos="462487" radius="0" />
+            <radiusChange id="rc_2" name="KP" pos="57" absPos="462502" radius="499.935265" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+      <track id="tr_1" code="CROSSING 4-15" name="[CROSSING 4-15]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_1" pos="0" absPos="462670">
+            <geoCoord coord="304839.691017 6703013.606824 12.6468385665214" />
+            <connection id="co_12" ref="co_13" />
+          </trackBegin>
+          <trackEnd id="end_1" pos="152" absPos="462822">
+            <geoCoord coord="304724.15422899986 6702914.685201 13.950359360823994" />
+            <connection id="co_2" ref="co_3" />
+          </trackEnd>
+        </trackTopology>
+        <trackElements>
+          <speedChanges>
+            <speedChange id="spc_0" pos="0" absPos="462670" dir="up" profileRef="spp_0" vMax="350" />
+            <speedChange id="spc_1" pos="152" absPos="462822" dir="down" profileRef="spp_0" vMax="350" />
+          </speedChanges>
+          <gradientChanges>
+            <gradientChange id="grc_3" name="LBP" pos="0" absPos="462670" slope="8.796" />
+            <gradientChange id="grc_4" name="HBP" pos="75" absPos="462745" slope="-8.043" />
+            <gradientChange id="grc_5" name="LBP" pos="77" absPos="462747" slope="8.796" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_3" name="Start" pos="0" absPos="462670" radius="-1200.000000" />
+            <radiusChange id="rc_4" name="OE" pos="56" absPos="462726" radius="-1200.000092" />
+            <radiusChange id="rc_5" name="OB" pos="74" absPos="462744" radius="0" />
+            <radiusChange id="rc_6" name="OB" pos="78" absPos="462748" radius="0" />
+            <radiusChange id="rc_7" name="OE" pos="96" absPos="462766" radius="1200.000010" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+      <track id="tr_2" code="CROSSING 8-13" name="[CROSSING 8-13]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_2" pos="0" absPos="462444">
+            <geoCoord coord="305017.217278 6703150.306681 10.6426230664444" />
+            <connection id="co_4" ref="co_5" />
+          </trackBegin>
+          <trackEnd id="end_2" pos="98" absPos="462542">
+            <geoCoord coord="304937.9045030009 6703092.5701169986 11.538324895247547" />
+            <connection id="co_14" ref="co_15" />
+          </trackEnd>
+        </trackTopology>
+        <trackElements>
+          <gradientChanges>
+            <gradientChange id="grc_6" name="LBP" pos="0" absPos="462444" slope="8.796" />
+            <gradientChange id="grc_7" name="LBP" pos="44" absPos="462488" slope="11.992" />
+            <gradientChange id="grc_8" name="HBP" pos="54" absPos="462498" slope="8.796" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_8" name="Start" pos="0" absPos="462444" radius="499.999999" />
+            <radiusChange id="rc_9" name="KP" pos="42" absPos="462485" radius="0" />
+            <radiusChange id="rc_10" name="KP" pos="57" absPos="462500" radius="-500.000000" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+      <track id="tr_3" code="CROSSING-IN-TO-OUT" name="[CROSSING-IN-TO-OUT]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_3" pos="0" absPos="462161">
+            <geoCoord coord="305239.319357 6703330.705055 8.650981" />
+            <connection id="co_6" ref="co_7" />
+          </trackBegin>
+          <trackEnd id="end_3" pos="483" absPos="462644">
+            <geoCoord coord="304863.0754970017 6703032.4078619983 12.383036128302559" />
+            <connection id="co_16" ref="co_17" />
+          </trackEnd>
+        </trackTopology>
+        <trackElements>
+          <speedChanges>
+            <speedChange id="spc_2" pos="0" absPos="462161" dir="up" profileRef="spp_0" vMax="350" />
+            <speedChange id="spc_3" pos="483" absPos="462644" dir="down" profileRef="spp_0" vMax="350" />
+          </speedChanges>
+          <gradientChanges>
+            <gradientChange id="grc_9" name="LBP" pos="0" absPos="462161" slope="1.007" />
+            <gradientChange id="grc_10" name="LBP" pos="169" absPos="462330" slope="12.500" />
+            <gradientChange id="grc_11" name="HBP" pos="385" absPos="462546" slope="8.796" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_11" name="Start" pos="0" absPos="462161" radius="-500.000000" />
+            <radiusChange id="rc_12" name="KP" pos="42" absPos="462203" radius="0" />
+            <radiusChange id="rc_13" name="OB" pos="93" absPos="462254" radius="0" />
+            <radiusChange id="rc_14" name="OE" pos="123" absPos="462284" radius="-500.000000" />
+            <radiusChange id="rc_15" name="OE" pos="212" absPos="462373" radius="-500.000008" />
+            <radiusChange id="rc_16" name="OB" pos="242" absPos="462403" radius="0" />
+            <radiusChange id="rc_17" name="KP" pos="441" absPos="462602" radius="500.000000" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+      <track id="tr_4" code="INBOUND" name="[INBOUND]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_4" pos="0" absPos="462130">
+            <geoCoord coord="305279.992510868 6703319.71485846 8.6863714154623" />
+            <openEnd id="oe_0" />
+          </trackBegin>
+          <trackEnd id="end_4" pos="1239" absPos="463369">
+            <geoCoord coord="304296.078664047 6702570.51396849 18.78195272612453" />
+            <openEnd id="oe_1" />
+          </trackEnd>
+          <connections>
+            <switch id="sw_0" name="V." pos="412" absPos="462542" trackContinueCourse="right" trackContinueRadius="500" model="1:12 R500 FX 54E3 (KO-701306)" type="ordinarySwitch">
+              <geoCoord coord="304940.84891703445 6703088.9076007418 11.504571245891844" />
+              <connection id="co_1" ref="co_0" course="left" orientation="incoming" />
+            </switch>
+            <switch id="sw_1" name="V." pos="690" absPos="462820" trackContinueCourse="right" trackContinueRadius="1200" model="1:18.4 R1200 BX 60E1 (KO-800081)" type="ordinarySwitch">
+              <geoCoord coord="304724.15391593118 6702914.685590392 13.950359360844253" />
+              <connection id="co_3" ref="co_2" course="left" orientation="incoming" />
+            </switch>
+            <switch id="sw_2" name="V." pos="314" absPos="462444" trackContinueCourse="left" trackContinueRadius="500" model="1:12 R500 FX 54E3 (KO-701306)" type="ordinarySwitch">
+              <geoCoord coord="305017.21688225376 6703150.3071732242 10.642623066444598" />
+              <connection id="co_5" ref="co_4" course="right" orientation="outgoing" />
+            </switch>
+          </connections>
+        </trackTopology>
+        <trackElements>
+          <speedChanges>
+            <speedChange id="spc_4" pos="0" absPos="462130" dir="up" profileRef="spp_1" vMax="350" />
+            <speedChange id="spc_5" pos="274" absPos="462404" dir="down" profileRef="spp_1" vMax="350" />
+            <speedChange id="spc_6" pos="274" absPos="462404" dir="up" profileRef="spp_2" vMax="350" />
+            <speedChange id="spc_7" pos="1239" absPos="463369" dir="down" profileRef="spp_2" vMax="350" />
+          </speedChanges>
+          <gradientChanges>
+            <gradientChange id="grc_12" name="LBP" pos="0" absPos="462130" slope="3.005" />
+            <gradientChange id="grc_13" name="LBP" pos="139" absPos="462269" slope="8.796" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_18" name="Start" pos="0" absPos="462130" radius="0" />
+            <radiusChange id="rc_19" name="OB" pos="0" absPos="462130" radius="0" />
+            <radiusChange id="rc_20" name="OE" pos="70" absPos="462200" radius="-850.000000" />
+            <radiusChange id="rc_21" name="OE" pos="204" absPos="462334" radius="-849.999998" />
+            <radiusChange id="rc_22" name="OB" pos="274" absPos="462404" radius="0" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+      <track id="tr_5" code="OUTBOUND" name="[OUTBOUND]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_5" pos="0" absPos="462129">
+            <geoCoord coord="305268.458679154 6703344.34874836 8.61872273374648" />
+            <openEnd id="oe_2" />
+          </trackBegin>
+          <trackEnd id="end_5" pos="1248" absPos="463377">
+            <geoCoord coord="304267.881947605 6702605.58466643 18.99523817279033" />
+            <openEnd id="oe_3" />
+          </trackEnd>
+          <connections>
+            <switch id="sw_3" name="V." pos="32" absPos="462161" trackContinueCourse="right" trackContinueRadius="500" model="1:12 R500 FX 54E3 (KO-701306)" type="ordinarySwitch">
+              <geoCoord coord="305239.31948625506 6703330.7047789413 8.651285242006777" />
+              <connection id="co_7" ref="co_6" course="left" orientation="outgoing" />
+            </switch>
+            <switch id="sw_4" name="V." pos="1187" absPos="463316" trackContinueCourse="left" trackContinueRadius="1200" model="1:18.4 R1200 BX 60E1 (KO-800081)" type="ordinarySwitch">
+              <geoCoord coord="304315.06396404986 6702643.5182057833 18.436738361753886" />
+              <connection id="co_9" ref="co_8" course="right" orientation="incoming" />
+            </switch>
+          </connections>
+        </trackTopology>
+        <trackElements>
+          <speedChanges>
+            <speedChange id="spc_8" pos="0" absPos="462129" dir="up" profileRef="spp_1" vMax="350" />
+            <speedChange id="spc_9" pos="334" absPos="462462" dir="down" profileRef="spp_1" vMax="350" />
+            <speedChange id="spc_10" pos="334" absPos="462462" dir="up" profileRef="spp_2" vMax="350" />
+            <speedChange id="spc_11" pos="1248" absPos="463377" dir="down" profileRef="spp_2" vMax="350" />
+          </speedChanges>
+          <gradientChanges>
+            <gradientChange id="grc_14" name="LBP" pos="0" absPos="462129" slope="1.012" />
+            <gradientChange id="grc_15" name="LBP" pos="226" absPos="462354" slope="9.896" />
+            <gradientChange id="grc_16" name="LBP" pos="851" absPos="462980" slope="11.140" />
+            <gradientChange id="grc_17" name="HBP" pos="1032" absPos="463161" slope="8.910" />
+            <gradientChange id="grc_18" name="LBP" pos="1229" absPos="463358" slope="9.940" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_23" name="Start" pos="0" absPos="462129" radius="0" />
+            <radiusChange id="rc_24" name="OB" pos="91" absPos="462220" radius="0" />
+            <radiusChange id="rc_25" name="OE" pos="171" absPos="462300" radius="-713.999997" />
+            <radiusChange id="rc_26" name="OE" pos="270" absPos="462398" radius="-714.000000" />
+            <radiusChange id="rc_27" name="OB" pos="334" absPos="462462" radius="0" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+      <track id="tr_6" code="TURNAROUND" name="[TURNAROUND]" type="mainTrack">
+        <trackTopology>
+          <trackBegin id="beg_6" pos="0" absPos="462130">
+            <geoCoord coord="305276.430717893 6703327.32211489 8.68637083683216" />
+            <openEnd id="oe_4" />
+          </trackBegin>
+          <trackEnd id="end_6" pos="1182" absPos="463312">
+            <geoCoord coord="304315.06382800138 6702643.5183749981 18.436742988908218" />
+            <connection id="co_8" ref="co_9" />
+          </trackEnd>
+          <connections>
+            <switch id="sw_5" name="V." pos="316" absPos="462446" trackContinueCourse="right" trackContinueRadius="500" model="1:12 R500 FX 54E3 (KO-701306)" type="ordinarySwitch">
+              <geoCoord coord="305014.27290193771 6703153.9693979118 10.67637536733347" />
+              <connection id="co_11" ref="co_10" course="left" orientation="outgoing" />
+            </switch>
+            <switch id="sw_6" name="V." pos="540" absPos="462670" trackContinueCourse="right" trackContinueRadius="1200" model="1:18.4 R1200 BX 60E1 (KO-800081)" type="ordinarySwitch">
+              <geoCoord coord="304839.69133045862 6703013.6064341245 12.646838566518365" />
+              <connection id="co_13" ref="co_12" course="left" orientation="outgoing" />
+            </switch>
+            <switch id="sw_7" name="V." pos="414" absPos="462544" trackContinueCourse="left" trackContinueRadius="500" model="1:12 R500 FX 54E3 (KO-701306)" type="ordinarySwitch">
+              <geoCoord coord="304937.9048159052 6703092.569727812 11.538324895250875" />
+              <connection id="co_15" ref="co_14" course="right" orientation="incoming" />
+            </switch>
+            <switch id="sw_8" name="V." pos="510" absPos="462640" trackContinueCourse="right" trackContinueRadius="500" model="1:12 R500 FX 54E3 (KO-701306)" type="ordinarySwitch">
+              <geoCoord coord="304863.07518341922 6703032.4082520287 12.382903169436609" />
+              <connection id="co_17" ref="co_16" course="left" orientation="incoming" />
+            </switch>
+          </connections>
+        </trackTopology>
+        <trackElements>
+          <speedChanges>
+            <speedChange id="spc_12" pos="0" absPos="462130" dir="up" profileRef="spp_3" vMax="350" />
+            <speedChange id="spc_13" pos="219" absPos="462348" dir="down" profileRef="spp_3" vMax="350" />
+            <speedChange id="spc_14" pos="219" absPos="462348" dir="up" profileRef="spp_4" vMax="350" />
+            <speedChange id="spc_15" pos="1182" absPos="463312" dir="down" profileRef="spp_4" vMax="350" />
+          </speedChanges>
+          <gradientChanges>
+            <gradientChange id="grc_19" name="LBP" pos="0" absPos="462130" slope="3.005" />
+            <gradientChange id="grc_20" name="LBP" pos="123" absPos="462253" slope="8.276" />
+            <gradientChange id="grc_21" name="LBP" pos="270" absPos="462400" slope="8.796" />
+            <gradientChange id="grc_22" name="HBP" pos="712" absPos="462842" slope="7.098" />
+            <gradientChange id="grc_23" name="LBP" pos="840" absPos="462970" slope="10.746" />
+            <gradientChange id="grc_24" name="HBP" pos="1012" absPos="463142" slope="8.910" />
+          </gradientChanges>
+          <radiusChanges>
+            <radiusChange id="rc_28" name="Start" pos="0" absPos="462130" radius="0" />
+            <radiusChange id="rc_29" name="OB" pos="27" absPos="462157" radius="0" />
+            <radiusChange id="rc_30" name="OE" pos="87" absPos="462217" radius="-550.000002" />
+            <radiusChange id="rc_31" name="OE" pos="159" absPos="462288" radius="-550.000005" />
+            <radiusChange id="rc_32" name="OB" pos="219" absPos="462348" radius="0" />
+            <radiusChange id="rc_33" name="OB" pos="622" absPos="462752" radius="0" />
+            <radiusChange id="rc_34" name="OE" pos="682" absPos="462812" radius="1100.000007" />
+            <radiusChange id="rc_35" name="OE" pos="743" absPos="462872" radius="1099.999974" />
+            <radiusChange id="rc_36" name="OB" pos="803" absPos="462932" radius="0" />
+            <radiusChange id="rc_37" name="OB" pos="967" absPos="463097" radius="0" />
+            <radiusChange id="rc_38" name="OE" pos="991" absPos="463121" radius="-1199.999989" />
+            <radiusChange id="rc_39" name="OE" pos="1033" absPos="463163" radius="-1199.999985" />
+            <radiusChange id="rc_40" name="OB" pos="1057" absPos="463187" radius="0" />
+            <radiusChange id="rc_41" name="OB" pos="1108" absPos="463238" radius="0" />
+            <radiusChange id="rc_42" name="OE" pos="1126" absPos="463256" radius="-1200.000009" />
+          </radiusChanges>
+        </trackElements>
+        <infraAttrGroupRefs />
+      </track>
+    </tracks>
+    <trackGroups>
+      <line id="line_0">
+        <trackRef ref="tr_0" />
+        <trackRef ref="tr_1" />
+        <trackRef ref="tr_2" />
+        <trackRef ref="tr_3" />
+        <trackRef ref="tr_4" />
+        <trackRef ref="tr_5" />
+        <trackRef ref="tr_6" />
+      </line>
+    </trackGroups>
+  </infrastructure>
+  <infrastructureVisualizations xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.railml.org/schemas/2013">
+    <visualization version="2.2" infrastructureRef="inf_0" id="iv_0">
+      <lineVis ref="line_0">
+        <trackVis ref="tr_0">
+          <trackElementVis ref="co_10">
+            <position x="558" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="beg_0">
+            <position x="558" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_0">
+            <position x="558" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_0">
+            <position x="558" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_1">
+            <position x="635" y="550" />
+          </trackElementVis>
+          <trackElementVis ref="grc_1">
+            <position x="660" y="550" />
+          </trackElementVis>
+          <trackElementVis ref="grc_2">
+            <position x="711" y="550" />
+          </trackElementVis>
+          <trackElementVis ref="rc_2">
+            <position x="762" y="550" />
+          </trackElementVis>
+          <trackElementVis ref="co_0">
+            <position x="787" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="end_0">
+            <position x="787" y="700" />
+          </trackElementVis>
+        </trackVis>
+        <trackVis ref="tr_1">
+          <trackElementVis ref="co_12">
+            <position x="940" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="beg_1">
+            <position x="940" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_3">
+            <position x="940" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="spc_0">
+            <position x="940" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_3">
+            <position x="940" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_4">
+            <position x="965" y="600" />
+          </trackElementVis>
+          <trackElementVis ref="rc_5">
+            <position x="991" y="600" />
+          </trackElementVis>
+          <trackElementVis ref="grc_4">
+            <position x="1016" y="600" />
+          </trackElementVis>
+          <trackElementVis ref="grc_5">
+            <position x="1042" y="600" />
+          </trackElementVis>
+          <trackElementVis ref="rc_7">
+            <position x="1067" y="600" />
+          </trackElementVis>
+          <trackElementVis ref="spc_1">
+            <position x="1143" y="600" />
+          </trackElementVis>
+          <trackElementVis ref="co_2">
+            <position x="1118" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="end_1">
+            <position x="1118" y="700" />
+          </trackElementVis>
+        </trackVis>
+        <trackVis ref="tr_2">
+          <trackElementVis ref="co_4">
+            <position x="533" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="beg_2">
+            <position x="533" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="grc_6">
+            <position x="533" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="rc_8">
+            <position x="533" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="rc_9">
+            <position x="609" y="650" />
+          </trackElementVis>
+          <trackElementVis ref="grc_7">
+            <position x="635" y="650" />
+          </trackElementVis>
+          <trackElementVis ref="grc_8">
+            <position x="686" y="650" />
+          </trackElementVis>
+          <trackElementVis ref="rc_10">
+            <position x="736" y="650" />
+          </trackElementVis>
+          <trackElementVis ref="co_14">
+            <position x="813" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="end_2">
+            <position x="813" y="500" />
+          </trackElementVis>
+        </trackVis>
+        <trackVis ref="tr_3">
+          <trackElementVis ref="co_6">
+            <position x="101" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="beg_3">
+            <position x="101" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="grc_9">
+            <position x="101" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="spc_2">
+            <position x="101" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="rc_11">
+            <position x="101" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="rc_12">
+            <position x="152" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="rc_14">
+            <position x="253" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="grc_10">
+            <position x="330" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="rc_15">
+            <position x="431" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="rc_16">
+            <position x="508" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="grc_11">
+            <position x="838" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="rc_17">
+            <position x="864" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="spc_3">
+            <position x="914" y="450" />
+          </trackElementVis>
+          <trackElementVis ref="co_16">
+            <position x="889" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="end_3">
+            <position x="889" y="500" />
+          </trackElementVis>
+        </trackVis>
+        <trackVis ref="tr_4">
+          <trackElementVis ref="oe_0">
+            <position x="75" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="beg_4">
+            <position x="75" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="grc_12">
+            <position x="75" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="spc_4">
+            <position x="75" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="rc_18">
+            <position x="75" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="rc_20">
+            <position x="126" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="grc_13">
+            <position x="228" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="rc_21">
+            <position x="355" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="spc_5">
+            <position x="508" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="spc_6">
+            <position x="508" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="rc_22">
+            <position x="508" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="sw_2">
+            <position x="533" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="sw_0">
+            <position x="787" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="sw_1">
+            <position x="1118" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="spc_7">
+            <position x="1525" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="oe_1">
+            <position x="1525" y="700" />
+          </trackElementVis>
+          <trackElementVis ref="end_4">
+            <position x="1525" y="700" />
+          </trackElementVis>
+        </trackVis>
+        <trackVis ref="tr_5">
+          <trackElementVis ref="oe_2">
+            <position x="50" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="beg_5">
+            <position x="50" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="grc_14">
+            <position x="50" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="spc_8">
+            <position x="50" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="rc_23">
+            <position x="50" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="sw_3">
+            <position x="101" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="rc_25">
+            <position x="304" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="grc_15">
+            <position x="406" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="rc_26">
+            <position x="457" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="spc_9">
+            <position x="584" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="spc_10">
+            <position x="584" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="rc_27">
+            <position x="584" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="grc_16">
+            <position x="1270" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="grc_17">
+            <position x="1347" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="sw_4">
+            <position x="1474" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="grc_18">
+            <position x="1499" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="spc_11">
+            <position x="1550" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="oe_3">
+            <position x="1550" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="end_5">
+            <position x="1550" y="400" />
+          </trackElementVis>
+        </trackVis>
+        <trackVis ref="tr_6">
+          <trackElementVis ref="oe_4">
+            <position x="75" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="beg_6">
+            <position x="75" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_19">
+            <position x="75" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="spc_12">
+            <position x="75" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_28">
+            <position x="75" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_30">
+            <position x="177" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_20">
+            <position x="203" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_31">
+            <position x="279" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="spc_13">
+            <position x="381" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="spc_14">
+            <position x="381" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_32">
+            <position x="381" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_21">
+            <position x="482" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="sw_5">
+            <position x="558" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="sw_7">
+            <position x="813" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="sw_8">
+            <position x="889" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="sw_6">
+            <position x="940" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_34">
+            <position x="1092" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_22">
+            <position x="1169" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_35">
+            <position x="1194" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_36">
+            <position x="1219" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_23">
+            <position x="1245" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_38">
+            <position x="1296" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="grc_24">
+            <position x="1321" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_39">
+            <position x="1372" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_40">
+            <position x="1397" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="rc_42">
+            <position x="1423" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="spc_15">
+            <position x="1448" y="500" />
+          </trackElementVis>
+          <trackElementVis ref="co_8">
+            <position x="1474" y="400" />
+          </trackElementVis>
+          <trackElementVis ref="end_6">
+            <position x="1474" y="400" />
+          </trackElementVis>
+        </trackVis>
+      </lineVis>
+    </visualization>
+  </infrastructureVisualizations>
+</railml>
