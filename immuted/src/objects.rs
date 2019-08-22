@@ -72,9 +72,6 @@ impl Object {
 
                         let stem = if *has_distant { 2.0 } else { 1.0 };
                         ImDrawList_AddLine(draw_list, p, p + stem*tangent, c, 2.0);
-                        if *has_distant {
-                            ImDrawList_AddCircle(draw_list, p + 1.5*tangent + normal, scale*0.8, c, 8, 2.0);
-                        }
 
                         for s in state.iter() {
                             match s {
@@ -98,6 +95,10 @@ impl Object {
                             };
                         }
 
+                        // distant
+                        if *has_distant {
+                            ImDrawList_AddCircle(draw_list, p + 1.5*tangent + normal, scale*0.8, c, 8, 2.0);
+                        }
                         // main signal
                         ImDrawList_AddCircle(draw_list, p + stem*tangent + tangent, scale, c, 8, 2.0);
                     },
