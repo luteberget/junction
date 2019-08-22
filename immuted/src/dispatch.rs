@@ -105,7 +105,7 @@ pub enum SwitchStatus { Left, Right, Unknown }
 #[derive(Debug)]
 pub struct Instant {
     pub time :f32,
-    pub trains :Vec<Vec<(PtC,PtC)>>,
+    pub trains :Vec<TrainInstant>,
     pub infrastructure: InfrastructureState,
 }
 
@@ -432,7 +432,19 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
 
 
 
-pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<Vec<(PtC,PtC)>> {
+#[derive(Debug)]
+pub struct TrainInstant {
+    pub lines :Vec<(PtC,PtC)>,
+    pub signals_sighted: Vec<PtA>,
+}
+
+impl TrainInstant {
+    pub fn get_front(&self) -> Option<PtC> {
+        self.lines.last().map(|x| x.1)
+    }
+}
+
+pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<TrainInstant> {
     let mut trains = Vec::new();
     for (train_i, (name, params, events)) in history.trains.iter().enumerate() {
 
@@ -443,6 +455,7 @@ pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<Vec<(PtC
         let mut velocity = 0.0;
 
         let mut lines = Vec::new();
+        let mut sighted :HashSet<PtA> = HashSet::new();
         for e in events {
             match e {
                 TrainLogEvent::Edge(a,b) => { edges.push(((*a,*b), 0.0, 0.0)); },
@@ -455,8 +468,10 @@ pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<Vec<(PtC
                     t += *dt;
                 },
                 TrainLogEvent::Wait(dt) => { t += dt; },
-                //TrainLogEvent::Sight(id, value) => {
-                //},
+                TrainLogEvent::Sight(id, value) => {
+                    let pta = dgraph.object_ids[id];
+                    if *value { sighted.insert(pta); } else { sighted.remove(&pta); }
+                },
                 _ => {},
             }
 
@@ -469,7 +484,10 @@ pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<Vec<(PtC
             }
         }
 
-        trains.push(lines);
+        trains.push(TrainInstant {
+            lines: lines,
+            signals_sighted: sighted.into_iter().collect(),
+        });
     }
     trains
 }

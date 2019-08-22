@@ -471,8 +471,9 @@ impl Canvas {
         let (idx,time,_play) = self.active_dispatch.as_ref()?;
         let instant = self.instant_cache.get_instant(vm, *idx, *time)?;
         let color = config.color_u32(RailUIColorName::CanvasTrain);
+        let sight_color = config.color_u32(RailUIColorName::CanvasTrainSight);
         for t in instant.trains.iter() {
-            for (p1,p2) in t.iter() {
+            for (p1,p2) in t.lines.iter() {
                 unsafe {
                 ImDrawList_AddLine(draw_list,
                                    pos + self.view.world_ptc_to_screen(*p1),
@@ -480,7 +481,21 @@ impl Canvas {
                                    color, 7.0);
                 }
             }
+
+            if let Some(front) = t.get_front() {
+                for pta in t.signals_sighted.iter() {
+                    unsafe {
+                    ImDrawList_AddLine(draw_list,
+                                       pos + self.view.world_ptc_to_screen(front),
+                                       pos + self.view.world_ptc_to_screen(unround_coord(*pta)),
+                                       sight_color, 1.0);
+                    }
+                }
+            }
+
         }
+
+
         Some(())
     }
 
