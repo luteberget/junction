@@ -111,7 +111,7 @@ pub struct Instant {
 
 #[derive(Debug)]
 pub struct InfrastructureState {
-    pub signals :HashMap<PtA, SignalAspect>,
+    //pub signals :HashMap<PtA, SignalAspect>,
     //pub sections :HashMap<ObjectId, SectionStatus>,
     pub sections :Vec<(ObjectId, SectionStatus, Vec<(PtC,PtC)>)>,
     pub switches :HashMap<Pt, SwitchStatus>,
@@ -368,7 +368,7 @@ fn plot_trains(history :&History, dgraph :&DGraph) -> Vec<TrainGraph> {
 
 pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> InfrastructureState  {
     let mut object_state = HashMap::new();
-    let mut signals :HashMap<PtA, SignalAspect> = HashMap::new();
+    //let mut signals :HashMap<PtA, SignalAspect> = HashMap::new();
 
     for (obj_id, pta) in dgraph.object_ids.iter() {
         if let rolling_inf::StaticObject::Signal { has_distant } = dgraph.rolling_inf.objects[*obj_id] {
@@ -389,18 +389,13 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
         use rolling::output::history::*;
         match infevent {
             InfrastructureLogEvent::Wait(dt) => { t += dt; if t > time { break; } },
-            InfrastructureLogEvent::Authority(sig_d,l) => {
+            InfrastructureLogEvent::Authority(sig_d,(main,dist)) => {
                 if let Some(pta) = dgraph.object_ids.get(sig_d) {
-                    match l {
-                        Some(_) => {
-                            signals.insert(*pta, SignalAspect::Proceed);
-                            object_state.insert(*pta, vec![ObjectState::SignalProceed]);
-                        }
-                        None => {
-                            signals.insert(*pta, SignalAspect::Stop);
-                            object_state.insert(*pta, vec![ObjectState::SignalStop]);
-                        }
-                    };
+                    let state = vec![
+                        if main.is_some() { ObjectState::SignalProceed } else { ObjectState::SignalStop },
+                        if dist.is_some() { ObjectState::DistantProceed } else { ObjectState::DistantStop },
+                    ];
+                    object_state.insert(*pta,state);
                 }
             },
             InfrastructureLogEvent::Reserved(tvd,b) => {
@@ -431,7 +426,7 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
         sections_vec.push((tvd,status,section_lines));
     }
 
-    InfrastructureState { signals, sections: sections_vec, switches, object_state }
+    InfrastructureState { sections: sections_vec, switches, object_state }
 }
 
 

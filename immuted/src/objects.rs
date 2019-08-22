@@ -73,7 +73,7 @@ impl Object {
                         let stem = if *has_distant { 2.0 } else { 1.0 };
                         ImDrawList_AddLine(draw_list, p, p + stem*tangent, c, 2.0);
                         if *has_distant {
-                            ImDrawList_AddCircle(draw_list, p + 1.5*tangent + normal, scale, c, 8, 2.0);
+                            ImDrawList_AddCircle(draw_list, p + 1.5*tangent + normal, scale*0.8, c, 8, 2.0);
                         }
 
                         for s in state.iter() {
@@ -86,15 +86,15 @@ impl Object {
                                     let c = config.color_u32(RailUIColorName::CanvasSignalProceed);
                                     ImDrawList_AddCircleFilled(draw_list, p + stem*tangent + tangent, scale, c, 8);
                                 },
-                                ObjectState::DistantStop => {
+                                ObjectState::DistantStop if *has_distant => {
                                     let c = config.color_u32(RailUIColorName::CanvasSignalStop);
-                                    ImDrawList_AddCircleFilled(draw_list, p + stem*tangent + normal, scale, c, 8);
+                                    ImDrawList_AddCircleFilled(draw_list, p + 1.5*tangent + normal, scale*0.8, c, 8);
                                 },
                                 ObjectState::DistantProceed => {
                                     let c = config.color_u32(RailUIColorName::CanvasSignalProceed);
-                                    ImDrawList_AddCircleFilled(draw_list, p + stem*tangent + normal, scale, c, 8);
+                                    ImDrawList_AddCircleFilled(draw_list, p + 1.5*tangent + normal, scale*0.8, c, 8);
                                 },
-                                //_ => {}, // TODO Distant signaling
+                                _ => {},
                             };
                         }
 
