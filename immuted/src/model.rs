@@ -39,88 +39,6 @@ pub type PtA = glm::I32Vec2;
 pub type PtC = glm::Vec2;
 pub type Vc = Pt;
 
-pub struct Undoable<T> {
-    stack :Vec<T>,
-    pointer: usize,
-}
-
-impl<T : Clone + Default> Undoable<T> {
-    pub fn info(&self) -> String {
-        format!("Undo stack {}/{}", self.pointer, self.stack.len())
-    }
-
-    pub fn new() -> Undoable<T> {
-        Self::from(Default::default())
-    }
-
-    pub fn from(x :T) -> Undoable<T> {
-        Undoable {
-            stack: vec![x],
-            pointer: 0,
-        }
-    }
-
-    pub fn get(&self) -> &T {
-        &self.stack[self.pointer]
-    }
-
-    pub fn set(&mut self, v :T) {
-        self.pointer += 1;
-        self.stack.truncate(self.pointer);
-        self.stack.push(v);
-    }
-
-    pub fn can_undo(&self) -> bool {
-        self.pointer > 0
-    }
-
-    pub fn can_redo(&self) -> bool {
-        self.pointer + 1 < self.stack.len()
-    }
-
-    pub fn undo(&mut self) -> bool {
-        if self.pointer > 0 {
-            self.pointer -= 1;
-            true
-        } else {
-            false 
-        }
-    }
-
-    pub fn redo(&mut self) -> bool {
-        if self.pointer + 1 < self.stack.len() {
-            self.pointer += 1;
-            true
-        } else {
-            false 
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-#[derive(Debug)]
-#[derive(Serialize,Deserialize)]
-pub struct Object {
-    pub symbol :Symbol,
-    // TODO "semantics" (list of functions? main, distant, detector, etc.)
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Function { MainSignal, Detector }
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum ObjectState { SignalStop, SignalProceed }
-
-impl Object {
-    pub fn has_function(&self, f: &Function) -> bool {
-        // TODO replace with function list outside symbol/shape
-        match (f, self.symbol.shape) {
-            (Function::MainSignal, Shape::Signal) => true,
-            (Function::Detector, Shape::Detector) => true,
-            _ => false,
-        }
-    }
-}
 
 #[derive(Clone)]
 #[derive(Debug)]
@@ -286,4 +204,64 @@ impl Model {
     }
 
 
+}
+
+
+
+pub struct Undoable<T> {
+    stack :Vec<T>,
+    pointer: usize,
+}
+
+impl<T : Clone + Default> Undoable<T> {
+    pub fn info(&self) -> String {
+        format!("Undo stack {}/{}", self.pointer, self.stack.len())
+    }
+
+    pub fn new() -> Undoable<T> {
+        Self::from(Default::default())
+    }
+
+    pub fn from(x :T) -> Undoable<T> {
+        Undoable {
+            stack: vec![x],
+            pointer: 0,
+        }
+    }
+
+    pub fn get(&self) -> &T {
+        &self.stack[self.pointer]
+    }
+
+    pub fn set(&mut self, v :T) {
+        self.pointer += 1;
+        self.stack.truncate(self.pointer);
+        self.stack.push(v);
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.pointer > 0
+    }
+
+    pub fn can_redo(&self) -> bool {
+        self.pointer + 1 < self.stack.len()
+    }
+
+    pub fn undo(&mut self) -> bool {
+        if self.pointer > 0 {
+            self.pointer -= 1;
+            true
+        } else {
+            false 
+        }
+    }
+
+    pub fn redo(&mut self) -> bool {
+        if self.pointer + 1 < self.stack.len() {
+            self.pointer += 1;
+            true
+        } else {
+            false 
+        }
+    }
 }

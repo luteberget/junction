@@ -96,7 +96,7 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                     // Check what is in here
                     for obj_idx in model.nodes[curr_state.node].objects.iter() {
                         match &model.objects[*obj_idx] {
-                            StaticObject::Signal if curr_state.node != entry.node => {
+                            StaticObject::Signal { .. } if curr_state.node != entry.node => {
                                 let exit = RouteEntryExit::Signal(*obj_idx);
                                 match make_route(&config, &curr_state, entry.entry, exit) {
                                     Ok(route) => routes.push((route, curr_state.edges_taken.clone())),

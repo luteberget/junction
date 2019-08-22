@@ -137,15 +137,24 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         None
     };
 
-    for &(id,Object { symbol }) in model.objects.iter() {
-        if let Some((pt,param,_)) = model.get_closest_lineseg(symbol.loc) {
+    for (id,Object { loc, functions, .. }) in model.objects.iter() {
+        if let Some((pt,param,_)) = model.get_closest_lineseg(*loc) {
             if let Some((track_idx,pos_start,length)) = get_from_piece_map((pt.0.x,pt.0.y), (pt.1.x,pt.1.y)) {
                 let pos = pos_start + (param as f64) *length;
-                let (func,dir) = match symbol.shape {
-                    Shape::Detector => (Function::Detector, None),
-                    Shape::Signal   => (Function::MainSignal, Some(get_dir_from_side(&pt,symbol.loc))),
-                };
-                trackobjects.entry(*track_idx).or_insert(Vec::new()).push((pos, id, func, dir));
+
+                let track_objs = trackobjects.entry(*track_idx).or_insert(Vec::new());
+                for f in functions.iter() {
+                    match f {
+                        Function::Detector => {
+                            track_objs.push((pos,*id,Function::Detector,None));
+                        },
+                        Function::MainSignal { has_distant } => {
+                            // TODO this seems unnecessary when we can simply copy the `Function`s.
+                            track_objs.push((pos,*id, Function::MainSignal { has_distant: *has_distant },
+                                             Some(get_dir_from_side(&pt, *loc))));
+                        }
+                    }
+                }
             } else {
                 println!("WARNING: object trackside position error.");
             }

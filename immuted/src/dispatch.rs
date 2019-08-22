@@ -1,7 +1,7 @@
-use matches::matches;
 use std::collections::{HashMap, HashSet};
 use crate::viewmodel::*;
 use crate::model::*;
+use crate::objects::*;
 use crate::dgraph::*;
 use crate::util::VecMap;
 use rolling::input::staticinfrastructure as rolling_inf;
@@ -371,7 +371,7 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
     let mut signals :HashMap<PtA, SignalAspect> = HashMap::new();
 
     for (obj_id, pta) in dgraph.object_ids.iter() {
-        if matches!(dgraph.rolling_inf.objects[*obj_id], rolling_inf::StaticObject::Signal) {
+        if let rolling_inf::StaticObject::Signal { has_distant } = dgraph.rolling_inf.objects[*obj_id] {
             object_state.insert(*pta, vec![ObjectState::SignalStop]);
         }
     }

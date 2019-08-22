@@ -169,6 +169,13 @@ impl Canvas {
             ui::sep();
             let mut dispatch_action = None;
             if self.selection.len() == 1 {
+
+
+                // Object menu
+                if let Some(Ref::Object(pta)) = self.selection.iter().cloned().nth(0) {
+                    self.object_menu(pta, doc);
+                }
+
                 if let Some(il) = doc.get_data().interlocking.as_ref() {
                     if let Some(Ref::Node(pt)) = self.selection.iter().cloned().nth(0) {
                         if let Some(rs) = il.boundary_routes.get(&pt) {
@@ -187,11 +194,42 @@ impl Canvas {
                 }
             }
 
+            // This can be moved inside the route_selector?
             if let Some(route_id) = dispatch_action {
                 self.start_route(doc, route_id);
             }
         }
     }
+
+    fn object_menu(&mut self, pta :PtA, doc :&mut ViewModel) -> Option<()> {
+        let m = doc.get_undoable().get();
+        let obj = m.objects.get(&pta)?;
+
+        let mut set_distant = None;
+        for f in obj.functions.iter() {
+            match f {
+                Function::Detector => { ui::show_text("Detector"); },
+                Function::MainSignal { has_distant } => {
+                    ui::show_text("Main signal");
+                    let mut has_distant = *has_distant;
+                    unsafe {
+                        igCheckbox(const_cstr!("Distant signal").as_ptr(), &mut has_distant);
+                        if igIsItemEdited() { 
+                            set_distant = Some(has_distant);
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(d) = set_distant {
+            doc.edit_model(|new| {
+                new.objects.get_mut(&pta).unwrap().functions = vec![Function::MainSignal { has_distant: d }];
+            });
+        }
+        Some(())
+    }
+
+    //fn set_distant(&mut self, doc :&mut ViewModel, :W
 
     fn start_route(&mut self, doc:&mut ViewModel, route_idx :usize) {
         if let Some(il) = doc.get_data().interlocking.as_ref() {
@@ -303,10 +341,10 @@ impl Canvas {
                 Action::InsertObject(None) => {
                 },
                 Action::InsertObject(Some(obj)) => {
-                    let moved = obj.symbol.move_to(doc.get_undoable().get(),pointer_ingrid);
-                    obj.symbol.draw(pos,&self.view,draw_list,config.color_u32(RailUIColorName::CanvasSymbol),&[],config);
+                    let moved = obj.move_to(doc.get_undoable().get(),pointer_ingrid);
+                    obj.draw(pos,&self.view,draw_list,config.color_u32(RailUIColorName::CanvasSymbol),&[],config);
                     if let Some(err) = moved {
-                        let p = pos + self.view.world_ptc_to_screen(obj.symbol.loc);
+                        let p = pos + self.view.world_ptc_to_screen(obj.loc);
                         let window = ImVec2 { x: 4.0, y: 4.0 };
                         ImDrawList_AddRect(draw_list, p - window, p + window,
                                            config.color_u32(RailUIColorName::CanvasSymbolLocError),
@@ -314,7 +352,7 @@ impl Canvas {
                     } else  {
                         if igIsMouseReleased(0) {
                             let mut m = doc.get_undoable().get().clone();
-                            m.objects.insert(round_coord(obj.symbol.loc), obj.clone());
+                            m.objects.insert(round_coord(obj.loc), obj.clone());
                             doc.set_model(m);
                         }
                     }
@@ -348,19 +386,23 @@ impl Canvas {
             self.action = Action::DrawingLine(None);
         }
         if igIsKeyPressed('S' as _, false) {
-            if let Action::InsertObject(Some(Object { symbol: Symbol { shape: Shape::Detector, .. } } )) = &self.action {
+            let current_object_function = if let Action::InsertObject(Some(obj)) = &self.action {
+                obj.functions.iter().next()
+            } else { None };
+
+            if current_object_function == Some(&Function::Detector) {
                     self.action = Action::InsertObject(Some(
-                            Object { symbol: Symbol { 
+                            Object { 
                                 loc: glm::vec2(0.0,0.0), 
                                 tangent :glm::vec2(1,0),
-                                shape: Shape::Signal } } ));
+                                functions: vec![Function::MainSignal { has_distant: false }] } ));
 
             } else {
                     self.action = Action::InsertObject(Some(
-                            Object { symbol: Symbol { 
+                            Object { 
                                 loc: glm::vec2(0.0,0.0), 
                                 tangent :glm::vec2(1,0),
-                                shape: Shape::Detector } } ));
+                                functions: vec![Function::Detector] } ));
             }
         }
         }
@@ -623,7 +665,7 @@ impl Canvas {
                 let col = if selected || preview { color_obj_selected } else { color_obj };
                 let empty = vec![];
                 let state = object_states.get(pta).unwrap_or(&empty);
-                obj.symbol.draw(pos, &self.view, draw_list, col, state, config);
+                obj.draw(pos, &self.view, draw_list, col, state, config);
             }
         }
     }
@@ -641,8 +683,8 @@ impl Canvas {
             match id {
                 Ref::Object(pta) => {
                     let mut obj = model.objects.get_mut(pta).unwrap().clone();
-                    obj.symbol.move_to(&model, obj.symbol.loc + delta);
-                    let new_pta = round_coord(obj.symbol.loc);
+                    obj.move_to(&model, obj.loc + delta);
+                    let new_pta = round_coord(obj.loc);
                     model.objects.remove(pta);
                     model.objects.insert(new_pta,obj);
                     if *pta != new_pta { changed_ptas.push((*pta,new_pta)); }

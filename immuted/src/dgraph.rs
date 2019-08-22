@@ -1,8 +1,6 @@
-#![allow(unused_imports)]
 use rolling::input::staticinfrastructure as rolling_inf;
 use std::collections::{HashMap, HashSet};
 use ordered_float::OrderedFloat;
-use std::sync::Arc;
 use crate::model::*;
 use crate::objects::*;
 use crate::topology::*;
@@ -85,12 +83,12 @@ impl DGraphBuilder {
 
                     match func {
                         Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
-                        Function::MainSignal => { 
+                        Function::MainSignal { has_distant }=> { 
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
 
                             let (_cursor, obj) = dg.insert_object(c, 
-                                                                  rolling_inf::StaticObject::Signal);
+                                  rolling_inf::StaticObject::Signal { has_distant: has_distant });
                             static_signals.insert(id, obj);
                             object_ids.insert(obj, id);
                         },
