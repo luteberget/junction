@@ -9,7 +9,7 @@ mod topology;
 
 fn main() {
     let mut grid_canvas_obj = grid_canvas::SchematicCanvas::new();
-    backend_glfw::backend(|_| {
+    backend_glfw::backend("hello",None,14.0,|_| {
         unsafe { 
             igBegin(const_cstr!("grid").as_ptr(), std::ptr::null_mut(), 0 as _ );
             let size = igGetContentRegionAvail_nonUDT2();
