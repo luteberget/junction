@@ -41,13 +41,6 @@ pub fn dist_to_line_sqr((x,y) :(f32,f32), (p1,p2) :(Pt, Pt)) -> f32 {
 
 #[derive(Debug)]
 pub enum Tool { Scroll, Draw, Modify, Erase }
-// TODO: remove scroll (use control-drag always for scroll)
-//       remove erase (use select/modify and delete button or context menu)
-//       draw mode should select between topology and object type
-
-#[derive(Debug)]
-#[derive(Serialize, Deserialize)]
-pub struct PtA(Pt);
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
@@ -59,53 +52,15 @@ pub struct Document {
 
     // Objects are stored by their position. 
     // The rest of the information is derived
-    objects :HashMap<PtA, (PtC,Object)>,
+    objects :Vec<(PtC,Object)>,
     node_data :HashMap<Pt, NDType>, // copied into railway when topology has changed
-
-    //dgraph :Option<DGraph>,
-    vehicles :Vec<Vehicle>,
-    dispatches :Vec<Vec<(f32,Command)>>,
-
-    movements :Vec<()>,
 }
-
-// Synthesis is another editor?! 
-// Copies topology + vehicles + movements, then manipulates objects.
-
-pub struct DerivedStuff {
-    railway :Railway, // node types, track lengths, track/lineseg correspondance
-    dgraph :DGraph, // map Pt<->nodeId, PtA<->objectId
-    routes :Routes, // routes, map signal/routebegin PtA<->routes
-    history :Vec<History>, // dispatch<->history
-}
-
-#[derive(Debug)]
-#[derive(Serialize, Deserialize)]
-pub struct Vehicle {
-    name :String,
-    length: f64, 
-    max_acc: f64,
-    max_brk: f64,
-    max_vel: f64,
-}
-
-#[derive(Serialize, Deserialize)]
-#[derive(Debug)]
-pub enum Command {
-    Train(Pt, usize), // Vehicle index
-    Route(PtA, PtA, Option<usize>), // TODO this needs to refer to routes!
-    // TODO Swing(PtA, usize), // Set route end point's new overlap by indexing into list of
-    // alternatives
-}
-
-
 
 #[derive(Debug)]
 pub struct SchematicCanvas {
     document :Document,
     tool: Tool,
-    selection : (HashSet<(Pt,Pt)>, HashSet<PtA>),
-    current_dispatch :Option<usize>,
+    selection : (HashSet<(Pt,Pt)>, HashSet<usize>),
     scale: Option<usize>,
     translate :Option<ImVec2>,
     adding_line :Option<Pt>,
@@ -282,9 +237,9 @@ impl SchematicCanvas {
                 }
             }
         });
-        for (i,(pa,(p,_))) in self.document.objects.iter().enumerate() {
+        for (i,(p,_)) in self.document.objects.iter().enumerate() {
             if a.0 <= p.0 && p.0 <= b.0 && a.1 <= p.1 && p.1 <= b.1 {
-                self.selection.1.insert(pa);
+                self.selection.1.insert(i);
             }
         }
 
@@ -294,14 +249,14 @@ impl SchematicCanvas {
     pub fn set_selection_closest(&mut self, pt :PtC, threshold :f32) {
         let t2 = threshold*threshold;
         let mut near = Vec::new();
-        pub enum Thing { Object(PtA), Edge(Pt,Pt) }
+        pub enum Thing { Object(usize), Edge(Pt,Pt) }
         self.document.pieces.iter(|p1,p2| {
             let dist = dist_to_line_sqr(pt,(*p1,*p2));
             if dist < t2 { near.push((dist,Thing::Edge(*p1,*p2))); }
         });
-        for (i,(p,(q,_))) in self.document.objects.iter().enumerate() {
+        for (i,(q,_)) in self.document.objects.iter().enumerate() {
             let dist = lsqr(pt,*q);
-            if dist < t2 { near.push((dist,Thing::Object(PtA(Pt { x: 10000*q.0 as _, y: 10000*q.1 as _ })))); }
+            if dist < t2 { near.push((dist,Thing::Object(i))); }
         }
         let sel = near.into_iter().fold(None, |min, x| match min {
             None => Some(x),
@@ -781,7 +736,7 @@ pub fn schematic_canvas(size: &ImVec2, model: &mut SchematicCanvas) {
         }
 
         // Draw objects
-        for (obj_i,(_,(p,o))) in model.document.objects.iter().enumerate() {
+        for (obj_i,(p,o)) in model.document.objects.iter().enumerate() {
             let p = model.world_to_screen_cont(*p);
             let selected = model.selection.1.contains(&obj_i);
             match o.data {
