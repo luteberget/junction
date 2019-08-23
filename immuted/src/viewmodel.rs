@@ -30,7 +30,7 @@ pub struct ViewModel {
     model: Undoable<Model, EditClass>,
     pub fileinfo: file::FileInfo,
     derived :Derived,
-    thread_pool :ThreadPool,
+    pub thread_pool :ThreadPool,
     get_data :Option<Receiver<SetData>>,
 }
 
@@ -142,21 +142,18 @@ impl ViewModel {
     pub fn set_model(&mut self, m :Model, cl :Option<EditClass>) {
         info!("Updating model");
         self.model.set(m, cl);
-        self.fileinfo.set_unsaved();
-        self.update();
+        self.on_changed();
     }
 
     pub fn override_edit_class(&mut self, cl :EditClass) {
         self.model.override_edit_class(cl);
     }
 
-    pub fn undo(&mut self) {
-        self.model.undo();
-        self.update();
-    }
+    pub fn undo(&mut self) { if self.model.undo() { self.on_changed(); } }
+    pub fn redo(&mut self) { if self.model.redo() { self.on_changed(); } }
 
-    pub fn redo(&mut self) {
-        self.model.redo();
+    fn on_changed(&mut self) {
+        self.fileinfo.set_unsaved();
         self.update();
     }
 

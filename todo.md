@@ -22,7 +22,7 @@
          or only rep.balise
   * ertms?
 
-* undo classification (avoid excessive undos)
+* X undo classification (avoid excessive undos)
 
 ## interlocking
 * inspectable interlocking

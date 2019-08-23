@@ -10,6 +10,7 @@ use crate::dispatch::*;
 use crate::view::*;
 use crate::interlocking::*;
 use crate::viewmodel::*;
+use crate::diagram::Diagram;
 use crate::ui::ImVec2;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
@@ -285,7 +286,7 @@ impl Canvas {
         }
     }
 
-    pub fn draw(&mut self, doc :&mut ViewModel, config :&Config) {
+    pub fn draw(&mut self, doc :&mut ViewModel, config :&Config, diagram :&mut Diagram) {
         self.toolbar(doc);
 
         let zero = ImVec2 { x: 0.0, y: 0.0 };
@@ -296,7 +297,7 @@ impl Canvas {
 
             // TODO move keyboard shortcuts out of Canvas
             // Hotkeys
-            self.handle_global_keys(doc);
+            self.handle_global_keys(doc, diagram);
             //hotkey!(CTRL+Z, { doc.undo(); });
             let handle_keys = igIsItemActive() || !igIsAnyItemActive();
             if handle_keys { self.handle_keys(); }
@@ -409,7 +410,7 @@ impl Canvas {
         }
     }
 
-    pub fn handle_global_keys(&mut self, doc :&mut ViewModel) { unsafe {
+    pub fn handle_global_keys(&mut self, doc :&mut ViewModel, diagram :&mut Diagram) { unsafe {
         let io = igGetIO();
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Z' as _, false) {
             doc.undo();
@@ -420,6 +421,23 @@ impl Canvas {
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Y' as _, false) {
             doc.redo();
         }
+
+        if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('S' as _, false) {
+            crate::mainmenu::save(doc);
+        }
+        if (*io).KeyCtrl && (*io).KeyShift && igIsKeyPressed('S' as _, false) {
+            crate::mainmenu::save_as(doc);
+        }
+        if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('O' as _, false) {
+            crate::mainmenu::load(doc, self, diagram);
+        }
+
+        if !(*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed(' ' as _, false) {
+            if let Some((_,_,play)) = self.active_dispatch.as_mut() {
+                *play = !*play;
+            }
+        }
+
     } }
 
     pub fn scroll(&mut self) {

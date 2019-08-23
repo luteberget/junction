@@ -14,6 +14,35 @@ pub struct ShowWindows {
     pub import :import::ImportWindow,
 }
 
+pub fn save(doc :&mut viewmodel::ViewModel) {
+    let model = doc.get_undoable().get().clone();
+    match file::save_interactive(&mut doc.fileinfo, model) {
+        Err(x) => { error!("Could not save file: {}", x); }
+        Ok(_) => {},
+    };
+}
+
+pub fn save_as(doc :&mut viewmodel::ViewModel) {
+        let model = doc.get_undoable().get().clone();
+        match file::save_as_interactive(&mut doc.fileinfo, model) {
+            Err(x) => { error!("Could not save file: {}", x); }
+            Ok(_) => {},
+        };
+}
+
+pub fn load(doc :&mut viewmodel::ViewModel, canvas :&mut canvas::Canvas, diagram :&mut diagram::Diagram) {
+        let mut fileinfo = doc.fileinfo.clone();
+        if let Ok(Some(m)) = file::load_doc(&mut fileinfo) {
+            info!("Loading model from file succeeded.");
+            let pool = doc.thread_pool.clone();
+            *doc = viewmodel::ViewModel::new(model::Undoable::from(m), fileinfo, pool);
+            *canvas = canvas::Canvas::new();
+            *diagram = diagram::Diagram::new();
+        } else {
+            info!("Loading file failed.");
+        }
+}
+
 pub fn main_menu(show :&mut ShowWindows,
                  doc :&mut viewmodel::ViewModel, canvas :&mut canvas::Canvas, diagram :&mut diagram::Diagram,
                  thread_pool :&threadpool::ThreadPool) {
@@ -31,34 +60,17 @@ pub fn main_menu(show :&mut ShowWindows,
                 }
 
                 if igMenuItemBool(const_cstr!("Load file...").as_ptr(), std::ptr::null(), false, true) {
-                    let mut fileinfo = doc.fileinfo.clone();
-                    if let Ok(Some(m)) = file::load_doc(&mut fileinfo) {
-                        info!("Loading model from file succeeded.");
-                        *doc = viewmodel::ViewModel::new(model::Undoable::from(m), fileinfo, thread_pool.clone());
-                        *canvas = canvas::Canvas::new();
-                        *diagram = diagram::Diagram::new();
-                    } else {
-                        info!("Loading file failed.");
-                    }
+                    load(doc, canvas, diagram);
                 }
 
                 let save_label = if doc.fileinfo.filename.is_some() { const_cstr!("Save") } 
                                     else { const_cstr!("Save...") };
 
                 if igMenuItemBool(save_label.as_ptr(), std::ptr::null(), false, true) {
-                    let model = doc.get_undoable().get().clone();
-                    match file::save_interactive(&mut doc.fileinfo, model) {
-                        Err(x) => { error!("Could not save file: {}", x); }
-                        Ok(_) => {},
-                    };
+                    save(doc);
                 }
 
                 if igMenuItemBool(const_cstr!("Save as...").as_ptr(), std::ptr::null(), false, true) {
-                    let model = doc.get_undoable().get().clone();
-                    match file::save_as_interactive(&mut doc.fileinfo, model) {
-                        Err(x) => { error!("Could not save file: {}", x); }
-                        Ok(_) => {},
-                    };
                 }
 
                 ui::sep();

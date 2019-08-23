@@ -102,12 +102,12 @@ fn main() {
             if canvas.active_dispatch.is_some() {
                 ui::Splitter::vertical(&mut splitsize)
                     .left(const_cstr!("canvas").as_ptr(), || { 
-                        canvas.draw(&mut doc, &config); })
+                        canvas.draw(&mut doc, &config, &mut diagram); })
                     .right(const_cstr!("graph").as_ptr(), || { 
                         diagram.draw(&mut doc, &mut canvas, &config); });
 
             } else {
-                canvas.draw(&mut doc, &config);
+                canvas.draw(&mut doc, &config, &mut diagram);
             }
         });
 
