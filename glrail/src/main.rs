@@ -60,26 +60,18 @@ fn gui_destroy() {
 }
 
 
-fn main() -> Result<(), String>{
-    use log::LevelFilter;
-    simple_logging::log_to_stderr(LevelFilter::Warn);
-
-    let json_types: [*const i8; 6] = [
-        const_cstr!("Null").as_ptr(),
-        const_cstr!("Bool").as_ptr(),
-        const_cstr!("Num").as_ptr(),
-        const_cstr!("Text").as_ptr(),
-        const_cstr!("Obj").as_ptr(),
-        const_cstr!("Arr").as_ptr(),
-    ];
-
-
-    let mut app = app::App::new();
-    //let mut action_queue = Vec::new();
+/*
+fn linux_backend_begin(handle_event :impl FnMut(Event), draw :impl FnMut()) -> Result<(), String> {
 
     let sdl_context = sdl2::init()?;
     let event_subsystem = sdl_context.event()?;
     let video_subsystem = sdl_context.video()?;
+
+    video_subsystem.gl_attr().set_context_profile(sdl2::video::GLProfile::Core);
+    video_subsystem.gl_attr().set_context_version(3,0);
+    //video_subsystem.gl_attr().set_context_minor_version(2);
+    
+
     let window = video_subsystem
         .window("glrail", 800, 600)
         .opengl()
@@ -87,6 +79,8 @@ fn main() -> Result<(), String>{
         .position_centered()
         .build()
         .map_err(|e| format!("{}", e))?;
+
+
 
     let _gl_context = window.gl_create_context().expect("Couldn't create GL context");
     gl::load_with(|s| video_subsystem.gl_get_proc_address(s) as _);
@@ -98,12 +92,7 @@ fn main() -> Result<(), String>{
         .build()
         .map_err(|e| format!("{}", e))?;
 
-        //let mut ev = SDL_Event { type_: SDL_EventType::SDL_USEREVENT as _, user: ev };
-    //println!("Using SDL_Renderer \"{}\"", canvas.info().name);
-    //canvas.set_draw_color(sdl2::pixels::Color::RGB(255, 0, 0));
-    //canvas.clear();
-    //canvas.present();
-
+        
     let texture_creator : sdl2::render::TextureCreator<_> 
         = canvas.texture_creator();
 
@@ -112,40 +101,10 @@ fn main() -> Result<(), String>{
 
     unsafe {
             use imgui_sys_bindgen::sys::*;
-        //    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-
-		//      //ImVector<ImWchar> ranges;
-        //    let ranges = ImVector_ImWchar_ImVector_ImWchar();
-		//      //ImFontGlyphRangesBuilder builder;
-        //    let builder = ImFontGlyphRangesBuilder_ImFontGlyphRangesBuilder();
-        //    ImFontGlyphRangesBuilder_AddText(builder, black_left.as_ptr(), ptr::null());
-        //    ImFontGlyphRangesBuilder_AddText(builder, black_right.as_ptr(), ptr::null());
-        //    //
-        //    //builder.AddRanges(io.Fonts->GetGlyphRangesJapanese()); // Add one of the default ranges
-        //    //ImFontGlyphRangesBuilder_AddRanges( builder, ImFontAtlas_GetGlyphRangesJapanese((*io).Fonts));
-        //    ImFontGlyphRangesBuilder_AddRanges( builder, ImFontAtlas_GetGlyphRangesDefault((*io).Fonts));
-
-		//    //builder.BuildRanges(&ranges);                          // Build the final result (ordered ranges with all the unique characters submitted)
-        //    ImFontGlyphRangesBuilder_BuildRanges(builder, ranges);
-
-		//    //io.Fonts->AddFontFromFileTTF("myfontfile.ttf", size_in_pixels, NULL, ranges.Data);
-		//    //io.Fonts->Build();                                     // Build the atlas while 'ranges' is still in scope and not deleted.
-
-
-        //    let fconfig = ptr::null();
-        //    //let franges = ptr::null();
-        //    ImFontAtlas_AddFontFromFileTTF((*io).Fonts, 
-        //           const_cstr!("DejaVuSansMono.ttf").as_ptr(),
-        //           22.0, fconfig, (*ranges).Data);
-        //    ImFontAtlas_Build((*io).Fonts);
-
-        
         igStyleColorsLight(ptr::null_mut());
         ImFontAtlas_AddFontFromFileTTF((*io).Fonts, 
-        //       //const_cstr!("DejaVuSansMono.ttf").as_ptr(),
                const_cstr!("Roboto-Medium.ttf").as_ptr(),
                16.0, ptr::null(), ptr::null());
-        //ImFontAtlas_AddFontDefault((*io).Fonts, ptr::null());
 
         let config = ImFontConfig_ImFontConfig();
         (*config).MergeMode = true;
@@ -161,20 +120,94 @@ fn main() -> Result<(), String>{
         ImFontAtlas_Build((*io).Fonts);
     }
 
-    let mut imgui_renderer = imgui_sys_opengl::Renderer::new(|s| video_subsystem.gl_get_proc_address(s) as _);
+        let mut imgui_renderer = imgui_sys_opengl::Renderer::new(|s| video_subsystem.gl_get_proc_address(s) as _);
     let mut imgui_sdl = sdlinput::ImguiSdl2::new();
 
-
-
-
     use sdl2::event::Event;
+
+    
+        unsafe {
+        use imgui_sys_bindgen::sys::*;
+        //(*imgui_sys_bindgen::sys::igGetIO()).IniFilename = ptr::null_mut();
+        (*igGetIO()).ConfigFlags |= ImGuiConfigFlags__ImGuiConfigFlags_NavEnableKeyboard as i32;
+
+        //igMayaStyle();
+        //CherryTheme();
+    }
+
+    'running: loop {
+            let mut render = false;
+              let event =  event_pump.wait_event();
+              imgui_sdl.handle_event(&event);
+              if exit_on(&event) { break 'running; }
+              if not_mousemotion(&event) { render = true; }
+              app_event(&event, &mut app, capture_command_key, capture_canvas_key);
+
+              for event2 in event_pump.poll_iter() {
+                  imgui_sdl.handle_event(&event2);
+                  if exit_on(&event2) { break 'running; }
+                  if not_mousemotion(&event2) { render = true; }
+                  app_event(&event2, &mut app, capture_command_key, capture_canvas_key);
+              }
+
+            for _ in 1..=3 {
+              for event2 in event_pump.poll_iter() {
+                  imgui_sdl.handle_event(&event2);
+                  if exit_on(&event2) { break 'running; }
+                  app_event(&event2, &mut app, capture_command_key, capture_canvas_key);
+              }
+
+              let c = sdl2::pixels::Color::RGB(15,200,150);
+              //println!("frame! color {:?}", c);
+              canvas.set_draw_color(c);
+              canvas.clear();
+              //gui_frame();
+
+              imgui_sdl.frame(&canvas.window(), &event_pump.mouse_state());
+
+              imgui_renderer.render();
+              canvas.present();
+
+
+              if app.want_to_quit {
+                  break 'running;
+              }
+            }
+        }
+
+
+    gui_destroy();
+
+    Ok(())
+}
+*/
+
+
+fn main() -> Result<(), String>{
+    use sdl2::event::Event;
+
+    use log::LevelFilter;
+    simple_logging::log_to_stderr(LevelFilter::Warn);
+
+    let json_types: [*const i8; 6] = [
+        const_cstr!("Null").as_ptr(),
+        const_cstr!("Bool").as_ptr(),
+        const_cstr!("Num").as_ptr(),
+        const_cstr!("Text").as_ptr(),
+        const_cstr!("Obj").as_ptr(),
+        const_cstr!("Arr").as_ptr(),
+    ];
+
+
+    let mut app = app::App::new();
+
+
     fn not_mousemotion(ev :&Event) -> bool {
         if let &Event::MouseMotion { .. } = ev { false } else { true }
     }
     fn exit_on(ev :&Event) -> bool {
         if let &Event::Quit { .. } = ev { true } else { false }
     }
-
     fn app_event(ev :&Event, app :&mut App, command_input :bool, canvas_input :bool) {
         //println!("app event {:?}");
         match ev {
@@ -272,14 +305,6 @@ fn main() -> Result<(), String>{
 
     //let win1 = CString::new("sidebar1").unwrap();
 
-    unsafe {
-        use imgui_sys_bindgen::sys::*;
-        //(*imgui_sys_bindgen::sys::igGetIO()).IniFilename = ptr::null_mut();
-        (*igGetIO()).ConfigFlags |= ImGuiConfigFlags__ImGuiConfigFlags_NavEnableKeyboard as i32;
-
-        //igMayaStyle();
-        //CherryTheme();
-    }
 
     let mut user_data = serde_json::json!({});
 
@@ -297,42 +322,34 @@ fn main() -> Result<(), String>{
     let tvd_col  = 175 + (255<<8) + (175<<16) + (255<<24);
     let selected_col  = 175 + (175<<8) + (255<<16) + (255<<24);
     let line_hover_col  = 255 + (50<<8) + (50<<16) + (255<<24);
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    //let mut event_pump = sdl_context.event_pump().unwrap();
     let mut i :i64 = 0;
     let mut capture_command_key = false;
     let mut capture_canvas_key = false;
 
-    let mut events = |mut f: Box<FnMut(sdl2::event::Event) -> bool>| {
-        'running: loop {
-            let mut render = false;
-              let event =  event_pump.wait_event();
-              imgui_sdl.handle_event(&event);
-              if exit_on(&event) { break 'running; }
-              if not_mousemotion(&event) { render = true; }
-              app_event(&event, &mut app, capture_command_key, capture_canvas_key);
+/*
 
-              for event2 in event_pump.poll_iter() {
-                  imgui_sdl.handle_event(&event2);
-                  if exit_on(&event2) { break 'running; }
-                  if not_mousemotion(&event2) { render = true; }
-                  app_event(&event2, &mut app, capture_command_key, capture_canvas_key);
-              }
+    linux_backend_begin(|ev| {
+        use sdl2::event::Event;
+        use sdl2::keyboard::Keycode;
+        match ev {
+                Event::Quit {..} |
+                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    return true;
+                },
 
-            for _ in 1..=3 {
-              for event2 in event_pump.poll_iter() {
-                  imgui_sdl.handle_event(&event2);
-                  if exit_on(&event2) { break 'running; }
-                  app_event(&event2, &mut app, capture_command_key, capture_canvas_key);
-              }
+                _ => {},
 
-              let c = sdl2::pixels::Color::RGB(15,15,15);
-              //println!("frame! color {:?}", c);
-              canvas.set_draw_color(c);
-              canvas.clear();
-              //gui_frame();
+        }
 
-              imgui_sdl.frame(&canvas.window(), &event_pump.mouse_state());
+        return false;
 
+    },
+    || {
+
+        */
+
+    backend_glfw::backend(|req| {
               use self::app::*;
               use imgui_sys_bindgen::sys::*;
               let v2_0 = ImVec2 { x: 0.0, y: 0.0 };
@@ -344,6 +361,7 @@ fn main() -> Result<(), String>{
               //if let Derive::Ok(Schematic { pos_map, .. }) = &app.model.inf.schematic {
               //    println!("pos_map:  {:?}", pos_map);
               //}
+                let io = unsafe { imgui_sys_bindgen::sys::igGetIO() };
 
               unsafe {
                   if app.show_imgui_demo {
@@ -352,9 +370,9 @@ fn main() -> Result<(), String>{
 
                   let mouse_pos = (*io).MousePos;
 
-                  let viewport = igGetMainViewport();
-                  igSetNextWindowPos((*viewport).Pos, ImGuiCond__ImGuiCond_Always as _, v2_0);
-                  igSetNextWindowSize((*viewport).Size, ImGuiCond__ImGuiCond_Always as _ );
+                  //let viewport = igGetMainViewport();
+                  igSetNextWindowPos(ImVec2 { x: 0.0, y: 0.0 }, ImGuiCond__ImGuiCond_Always as _, v2_0);
+                  igSetNextWindowSize((*io).DisplaySize, ImGuiCond__ImGuiCond_Always as _ );
                   let dockspace_window_flags = ImGuiWindowFlags__ImGuiWindowFlags_NoTitleBar
                       | ImGuiWindowFlags__ImGuiWindowFlags_NoCollapse
                       | ImGuiWindowFlags__ImGuiWindowFlags_NoResize
@@ -364,7 +382,9 @@ fn main() -> Result<(), String>{
 
                   igBegin(const_cstr!("Root").as_ptr(), ptr::null_mut(), dockspace_window_flags as _ );
                   
-                  let root_size = igGetContentRegionAvail();
+                  let root_size = igGetContentRegionAvail_nonUDT2();
+                  let root_size = ImVec2 { x: root_size.x, y: root_size.y}; 
+//                  let root_size = ImVec2 { x : 500.0, y: 500.0};
                   let mut main_column_size = ImVec2 { x: root_size.x - sidebar_size, y: root_size.y };
 
                   igSplitter(true, 4.0, &mut sidebar_size as _, &mut main_column_size.x as _, 100.0, 100.0, -1.0);
@@ -446,35 +466,9 @@ fn main() -> Result<(), String>{
 
               }
 
-              imgui_renderer.render();
-              canvas.present();
+              true
+        });
 
-
-              if app.want_to_quit {
-                  break 'running;
-              }
-            }
-        }
-    };
-
-    events(Box::new(|ev| {
-        use sdl2::event::Event;
-        use sdl2::keyboard::Keycode;
-        match ev {
-                Event::Quit {..} |
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    return true;
-                },
-
-                _ => {},
-
-        }
-
-        return false;
-
-    }));
-
-    gui_destroy();
 
     Ok(())
 }

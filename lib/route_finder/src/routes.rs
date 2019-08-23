@@ -93,42 +93,40 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                 loop { // TODO make absolutely sure this terminates
                     let mut is_exit = false;
 
-                    if curr_state.node != entry.node {
-                        // Check what is in here
-                        for obj_idx in model.nodes[curr_state.node].objects.iter() {
-                            match &model.objects[*obj_idx] {
-                                StaticObject::Signal => {
-                                    let exit = RouteEntryExit::Signal(*obj_idx);
-                                    match make_route(&config, &curr_state, entry.entry, exit) {
-                                        Ok(route) => routes.push((route, curr_state.edges_taken.clone())),
-                                        Err(err) => issues.push(err),
-                                    }
+                    // Check what is in here
+                    for obj_idx in model.nodes[curr_state.node].objects.iter() {
+                        match &model.objects[*obj_idx] {
+                            StaticObject::Signal { .. } if curr_state.node != entry.node => {
+                                let exit = RouteEntryExit::Signal(*obj_idx);
+                                match make_route(&config, &curr_state, entry.entry, exit) {
+                                    Ok(route) => routes.push((route, curr_state.edges_taken.clone())),
+                                    Err(err) => issues.push(err),
+                                }
 
-                                    if entry_visited.insert(curr_state.node) {
-                                        entry_stack.push(RouteEntry {
-                                            node: curr_state.node,
-                                            entry: RouteEntryExit::Signal(*obj_idx),
-                                            section: curr_state.entered_sections.iter().nth(0).map(|x| x.0),
-                                        });
-                                    }
+                                if entry_visited.insert(curr_state.node) {
+                                    entry_stack.push(RouteEntry {
+                                        node: curr_state.node,
+                                        entry: RouteEntryExit::Signal(*obj_idx),
+                                        section: curr_state.entered_sections.iter().nth(0).map(|x| x.0),
+                                    });
+                                }
 
-                                    is_exit = true;
-                                },
-                                StaticObject::TVDLimit { enter, exit } => {
-                                    if let Some(s) = enter {
-                                        curr_state.entered_sections.push((*s, curr_state.length));
+                                is_exit = true;
+                            },
+                            StaticObject::TVDLimit { enter, exit } => {
+                                if let Some(s) = enter {
+                                    curr_state.entered_sections.push((*s, curr_state.length));
+                                }
+                                if let Some(s) = exit {
+                                    if let Some(i) = curr_state.entered_sections.iter().position(|y| y.0 == *s) {
+                                        let e = curr_state.entered_sections.remove(i);
+                                        curr_state.exited_sections.push((e.0, e.1, curr_state.length));
+                                    } else {
+                                        issues.push(ConvertRouteIssue::ExitedUnenteredSection(entry.entry, *s));
                                     }
-                                    if let Some(s) = exit {
-                                        if let Some(i) = curr_state.entered_sections.iter().position(|y| y.0 == *s) {
-                                            let e = curr_state.entered_sections.remove(i);
-                                            curr_state.exited_sections.push((e.0, e.1, curr_state.length));
-                                        } else {
-                                            issues.push(ConvertRouteIssue::ExitedUnenteredSection(entry.entry, *s));
-                                        }
-                                    }
-                                },
-                                _ => {} // sight, switch, sections, are not relevant
-                            }
+                                }
+                            },
+                            _ => {} // sight, switch, sections, are not relevant
                         }
                     }
 

@@ -89,10 +89,12 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
 
                       // TODO move this out of main loop
                 let caret_right = const_cstr!("\u{f0da}");
+                let crptr = caret_right.as_ptr();
                 let caret_left = const_cstr!("\u{f0d9}");
+                let clptr = caret_left.as_ptr();
                 let (caret_left_halfsize,caret_right_halfsize) = unsafe {
-                    let mut l = igCalcTextSize(caret_left.as_ptr(), ptr::null(), false, -1.0);
-                    let mut r = igCalcTextSize(caret_right.as_ptr(), ptr::null(), false, -1.0);
+                    let mut l = igCalcTextSize_nonUDT2(clptr, ptr::null(), false, -1.0);
+                    let mut r = igCalcTextSize_nonUDT2(clptr, ptr::null(), false, -1.0);
                     l.x *= 0.5; l.y *= 0.5; r.x *= 0.5; r.y *= 0.5;
                     (l,r)
                 };
@@ -118,13 +120,18 @@ pub fn canvas(mainmain_size: ImVec2, app :&mut App) -> bool {
       },
       Derive::Ok(ref s) => {
           let mut hovered_item = None;
-          let canvas_pos = igGetCursorScreenPos();
-          let mut canvas_size = igGetContentRegionAvail();
+          let canvas_pos = igGetCursorScreenPos_nonUDT2();
+          let canvas_pos = ImVec2 { x : canvas_pos.x, y: canvas_pos.y };
+          let mut canvas_size = igGetContentRegionAvail_nonUDT2();
+          let mut canvas_size = ImVec2 { x: canvas_size.x, y: canvas_size.y };
+                    println!("content region avail {:?}", canvas_size);
+
           let canvas_lower = ImVec2 { x: canvas_pos.x + canvas_size.x,
                                       y: canvas_pos.y + canvas_size.y };
           if canvas_size.x < 10.0 { canvas_size.x = 10.0 }
 
           if canvas_size.y < 10.0 { canvas_size.y = 10.0 }
+          println!("canvas pos {:?}, canvas size {:?}", canvas_pos, canvas_size);
           ImDrawList_AddRectFilled(draw_list, canvas_pos,
                                    ImVec2 { x: canvas_pos.x + canvas_size.x,
                                             y: canvas_pos.y + canvas_size.y, },

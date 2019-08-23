@@ -2,8 +2,10 @@ use petgraph;
 use rolling::input::staticinfrastructure::*;
 use std::collections::{HashSet, HashMap};
 
-pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&HashSet<(NodeId,NodeId)>) 
-    -> Result<HashMap<ObjectId, Vec<(NodeId,NodeId)>>, String> {
+pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&HashSet<(NodeId,NodeId)>,
+                             add_edges :&HashSet<(NodeId,NodeId)>) 
+    -> Result<(HashMap<ObjectId, Vec<(NodeId,NodeId)>>,
+               HashMap<ObjectId, Vec<NodeId>>), String> {
     let is_boundary_idx = 0;
     let mut sets = petgraph::unionfind::UnionFind::new(m.nodes.len() + 1);
 
@@ -17,6 +19,9 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
         if !is_detector {
             sets.union(i +1, n.other_node +1);
         }
+
+        // Join node pairs which are not related by DGraph (e.g. level crossings between tracks)
+        for (a,b) in add_edges.iter() { sets.union(a+1,b+1); }
         
         // Join edges
         match n.edges {
@@ -45,6 +50,7 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
     }
 
     let mut inserts = Vec::new();
+    let mut entry_nodes : HashMap<ObjectId,Vec<NodeId>> = HashMap::new();
     for (i,n) in m.nodes.iter().enumerate() {
         let is_detector = 
             detector_nodes.contains(&(i,n.other_node)) ||
@@ -65,6 +71,7 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
 
                 // Attach these objects to their nodes
                 inserts.push((i, entry));
+                entry_nodes.entry(tvd).or_insert(Vec::new()).push(i);
                 inserts.push((n.other_node, exit));
             } else {
                 // Section connects to a boundary, we don't make it a detection section.
@@ -94,7 +101,7 @@ pub fn detectors_to_sections(m :&mut StaticInfrastructure, detector_nodes :&Hash
         }
     }
 
-    Ok(sec_edges)
+    Ok((sec_edges, entry_nodes))
 
 
 }

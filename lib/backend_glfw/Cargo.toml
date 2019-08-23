@@ -1,0 +1,12 @@
+[package]
+name = "backend_glfw"
+version = "0.1.0"
+authors = ["Bjørnar Luteberget <bjlut@railcomplete.no>"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+
+[build-dependencies]
+cc = "*"
+bindgen = "*"

@@ -18,9 +18,16 @@ junc_gui = { path = "gui" }
 [workspace]
 members = [
 	"glrail", 
+	"dgraphbuilder", 
 	"lib/imgui-sys-bindgen", 
+	"lib/backend_directx9",
+	"lib/backend_glfw",
 	"lib/imgui-sys-opengl", 
 	"lib/route_finder", 
+	"lib/railmlio", 
+	"synthesis_tests",
+	"gridlinesedit",
+	"immuted",
 	"lib/numerical_optimization",
 	"synthesis_tests",
 	"builder",
