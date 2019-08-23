@@ -162,12 +162,11 @@ pub fn quit_window(doc :&mut viewmodel::ViewModel, show_windows :&mut mainmenu::
         let cancel = const_cstr!("Cancel").as_ptr();
         if igButton(yes, ImVec2{ x: 80.0, y: 0.0 }) {
             let model = doc.get_undoable().get().clone();
-            let ok = file::save_interactive(&mut doc.fileinfo, model);
-            if ok.is_ok() {
-                quit = true;
-            } else {
-                error!("Could not save file {:?}", ok);
-            }
+            match file::save_interactive(&mut doc.fileinfo, model) {
+                Ok(true) => { quit = true; },
+                Ok(false) => { show_windows.quit = false; },
+                Err(e) => { error!("Could not save file {:?}", e); },
+            };
         }
         if igButton(no, ImVec2{ x: 80.0, y: 0.0 }) {
             quit = true;

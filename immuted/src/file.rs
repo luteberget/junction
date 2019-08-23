@@ -10,19 +10,19 @@ pub fn save(fileinfo :&mut FileInfo, filename :String, m :Model) -> Result<(),st
     Ok(())
 }
 
-pub fn save_interactive(fileinfo :&mut FileInfo, m :Model) -> Result<(),std::io::Error> {
+pub fn save_interactive(fileinfo :&mut FileInfo, m :Model) -> Result<bool,std::io::Error> {
     if let Some(filename) = fileinfo.filename.clone() {
-        save(fileinfo, filename, m)
+        save(fileinfo, filename, m).map(|_| true)
     } else {
         save_as_interactive(fileinfo,m)
     }
 }
 
-pub fn save_as_interactive(fileinfo :&mut FileInfo, m :Model) -> Result<(),std::io::Error> {
+pub fn save_as_interactive(fileinfo :&mut FileInfo, m :Model) -> Result<bool,std::io::Error> {
     if let Some(filename) = tinyfiledialogs::save_file_dialog("Save model to file", "") {
-        save(fileinfo, filename, m)
+        save(fileinfo, filename, m).map(|_| true)
     } else {
-        Ok(()) // user cancelled, this is not an error
+        Ok(false) // user cancelled, this is not an error
     }
 }
 

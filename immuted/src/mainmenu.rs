@@ -49,7 +49,7 @@ pub fn main_menu(show :&mut ShowWindows,
                     let model = doc.get_undoable().get().clone();
                     match file::save_interactive(&mut doc.fileinfo, model) {
                         Err(x) => { error!("Could not save file: {}", x); }
-                        Ok(()) => {},
+                        Ok(_) => {},
                     };
                 }
 
@@ -57,7 +57,7 @@ pub fn main_menu(show :&mut ShowWindows,
                     let model = doc.get_undoable().get().clone();
                     match file::save_as_interactive(&mut doc.fileinfo, model) {
                         Err(x) => { error!("Could not save file: {}", x); }
-                        Ok(()) => {},
+                        Ok(_) => {},
                     };
                 }
 
