@@ -5,8 +5,8 @@ authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-backend_glfw = { path = "../lib/backend_glfw" }
-imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
+backend_glfw = { path = "../backend_glfw" }
+imgui-sys-bindgen = { path = "../imgui-sys-bindgen" }
 const-cstr = "*"
 generational-arena = "*"
 serde = { version = "1.0", features = ["derive"] }
