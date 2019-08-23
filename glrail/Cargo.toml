@@ -7,7 +7,6 @@ edition = "2018"
 [dependencies]
 imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
 route_finder = { path = "../lib/route_finder" }
-imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }
 # sdl2 = { version = "*", features = ["bundled","static-link"] }
 sdl2 = { version = "*" }
 gl = "*"
@@ -30,3 +29,5 @@ ron = "*"
 rand = "*"
 timeit ="*"
 numerical_optimization = { path = "../lib/numerical_optimization" }
+backend_glfw = { path = "../lib/backend_glfw" }
+imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }

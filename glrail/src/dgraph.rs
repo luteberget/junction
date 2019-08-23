@@ -4,6 +4,7 @@ use crate::interlocking::{ Route };
 use std::hash::Hash;
 use std::collections::{HashMap, HashSet}; 
 use ordered_float::OrderedFloat;
+use std::sync::Arc;
 use bimap::BiMap;
 use crate::analysis::synthesis::sight_objects;
 pub use route_finder::ConvertRouteIssue;
@@ -12,7 +13,7 @@ pub use route_finder::ConvertRouteIssue;
 #[derive(Debug)]
 pub struct DGraph {
     /// static infrastructure with internal indexing (names do not correspond to glrail entities)
-    pub rolling_inf : rolling_inf::StaticInfrastructure,
+    pub rolling_inf : Arc<rolling_inf::StaticInfrastructure>,
 
     /// Reference from rolling dgraph indices to glrail entitiy vec
     pub node_ids : BiMap<EntityId, rolling_inf::NodeId>,
@@ -27,7 +28,7 @@ pub struct DGraph {
 impl Default for DGraph {
     fn default() -> Self {
         DGraph {
-            rolling_inf: rolling_inf::StaticInfrastructure { nodes: vec![], objects: vec![] },
+            rolling_inf: Arc::new(rolling_inf::StaticInfrastructure { nodes: vec![], objects: vec![] }),
             node_ids: BiMap::new(),
             object_ids: BiMap::new(),
             tvd_sections: HashMap::new(),
@@ -319,7 +320,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
     //println!("Edge intervals {:?}", edge_intervals);
     let dgraph = DGraph {
-        rolling_inf: model,
+        rolling_inf: Arc::new(model),
         tvd_sections: tvd_sections,
         edge_intervals: edge_intervals,
         node_ids: node_ids,

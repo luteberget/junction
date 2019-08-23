@@ -232,7 +232,7 @@ pub fn sidebar(size :ImVec2, app :&mut App) {
 
                           for (vi,v) in m.visits.iter().enumerate() {
                               igPushIDInt(vi as _);
-                              igPushItemWidth(igGetContentRegionAvailWidth() * 0.65 - 16.0 ); 
+                              igPushItemWidth(igGetContentRegionAvail().x * 0.65 - 16.0 ); 
                               // TODO encapsulate custom textfield/button widget
                               // TODO correct calculation see https://github.com/ocornut/imgui/issues/1658
                               let mut s = format!("{:?}", v);
