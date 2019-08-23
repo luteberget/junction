@@ -54,20 +54,6 @@ pub fn pt_sub(to :Pt, from :Pt) -> Vc {
          y: to.y - from.y }
 }
 
-impl std::ops::Add for Pt {
-    type Output=Self;
-    fn add(self, other :Self) -> Self {
-        Self { x: self.x + other.x, y: self.y + other.y }
-    }
-}
-
-impl std::ops::Sub for Pt {
-    type Output=Self;
-    fn sub(self, other :Self) -> Self {
-        Self { x: self.x - other.x, y: self.y - other.y }
-    }
-}
-
 pub fn v_angle(v :Vc) -> i8 {
     match (v.x.signum(),v.y.signum()) {
         ( 1, 0) => 0,
