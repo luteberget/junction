@@ -48,7 +48,7 @@ fn main() {
 
     // Stores lines(tracks), node data, objects, vehicles and dispatches
     // in persistent datastructures, in an undo/redo stack.
-    let m : Undoable<Model> = Undoable::new();
+    let m : Undoable<Model, EditClass> = Undoable::new();
     let thread_pool = threadpool::ThreadPool::new(2);
 
     let mut config = config::Config::default();

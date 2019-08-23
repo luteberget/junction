@@ -17,7 +17,7 @@
 ## infrastructure model + sim
 * more objects
   * derailers?
-  * pre-signalling (editor + simulator)
+  * X pre-signalling (editor + simulator)
   * atc? or something more low level
          or only rep.balise
   * ertms?

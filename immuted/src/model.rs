@@ -206,26 +206,39 @@ impl Model {
 
 }
 
-
-
-pub struct Undoable<T> {
-    stack :Vec<T>,
-    pointer: usize,
+use std::collections::HashSet;
+#[derive(Debug, PartialEq, Eq)]
+pub enum EditClass {
+    MoveObjects(HashSet<Ref>),
+    CommandTime(usize,usize),
+    VehicleName(usize),
+    VehicleLen(usize),
+    VehicleAcc(usize),
+    VehicleBrk(usize),
+    VehicleVel(usize),
 }
 
-impl<T : Clone + Default> Undoable<T> {
+
+pub struct Undoable<T, C> {
+    stack :Vec<T>,
+    pointer: usize,
+    class :Option<C>,
+}
+
+impl<T : Clone + Default, C : Eq> Undoable<T,C> {
     pub fn info(&self) -> String {
-        format!("Undo stack {}/{}", self.pointer, self.stack.len())
+        format!("Undo stack {}/{}", self.pointer, self.stack.len()-1)
     }
 
-    pub fn new() -> Undoable<T> {
+    pub fn new() -> Undoable<T,C> {
         Self::from(Default::default())
     }
 
-    pub fn from(x :T) -> Undoable<T> {
+    pub fn from(x :T) -> Undoable<T,C> {
         Undoable {
             stack: vec![x],
             pointer: 0,
+            class: None,
         }
     }
 
@@ -233,10 +246,16 @@ impl<T : Clone + Default> Undoable<T> {
         &self.stack[self.pointer]
     }
 
-    pub fn set(&mut self, v :T) {
-        self.pointer += 1;
-        self.stack.truncate(self.pointer);
-        self.stack.push(v);
+    pub fn set(&mut self, v :T, cl :Option<C>) {
+        if cl.is_some() && self.class == cl {
+            // replace the object if class matches
+            self.stack[self.pointer] = v;
+        } else {
+            self.pointer += 1;
+            self.stack.truncate(self.pointer);
+            self.stack.push(v);
+        }
+        self.class = cl;
     }
 
     pub fn can_undo(&self) -> bool {
@@ -250,6 +269,7 @@ impl<T : Clone + Default> Undoable<T> {
     pub fn undo(&mut self) -> bool {
         if self.pointer > 0 {
             self.pointer -= 1;
+            self.class = None;
             true
         } else {
             false 
@@ -259,9 +279,14 @@ impl<T : Clone + Default> Undoable<T> {
     pub fn redo(&mut self) -> bool {
         if self.pointer + 1 < self.stack.len() {
             self.pointer += 1;
+            self.class = None;
             true
         } else {
             false 
         }
+    }
+
+    pub fn override_edit_class(&mut self, cl :C) {
+        self.class = Some(cl);
     }
 }

@@ -7,7 +7,7 @@ use backend_glfw::imgui::*;
 pub fn edit_vehicles(vm :&mut ViewModel) {
     unsafe {
     let mut new_model = vm.get_undoable().get().clone();
-    let mut modified = false;
+    let mut modified = None;
     for (i,v) in vm.get_undoable().get().vehicles.iter().enumerate() {
         igPushIDInt(i as _);
 
@@ -27,7 +27,7 @@ pub fn edit_vehicles(vm :&mut ViewModel) {
                 name.truncate(terminator);
                 let s = String::from_utf8_unchecked(name);
                 new_model.vehicles[i].name = s;
-                modified = true;
+                modified = Some(EditClass::VehicleName(i));
             }
 
             let format = const_cstr!("%.3f");
@@ -39,33 +39,33 @@ pub fn edit_vehicles(vm :&mut ViewModel) {
                           &mut len as *mut _, 1.0, 1000.0, format.as_ptr(), 1.0);
             if igIsItemEdited() {
                 new_model.vehicles[i].length = len;
-                modified = true;
+                modified = Some(EditClass::VehicleLen(i));
             }
             igSliderFloat(const_cstr!("Accel").as_ptr(), 
                           &mut acc as *mut _, 0.05, 1.5, format.as_ptr(), 1.0);
             if igIsItemEdited() {
                 new_model.vehicles[i].max_acc = acc;
-                modified = true;
+                modified = Some(EditClass::VehicleAcc(i));
             }
             igSliderFloat(const_cstr!("Brake").as_ptr(), 
                           &mut brk as *mut _, 0.05, 1.5, format.as_ptr(), 1.0);
             if igIsItemEdited() {
                 new_model.vehicles[i].max_brk = brk;
-                modified = true;
+                modified = Some(EditClass::VehicleBrk(i));
             }
             igSliderFloat(const_cstr!("Max.vel").as_ptr(), 
                           &mut vel as *mut _, 1.0, 200.0, format.as_ptr(), 1.0);
             if igIsItemEdited() {
                 new_model.vehicles[i].max_vel = vel;
-                modified = true;
+                modified = Some(EditClass::VehicleVel(i));
             }
         }
 
         igPopID();
     }
 
-    if modified {
-        vm.set_model(new_model);
+    if modified.is_some() {
+        vm.set_model(new_model, modified);
     }
 
     if vm.get_undoable().get().vehicles.len() == 0 {
@@ -82,7 +82,7 @@ pub fn edit_vehicles(vm :&mut ViewModel) {
             max_brk: 0.5,
             max_vel: 50.0,
         });
-        vm.set_model(new_model);
+        vm.set_model(new_model, None);
     }
 
     }

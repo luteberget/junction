@@ -27,7 +27,7 @@ pub struct Derived {
 }
 
 pub struct ViewModel {
-    model: Undoable<Model>,
+    model: Undoable<Model, EditClass>,
     pub fileinfo: file::FileInfo,
     derived :Derived,
     thread_pool :ThreadPool,
@@ -48,7 +48,7 @@ impl ViewModel {
         self.thread_pool.queued_count() )
     }
 
-    pub fn new(model :Undoable<Model>, 
+    pub fn new(model :Undoable<Model, EditClass>, 
                fileinfo :file::FileInfo,
                thread_pool: ThreadPool) -> ViewModel {
         let mut vm = ViewModel {
@@ -125,7 +125,7 @@ impl ViewModel {
     }
 
     // TODO what is a better api here?
-    pub fn get_undoable(&self) -> &Undoable<Model> {
+    pub fn get_undoable(&self) -> &Undoable<Model,EditClass> {
         &self.model
     }
 
@@ -133,17 +133,21 @@ impl ViewModel {
         &self.derived
     }
 
-    pub fn edit_model(&mut self, mut f :impl FnMut(&mut Model)) {
+    pub fn edit_model(&mut self, mut f :impl FnMut(&mut Model) -> Option<EditClass>) {
         let mut new_model = self.get_undoable().get().clone();
-        f(&mut new_model);
-        self.set_model(new_model);
+        let cl = f(&mut new_model);
+        self.set_model(new_model, cl);
     }
 
-    pub fn set_model(&mut self, m :Model) {
+    pub fn set_model(&mut self, m :Model, cl :Option<EditClass>) {
         info!("Updating model");
-        self.model.set(m);
+        self.model.set(m, cl);
         self.fileinfo.set_unsaved();
         self.update();
+    }
+
+    pub fn override_edit_class(&mut self, cl :EditClass) {
+        self.model.override_edit_class(cl);
     }
 
     pub fn undo(&mut self) {

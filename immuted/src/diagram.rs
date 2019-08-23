@@ -88,7 +88,7 @@ impl Diagram {
                             }
                         }
                         d.0.sort_by_key(|(t,_)| OrderedFloat(*t));
-                        doc.set_model(new_model);
+                        doc.set_model(new_model, Some(EditClass::CommandTime(*dispatch_idx,cmd_idx)));
                     }
                 },
             };
@@ -111,7 +111,7 @@ impl Diagram {
 
             // Things to draw:
             // 1. X front of train (km)
-            // 2. back of train (km) (and fill between?)
+            // 2. X back of train (km) (and fill between?)
             // 3. color for identifying trains?
             // 4. color for accel/brake/coast
             // 5. X route activation status?
@@ -135,7 +135,7 @@ impl Diagram {
             if let Some((dispatch_idx,time,play)) = canvas.active_dispatch {
                 if let Some(d) = model.dispatches.get_mut(dispatch_idx) {
                     d.0.remove(cmd_idx);
-                    doc.set_model(model);
+                    doc.set_model(model, None);
                 }
             }
         }

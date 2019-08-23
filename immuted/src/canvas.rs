@@ -110,7 +110,7 @@ impl Canvas {
                                        (const_cstr!("Buffer stop").as_ptr(), *nd == NDType::BufferStop, NDType::BufferStop)]) {
                     let mut new_model = doc.get_undoable().get().clone();
                     new_model.node_data.insert(pt, *new_value);
-                    doc.set_model(new_model);
+                    doc.set_model(new_model, None);
                 }
             },
             NDType::Sw(side) => {
@@ -131,7 +131,7 @@ impl Canvas {
 
                     let mut new_model = doc.get_undoable().get().clone();
                     new_model.node_data.insert(pt, NDType::Crossing(*new_value));
-                    doc.set_model(new_model);
+                    doc.set_model(new_model, None);
                 }
 
                 // TODO 
@@ -224,6 +224,7 @@ impl Canvas {
         if let Some(d) = set_distant {
             doc.edit_model(|new| {
                 new.objects.get_mut(&pta).unwrap().functions = vec![Function::MainSignal { has_distant: d }];
+                None
             });
         }
         Some(())
@@ -250,7 +251,7 @@ impl Canvas {
                     Command::Route { route: route_idx },
             };
             dispatch.insert(time as f64, cmd);
-            doc.set_model(model);
+            doc.set_model(model,None);
             //println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
         }
     }
@@ -353,7 +354,7 @@ impl Canvas {
                         if igIsMouseReleased(0) {
                             let mut m = doc.get_undoable().get().clone();
                             m.objects.insert(round_coord(obj.loc), obj.clone());
-                            doc.set_model(m);
+                            doc.set_model(m, None);
                         }
                     }
                 },
@@ -708,12 +709,15 @@ impl Canvas {
             }
         }
 
+        let selection_before = self.selection.clone();
+
         for (a,b) in changed_ptas {
             self.selection.remove(&Ref::Object(a));
             self.selection.insert(Ref::Object(b));
         }
 
-        doc.set_model(model);
+        doc.set_model(model, Some(EditClass::MoveObjects(selection_before)));
+        doc.override_edit_class(EditClass::MoveObjects(self.selection.clone()));
     }
 
     pub fn normalstate(&mut self, state: NormalState, doc :&mut ViewModel,
@@ -792,13 +796,15 @@ impl Canvas {
 
             if !igIsMouseDown(0) {
                 let mut new_model = doc.get_undoable().get().clone();
+                let mut any_lines = false;
                 for (p1,p2) in util::route_line(pt,pointer_ongrid) {
                     let unit = util::unit_step_diag_line(p1,p2);
                     for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
+                        any_lines = true;
                         new_model.linesegs.insert(util::order_ivec(*pa,*pb));
                     }
                 }
-                doc.set_model(new_model);
+                if any_lines { doc.set_model(new_model, None); }
                 self.selection = std::iter::empty().collect();
                 self.action = Action::DrawingLine(None);
             }
@@ -814,13 +820,7 @@ impl Canvas {
         for x in self.selection.drain() {
             new_model.delete(x);
         }
-        doc.set_model(new_model);
-        // TODO remove (doing it twice to check canceling behavior for background jobs) 
-        let mut new_model = doc.get_undoable().get().clone();
-        for x in self.selection.drain() {
-            new_model.delete(x);
-        }
-        doc.set_model(new_model);
+        doc.set_model(new_model, None);
     }
 }
 
