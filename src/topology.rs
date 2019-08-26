@@ -130,25 +130,31 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         } else { AB::A }
     }
 
-    let get_from_piece_map = |a :(i32,i32), b :(i32,i32)| -> Option<&(usize,f64,f64)> {
-        let get1 = piece_map.get(&(a,b));
-        if get1.is_some() { return get1; }
-        piece_map.get(&(b,a));
+    let get_from_piece_map = |a :(i32,i32), b :(i32,i32)| -> Option<(usize,f64,f64,isize)> {
+        if let Some((track_idx, pos_start, length)) = piece_map.get(&(a,b)) {
+            return Some((*track_idx, *pos_start, pos_start + length, 1));
+        }
+        if let Some((track_idx, pos_start, length)) = piece_map.get(&(b,a)) {
+            return Some((*track_idx, pos_start + length, *pos_start, -1));
+        }
         None
     };
 
     for (id,Object { loc, functions, .. }) in model.objects.iter() {
         if let Some((pt,param,_)) = model.get_closest_lineseg(*loc) {
-            if let Some((track_idx,pos_start,length)) = get_from_piece_map((pt.0.x,pt.0.y), (pt.1.x,pt.1.y)) {
-                let pos = pos_start + (param as f64) *length;
+            if let Some((track_idx,pos_a, pos_b, dir)) = get_from_piece_map((pt.0.x,pt.0.y), (pt.1.x,pt.1.y)) {
+                let pos = glm::lerp_scalar(pos_a, pos_b, param as f64);
+                let pt = if dir > 0 { pt } else { (pt.1,pt.0) }; // reverse line if track direction is not
+                // the default left-to-right.
+                let track_objs = trackobjects.entry(track_idx).or_insert(Vec::new());
 
-                let track_objs = trackobjects.entry(*track_idx).or_insert(Vec::new());
                 for f in functions.iter() {
                     match f {
                         Function::Detector => {
                             track_objs.push((pos,*id,Function::Detector,None));
                         },
                         Function::MainSignal { has_distant } => {
+                            
                             // TODO this seems unnecessary when we can simply copy the `Function`s.
                             track_objs.push((pos,*id, Function::MainSignal { has_distant: *has_distant },
                                              Some(get_dir_from_side(&pt, *loc))));
