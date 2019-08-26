@@ -24,7 +24,6 @@ pub struct Canvas {
     pub action :Action,
     pub selection :HashSet<Ref>,
     pub view :View,
-    pub active_dispatch :Option<(usize, f32, bool)>,
     pub instant_cache: dispatch::InstantCache,
 }
 
@@ -52,7 +51,6 @@ impl Canvas {
             action :Action::Normal(NormalState::Default),
             selection :HashSet::new(),
             view :View::default(),
-            active_dispatch :None,
             instant_cache: dispatch::InstantCache::new(),
         }
     }

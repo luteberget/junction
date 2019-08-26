@@ -101,6 +101,12 @@ impl Dispatch {
     }
 }
 
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct PlanSpec {}
+
+
 #[derive(Clone, Default)]
 #[derive(Debug)]
 #[derive(Serialize,Deserialize)]
@@ -110,7 +116,9 @@ pub struct Model {
     pub node_data: im::HashMap<Pt, NDType>,
     pub vehicles :im::Vector<Vehicle>,
     pub dispatches :im::Vector<Dispatch>,
+    pub plans :im::Vector<PlanSpec>,
 }
+
 
 #[derive(Hash,PartialEq,Eq)]
 #[derive(Copy,Clone)]

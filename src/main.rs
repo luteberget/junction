@@ -19,6 +19,7 @@ mod topology;
 mod history;
 mod diagram;
 mod dispatch;
+mod plan;
 mod vehicles;
 
 mod config;
@@ -38,27 +39,51 @@ pub struct AllState<'a> {
     config :&'a config::Config,
 }
 
+pub enum DispatchChoice {
+    Auto(PlanState),
+    Manual(DispatchState),
+}
+
+impl Option<DispatchChoice> {
+    pub fn play_advance(&mut self, dt :&f64) {
+        match self {
+            Some(DispatchChoice::Manual(s))  |
+            Some(DispatchChoice::Auto(PlanState { dispatch: Some(s), .. })) 
+            => { s.time += dt; },
+        }
+    }
+}
+
+pub struct PlanState { idx: usize, dispatch :Option<DispatchState> } 
+pub struct DispatchState { idx :usize, time :f64, play: bool, }
+
 
 fn main() {
-    use crate::model::*;
 
     // init logging
     let logstring = logview::StringLogger::init(log::LevelFilter::Trace).unwrap();
     info!("Starting application");
 
+    // user config not related to model or directly to gui state
+    let mut config = config::Config::default();
+
+
+
+    // DOCUMENT: 
     // Stores lines(tracks), node data, objects, vehicles and dispatches
     // in persistent datastructures, in an undo/redo stack.
+    use crate::model::*;
     let m : Undoable<Model, EditClass> = Undoable::new();
     let thread_pool = threadpool::ThreadPool::new(2);
-
-    let mut config = config::Config::default();
 
     // Embed the model into a viewmodel that calculates derived data
     // in the background.
     let mut doc = viewmodel::ViewModel::new(m, file::FileInfo::empty(), thread_pool.clone());
 
+    // GUI STATE:
     // Stores view, selection, and input mode.
     // Edits doc (and calls undo/redo).
+    let mut dispatch : Option<DispatchChoice> = None;
     let mut canvas = canvas::Canvas::new();
     let mut diagram = diagram::Diagram::new();
 
@@ -86,39 +111,40 @@ fn main() {
         doc.receive(&mut canvas.instant_cache); // TODO avoid explicit cache clearing
         show_windows.import.update();
 
-        // forward time if playing
-        if let Some((_,time,play)) = &mut canvas.active_dispatch {
-            if *play {
-                let dt = unsafe { (*backend_glfw::imgui::igGetIO()).DeltaTime };
-                *time += dt*25.0;
-            }
-        }
+        let dt = unsafe { (*backend_glfw::imgui::igGetIO()).DeltaTime };
+        dispatch.play_advance(dt * 25.0);
 
 
         ui::in_root_window(|| {
 
             mainmenu::main_menu(&mut show_windows, &mut doc, &mut canvas, &mut diagram, &thread_pool);
 
-            if canvas.active_dispatch.is_some() {
-                ui::Splitter::vertical(&mut splitsize)
-                    .left(const_cstr!("canvas").as_ptr(), || { 
-                        canvas.draw(&mut doc, &config, &mut diagram); })
-                    .right(const_cstr!("graph").as_ptr(), || { 
-                        diagram.draw(&mut doc, &mut canvas, &config); });
+            match dispatch {
+                // Just the railway infrastructure canvas 
+                None => { canvas.draw(&mut doc, &config, &mut diagram); },
 
-            } else {
-                canvas.draw(&mut doc, &config, &mut diagram);
+                // Manual dispatch
+                Some(DispatchChoice::Manual(d)) => {
+                    ui::Splitter::vertical(&mut splitsize)
+                        .left(const_cstr!("canvas").as_ptr(), || { 
+                            canvas.draw(&mut doc, &config, &mut diagram); })
+                        .right(const_cstr!("graph").as_ptr(), || { 
+                            diagram.draw(&mut doc, &mut canvas, &config); });
+                },
+
+                // Planner mode, show both the planning pane and optionally the diagram
+                Some(DispatchChoice::Auto(d)) => {
+                },
             }
         });
 
         if show_windows.debug {
-            let state = AllState {
+            debug::debug_window(&mut show_windows.debug, AllState {
                 viewmodel: &doc,
                 canvas: &canvas,
                 diagram: &diagram,
                 config: &config,
-            };
-            debug::debug_window(&mut show_windows.debug, state);
+            });
         }
 
         if show_windows.config {
