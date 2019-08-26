@@ -21,8 +21,16 @@
   * atc? or something more low level
          or only rep.balise
   * ertms?
+  * train starting velocity for concrete dispatch
 
+* mileage reversed detection / fix
 * X undo classification (avoid excessive undos)
+* track lengths
+* velocity signs / restrictions
+* mileages on nodes / objects
+* pos on objects
+* specify signal sight distance, warn if not attainable because of facing switches
+* gradient (radius?)
 
 ## interlocking
 * inspectable interlocking
@@ -46,6 +54,11 @@
 * export railml 2.x nor?
 * export railml 3
 
+## schematic
+* auto-layout whole model
+* auto-layout selection
+* with given mileages / positions / fixed symbols
+
 ## testing
 
 * code tests
@@ -56,4 +69,12 @@
 * whole-station proof of concept
 * suggestions proof of concept
 * limit to selection
+
+## static analysis
+
+* datalog properties in errors window
+
+
+## bugs
+1. can undo creation of manual dispatch, but still displayed and crashes when adding new commands.
 
