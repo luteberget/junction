@@ -2,7 +2,7 @@ use backend_glfw::imgui::*;
 use const_cstr::const_cstr;
 use std::ptr;
 
-use crate::document::model::PtC;
+use crate::document::model::{PtC, Pt};
 use crate::document::view::View;
 
 
@@ -33,6 +33,7 @@ pub struct Draw {
     pub size :ImVec2,
     pub view :View,
     pub pointer :PtC,
+    pub pointer_grid :Pt,
 }
 
 pub struct CanvasDraw {
@@ -98,8 +99,10 @@ pub fn canvas(size :ImVec2, color :u32, name :*const i8, view :View, f :impl FnO
         ImDrawList_AddRectFilled(draw_list, pos, pos + size, color, 0.0, 0);
         let clicked = igInvisibleButton(name, size);
         ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
-        let pointer = view.screen_to_world_ptc( (*igGetIO()).MousePos - pos );
-        f(&mut Draw { pos, size, draw_list, view,pointer });
+        let mouse = (*igGetIO()).MousePos - pos;
+        let pointer = view.screen_to_world_ptc(mouse);
+        let pointer_grid = view.screen_to_world_pt(mouse);
+        f(&mut Draw { pos, size, draw_list, view,pointer,pointer_grid });
         ImDrawList_PopClipRect(draw_list);
     }
 }

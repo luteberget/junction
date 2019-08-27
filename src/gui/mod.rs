@@ -11,6 +11,7 @@ pub mod diagram;
 pub mod dispatch;
 pub mod menus;
 pub mod draw_inf;
+pub mod keys;
 
 pub use backend_glfw::imgui::ImVec2;
 
@@ -21,7 +22,8 @@ use const_cstr::*;
 
 pub fn main(app :&mut App) -> bool {
 
-    // TODO global hotkeys
+    // keyboard commands (ctrl+s for save, etc. + a/s/d for tool selection)
+    keys::keys(app);
 
     // Main window
     widgets::in_root_window(|| {

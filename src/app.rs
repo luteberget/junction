@@ -2,32 +2,28 @@ use crate::document::Document;
 use crate::config::Config;
 use crate::gui::logview::LogStore;
 
-
-// app strucutre
-//  + cross-cutting concerns 
-//    - thread pool
-//    - log
-//    - handle to set 
-
 pub struct App {
     pub document :Document,
     pub config :Config,
     pub log :LogStore,
     pub windows: Windows,
     pub background_jobs :BackgroundJobs,
+    //    - TODO set window name
+    //    - TODO font / font size?
 }
 
 #[derive(Clone)]
+/// Wrapper for thread pool.
 pub struct BackgroundJobs(threadpool::ThreadPool);
 
 impl BackgroundJobs {
     pub fn new() -> Self { BackgroundJobs(threadpool::ThreadPool::new(2)) }
 
+    /// Run the given function as a background job.
     pub fn execute(&mut self, job: impl FnOnce() + Send + 'static) {
         self.0.execute(job)
     }
 }
-
 
 pub struct Windows {
     pub config: bool,
