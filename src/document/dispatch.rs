@@ -1,9 +1,12 @@
 use std::collections::{HashMap, HashSet};
-use crate::viewmodel::*;
-use crate::model::*;
-use crate::objects::*;
-use crate::dgraph::*;
+
+use crate::document::viewmodel::*;
+use crate::document::model::*;
+use crate::document::objects::*;
+use crate::document::dgraph::*;
+
 use crate::util::VecMap;
+
 use rolling::input::staticinfrastructure as rolling_inf;
 use rolling_inf::{ObjectId};
 use nalgebra_glm as glm;

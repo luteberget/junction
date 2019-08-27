@@ -1,20 +1,19 @@
-//use rolling::input::staticinfrastructure as rolling_inf;
 use log::*;
-use threadpool::ThreadPool;
 use std::sync::mpsc::*;
-use crate::model::*;
-use crate::dgraph::*;
-use crate::topology;
-use crate::interlocking;
-use crate::canvas::unround_coord;
+
+use crate::document::model::*;
+use crate::document::dgraph::*;
+use crate::document::topology;
+use crate::document::interlocking;
+use crate::document::canvas::unround_coord;
+
+use crate::document::history;
 use crate::util;
-use crate::history;
-use crate::dispatch;
-use crate::file;
+use crate::app;
+use crate::util::VecMap;
+use crate::document::dispatch;
 use std::sync::Arc;
 use nalgebra_glm as glm;
-use crate::util::VecMap;
-
 
 pub use rolling::output::history::History;
 
@@ -28,10 +27,9 @@ pub struct Derived {
 
 pub struct ViewModel {
     model: Undoable<Model, EditClass>,
-    pub fileinfo: file::FileInfo,
     derived :Derived,
-    pub thread_pool :ThreadPool,
     get_data :Option<Receiver<SetData>>,
+    bg :app::BackgroundJobs,
 }
 
 #[derive(Debug)]
@@ -41,38 +39,28 @@ pub enum SetData {
     Dispatch(usize,dispatch::DispatchView),
 }
 
-impl ViewModel {
-    pub fn info(&self) -> String {
-        format!("Threads running={} queued={}", 
-        self.thread_pool.active_count() ,
-        self.thread_pool.queued_count() )
-    }
-
-    pub fn new(model :Undoable<Model, EditClass>, 
-               fileinfo :file::FileInfo,
-               thread_pool: ThreadPool) -> ViewModel {
-        let mut vm = ViewModel {
-            model: model,
-            fileinfo: fileinfo,
-            derived: Default::default(),
-            thread_pool: thread_pool,
-            get_data: None,
-        };
-        vm.update();
-        vm
-    }
-
-    pub fn receive(&mut self, cache :&mut dispatch::InstantCache) {
+impl app::BackgroundUpdates for ViewModel {
+    fn check(&mut self) {
         while let Some(Ok(data)) = self.get_data.as_mut().map(|r| r.try_recv()) {
-            //println!("Received data from background thread {:?}", data);
             match data {
                 SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
                 SetData::Interlocking(il) => { self.derived.interlocking = Some(il); },
                 SetData::Dispatch(idx,h) => { 
                     self.derived.dispatch.vecmap_insert(idx,h);
-                    cache.clear_dispatch(idx);
+                    //cache.clear_dispatch(idx);
                 },
             }
+        }
+    }
+}
+
+impl ViewModel {
+    pub fn from_model(model :Model, bg: app::BackgroundJobs) -> Self {
+        ViewModel {
+            model: Undoable::from(model),
+            derived: Default::default(),
+            get_data: None,
+            bg: bg,
         }
     }
 
@@ -83,7 +71,7 @@ impl ViewModel {
 
         let (tx,rx) = channel();
         self.get_data = Some(rx);
-        self.thread_pool.execute(move || {
+        self.bg.execute(move || {
             info!("Background thread starting");
             let model = model;  // move model into thread
             let tx = tx;        // move sender into thread
@@ -153,7 +141,8 @@ impl ViewModel {
     pub fn redo(&mut self) { if self.model.redo() { self.on_changed(); } }
 
     fn on_changed(&mut self) {
-        self.fileinfo.set_unsaved();
+        // TODO move this to Document
+        //self.fileinfo.set_unsaved();
         self.update();
     }
 

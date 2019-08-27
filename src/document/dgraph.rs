@@ -1,10 +1,10 @@
 use rolling::input::staticinfrastructure as rolling_inf;
 use std::collections::{HashMap, HashSet};
 use ordered_float::OrderedFloat;
-use crate::model::*;
-use crate::objects::*;
-use crate::topology::*;
-use crate::mileage;
+use crate::document::model::*;
+use crate::document::objects::*;
+use crate::document::topology::*;
+use crate::document::mileage;
 use matches::matches;
 use nalgebra_glm as glm;
 

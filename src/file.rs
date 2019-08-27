@@ -1,4 +1,4 @@
-use crate::model::Model;
+use crate::document::model::Model;
 use std::fs::File;
 use log::*;
 

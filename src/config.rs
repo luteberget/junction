@@ -1,3 +1,5 @@
+use confy;
+use std::collections::HashMap;
 use lazy_static::*;
 use const_cstr::const_cstr;
 use backend_glfw::imgui::*;
@@ -5,6 +7,7 @@ use palette;
 use num_derive::FromPrimitive;
 use log::*;
 use enum_map::{enum_map, Enum, EnumMap};
+use serde::{Serialize, Deserialize};
 
 type Color = palette::rgb::Rgba;
 
@@ -45,11 +48,95 @@ lazy_static! {
     };
 }
 
+#[derive(Debug)]
 pub struct Config {
     pub colors :EnumMap<RailUIColorName,Color>,
 }
 
+
+/// serde-friendly representation of the config struct
+#[derive(Serialize,Deserialize)]
+#[derive(Debug)]
+pub struct ConfigString {
+    pub colors :HashMap<String,String>,  // name -> hex color
+}
+
+fn to_hex(c :Color) -> String {
+    use palette::encoding::pixel::Pixel;
+    let px  :[u8;4] = c.into_format().into_raw();
+    format!("#{:02x}{:02x}{:02x}{:02x}", px[0],px[1],px[2],px[3])
+}
+
+fn from_hex(mut s :&str) -> Result<Color, ()> {
+    // chop off '#' char
+    if s.len() % 2 != 0 { s = &s[1..]; }
+    if !(s.len() == 6 || s.len() == 8) { return Err(()); }
+    // u8::from_str_radix(src: &str, radix: u32) converts a string
+    // slice in a given base to u8
+    let r: u8 = u8::from_str_radix(&s[0..2], 16).map_err(|_| ())?;
+    let g: u8 = u8::from_str_radix(&s[2..4], 16).map_err(|_| ())?;
+    let b: u8 = u8::from_str_radix(&s[4..6], 16).map_err(|_| ())?;
+    let a = if s.len() == 8 {
+        u8::from_str_radix(&s[6..8], 16).map_err(|_| ())?
+    } else { 255u8 };
+
+    Ok(Color::new(r as f32 / 255.0,
+                  g as f32 / 255.0,
+                  b as f32 / 255.0,
+                  a as f32 / 255.0))
+}
+
+impl Default for ConfigString {
+    fn default() -> Self {
+        let c : Config = Default::default();
+        c.to_config_string()
+    }
+}
+
 impl Config {
+
+    pub fn load() -> Self {
+        let config_s : ConfigString = confy::load(env!("CARGO_PKG_NAME")).
+            unwrap_or_else(|e| {
+                error!("Could not load config file: {}", e);
+                Default::default()
+            });
+        let config : Config = Config::from_config_string(&config_s);
+        config
+    }
+
+
+    pub fn to_config_string(&self) ->  ConfigString {
+        let mut colors = HashMap::new();
+        unsafe {
+            for (c,val) in self.colors.iter() {
+                colors.insert(std::str::from_utf8_unchecked(COLORNAMES[c].as_cstr().to_bytes()).to_string(), to_hex(*val));
+            }
+        }
+
+        ConfigString {
+            colors: colors,
+        }
+    }
+
+    pub fn from_config_string(cs :&ConfigString) -> Self {
+        let mut colors = default_colors();
+        for (name,col_hex) in cs.colors.iter() {
+            for (col_choice, name_cstr) in COLORNAMES.iter() {
+                unsafe {
+                    if std::str::from_utf8_unchecked(name_cstr.as_cstr().to_bytes()) == name {
+                        if let Ok(c) = from_hex(col_hex) {
+                            colors[col_choice] = c;
+                        }
+                    }
+                }
+            }
+        }
+
+        Config {
+            colors: colors,
+        }
+    }
 
     pub fn get_font_size(&self) -> f32 { 16.0 }
     pub fn get_font_filename(&self) -> Option<String> {
@@ -73,48 +160,6 @@ impl Config {
     }
 
 
-    pub fn default() -> Config {
-        use palette::named;
-        let c = |nm :palette::Srgb<u8>| {
-            let f :palette::Srgb<f32> = palette::Srgb::from_format(nm);
-            let a :Color = f.into();
-            a
-        };
-        Config {
-            colors: enum_map! {
-                RailUIColorName::CanvasBackground => c(named::CORNSILK),
-                RailUIColorName::CanvasGridPoint => c(named::BLANCHEDALMOND),
-                RailUIColorName::CanvasSymbol => c(named::INDIGO),
-                RailUIColorName::CanvasSymbolSelected => c(named::NAVY),
-                RailUIColorName::CanvasSymbolLocError => c(named::ORANGERED),
-                RailUIColorName::CanvasSignalStop => c(named::RED),
-                RailUIColorName::CanvasSignalProceed => c(named::LIME),
-                RailUIColorName::CanvasTrack => c(named::DARKSLATEBLUE),
-                RailUIColorName::CanvasTrackDrawing => c(named::GOLDENROD),
-                RailUIColorName::CanvasTrackSelected => c(named::NAVY),
-                RailUIColorName::CanvasNode => c(named::BLACK),
-                RailUIColorName::CanvasNodeSelected => c(named::NAVY),
-                RailUIColorName::CanvasNodeError => c(named::RED),
-                RailUIColorName::CanvasTrain => c(named::TOMATO),
-                RailUIColorName::CanvasTrainSight => c(named::ORANGE),
-                RailUIColorName::CanvasTVDFree => c(named::BLACK),
-                RailUIColorName::CanvasTVDOccupied => c(named::SALMON),
-                RailUIColorName::CanvasTVDReserved => c(named::SLATEBLUE),
-                RailUIColorName::CanvasRoutePath => c(named::DARKSLATEBLUE),
-                RailUIColorName::CanvasRouteSection => c(named::SLATEBLUE),
-                RailUIColorName::CanvasSelectionWindow => c(named::NAVY),
-                RailUIColorName::GraphBackground => c(named::HONEYDEW),
-                RailUIColorName::GraphTimeSlider => c(named::LIGHTSALMON),
-                RailUIColorName::GraphTimeSliderText => c(named::DARKGREY),
-                RailUIColorName::GraphBlockBorder => c(named::IVORY),
-                RailUIColorName::GraphBlockReserved => c(named::LIGHTSKYBLUE),
-                RailUIColorName::GraphBlockOccupied => c(named::LIGHTPINK),
-                RailUIColorName::GraphTrainFront => c(named::TOMATO),
-                RailUIColorName::GraphTrainRear => c(named::TOMATO),
-                RailUIColorName::GraphCommand => c(named::LIMEGREEN),
-            },
-        }
-    }
 
     pub fn color_u32(&self, name :RailUIColorName) -> u32 {
         let c = self.colors[name];
@@ -123,7 +168,57 @@ impl Config {
     }
 }
 
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            colors: default_colors(),
+        }
+    }
+}
+
+pub fn default_colors() -> EnumMap<RailUIColorName, Color> {
+    use palette::named;
+    let c = |nm :palette::Srgb<u8>| {
+        let f :palette::Srgb<f32> = palette::Srgb::from_format(nm);
+        let a :Color = f.into();
+        a
+    };
+    enum_map! {
+        RailUIColorName::CanvasBackground => c(named::CORNSILK),
+        RailUIColorName::CanvasGridPoint => c(named::BLANCHEDALMOND),
+        RailUIColorName::CanvasSymbol => c(named::INDIGO),
+        RailUIColorName::CanvasSymbolSelected => c(named::NAVY),
+        RailUIColorName::CanvasSymbolLocError => c(named::ORANGERED),
+        RailUIColorName::CanvasSignalStop => c(named::RED),
+        RailUIColorName::CanvasSignalProceed => c(named::LIME),
+        RailUIColorName::CanvasTrack => c(named::DARKSLATEBLUE),
+        RailUIColorName::CanvasTrackDrawing => c(named::GOLDENROD),
+        RailUIColorName::CanvasTrackSelected => c(named::NAVY),
+        RailUIColorName::CanvasNode => c(named::BLACK),
+        RailUIColorName::CanvasNodeSelected => c(named::NAVY),
+        RailUIColorName::CanvasNodeError => c(named::RED),
+        RailUIColorName::CanvasTrain => c(named::TOMATO),
+        RailUIColorName::CanvasTrainSight => c(named::ORANGE),
+        RailUIColorName::CanvasTVDFree => c(named::BLACK),
+        RailUIColorName::CanvasTVDOccupied => c(named::SALMON),
+        RailUIColorName::CanvasTVDReserved => c(named::SLATEBLUE),
+        RailUIColorName::CanvasRoutePath => c(named::DARKSLATEBLUE),
+        RailUIColorName::CanvasRouteSection => c(named::SLATEBLUE),
+        RailUIColorName::CanvasSelectionWindow => c(named::NAVY),
+        RailUIColorName::GraphBackground => c(named::HONEYDEW),
+        RailUIColorName::GraphTimeSlider => c(named::LIGHTSALMON),
+        RailUIColorName::GraphTimeSliderText => c(named::DARKGREY),
+        RailUIColorName::GraphBlockBorder => c(named::IVORY),
+        RailUIColorName::GraphBlockReserved => c(named::LIGHTSKYBLUE),
+        RailUIColorName::GraphBlockOccupied => c(named::LIGHTPINK),
+        RailUIColorName::GraphTrainFront => c(named::TOMATO),
+        RailUIColorName::GraphTrainRear => c(named::TOMATO),
+        RailUIColorName::GraphCommand => c(named::LIMEGREEN),
+    }
+}
+
 #[derive(Enum, FromPrimitive, Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Serialize,Deserialize)]
 pub enum RailUIColorName {
     CanvasBackground,
     CanvasGridPoint,

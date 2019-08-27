@@ -15,8 +15,8 @@ threadpool = "1.7"
 num = "0.2"
 num-derive = "0.2"
 num-traits = "0.2"
-palette = "0.4"
-enum-map = "0.6"
+palette = { version = "0.4", features = ["serde"] }
+enum-map = { version = "0.6", features = ["serde"] }
 
 im = { version = "13.0", features = ["serde"] }
 nalgebra = { version = "0.18", features = ["serde-serialize"] }
@@ -27,6 +27,8 @@ serde_cbor = "0.10"
 
 font-kit = "0.4"
 tinyfiledialogs = "3.3.6"
+confy = {git = "https://github.com/rust-cli/confy/"}
+toml = "*"
 
 backend_glfw = { path = "lib/backend_glfw" }
 rolling = { path = "../trainspotting/rolling" }

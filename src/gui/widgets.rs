@@ -1,5 +1,4 @@
 use backend_glfw::imgui::*;
-pub use backend_glfw::imgui::ImVec2;
 use const_cstr::const_cstr;
 use std::ptr;
 

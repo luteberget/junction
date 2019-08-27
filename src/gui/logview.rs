@@ -1,17 +1,17 @@
 use backend_glfw::imgui::*;
 use const_cstr::*;
-use crate::ui;
 use std::collections::VecDeque;
 use log::*;
 use std::sync::Arc;
 use std::sync::Mutex;
+use crate::gui::widgets;
 
 pub fn view_log(popen :&mut bool, logstring :&Arc<Mutex<VecDeque<u8>>>) {
     unsafe {
         igBegin(const_cstr!("Log").as_ptr(), popen as _, 0 as _);
         //igPushTextWrapPos(0.0);
 
-        ui::show_text("Log:");
+        widgets::show_text("Log:");
         {
         let buf = logstring.lock().unwrap();
         let (s1,s2) = buf.as_slices();
@@ -19,9 +19,9 @@ pub fn view_log(popen :&mut bool, logstring :&Arc<Mutex<VecDeque<u8>>>) {
         //let end = begin.offset(s1.len() as isize);
         //igTextUnformatted(begin,end);
         //ui::long_text(
-        ui::long_text(std::str::from_utf8_unchecked(s1));
+        widgets::long_text(std::str::from_utf8_unchecked(s1));
         igSameLine(0.0,-1.0);
-        ui::long_text(std::str::from_utf8_unchecked(s2));
+        widgets::long_text(std::str::from_utf8_unchecked(s2));
 
         //let begin = s2.as_ptr() as *const i8;
         //let end = begin.offset(s2.len() as isize);
@@ -39,8 +39,10 @@ pub struct StringLogger {
     log :Arc<Mutex<VecDeque<u8>>>,
 }
 
+pub type LogStore = Arc<Mutex<VecDeque<u8>>>;
+
 impl StringLogger {
-    pub fn init(log_level :LevelFilter) -> Result<Arc<Mutex<VecDeque<u8>>>, SetLoggerError> {
+    pub fn init(log_level :LevelFilter) -> Result<LogStore, SetLoggerError> {
         let log = Arc::new(Mutex::new(VecDeque::new()));
         set_max_level(log_level.clone());
         set_boxed_logger(Box::new(Self::new(log_level,log.clone())))?;

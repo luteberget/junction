@@ -1,8 +1,9 @@
 use matches::matches;
 use serde::{Serialize, Deserialize};
-use crate::ui::*;
-use crate::view::*;
-use crate::model::*;
+
+use crate::document::view::*;
+use crate::document::model::*;
+
 use crate::config::*;
 use crate::util::*;
 use backend_glfw::imgui::*;

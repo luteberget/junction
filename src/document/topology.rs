@@ -1,8 +1,10 @@
 use std::collections::{BTreeSet, BTreeMap,HashMap, VecDeque};
 use nalgebra_glm as glm;
-use crate::model::*;
+
+use crate::document::model::*;
+use crate::document::objects::*;
+
 use crate::util::*;
-use crate::objects::*;
 use ordered_float::OrderedFloat;
 
 #[derive(Debug)]

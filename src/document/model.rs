@@ -1,7 +1,7 @@
 use nalgebra_glm as glm;
-use crate::objects::*;
+use crate::document::objects::*;
+use crate::document::canvas::*;
 use crate::util::*;
-use crate::canvas::*;
 use ordered_float::OrderedFloat;
 use serde::{Serialize,Deserialize};
 
@@ -151,6 +151,7 @@ pub fn corners(pt :PtC) -> Vec<Pt> {
 }
 
 impl Model {
+    pub fn empty() -> Self { Default::default() }
 
     pub fn get_closest_object<'a>(&'a self, pt :PtC) -> Option<((&'a PtA,&'a Object),f32)> {
         // TODO performance

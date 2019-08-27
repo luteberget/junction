@@ -1,5 +1,5 @@
-use crate::model::{Pt,PtC};
-use crate::ui::ImVec2;
+use crate::document::model::{Pt,PtC};
+use crate::gui::ImVec2;
 use nalgebra_glm as glm;
 use glm::I32Vec2;
 
@@ -100,108 +100,18 @@ impl<V> VecMap<V> for Vec<Option<V>> {
 }
 
 
-pub struct LastIdCachedMap<T> {
-    generation :usize,
-    data :Vec<(usize,T)>,
-    cached_idx :Option<(usize,usize)>,
-}
 
-impl<T> LastIdCachedMap<T> {
-    pub fn new() -> Self { LastIdCachedMap { generation: 0, data: Vec::new(), cached_idx: None } }
-
-    pub fn insert(t :T) -> usize {
-        let id = self.generation;
-        self.generation += 1;
-        self.data.push((id, t));
-        self.cached_idx = (id, self.data.len() -1);
-        id
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &(usize,T)> {
-        self.data.iter()
-    }
-
-    pub fn iter_mut(&self) -> impl Iterator<Item = &(usize,T)> {
-        self.data.iter_mut()
-    }
-
-    pub fn get(&self, id :usize) -> Option<&T> {
-        if let Some((cached_id,idx)) = self.cached_idx {
-            if let Some((stored_id,value)) = self.data.get(idx) {
-                if stored_id == id {
-                    return Some(value);
-                }
-            }
-        }
-        // Fall back to linear seach
-        for (idx,(stored_id,value)) in self.data.iter().enumerate() {
-            if store_id == id {
-                self.cached_idx = Some((id, idx));
-                return Some(value);
-            }
-        }
-
-        // Key was not found.
-        None
-    }
-
-    pub fn get_mut(&mut self, id :usize) -> Option<&mut T> {
-        if let Some((cached_id,idx)) = self.cached_idx {
-            if let Some((stored_id,value)) = self.data.get_mut(idx) {
-                if stored_id == id {
-                    return Some(value);
-                }
-            }
-        }
-        // Fall back to linear seach
-        for (idx,(stored_id,value)) in self.data.iter_mut().enumerate() {
-            if store_id == id {
-                self.cached_idx = Some((id, idx));
-                return Some(value);
-            }
-        }
-
-        // Key was not found.
-        None
-    }
-
-    pub fn remove(&mut self, id :usize) -> Option<T> {
-        if let Some((cached_id,idx)) = self.cached_idx {
-            if let Some((stored_id,value)) = self.data.get(idx) {
-                if stored_id == id {
-                    let value = self.data.remove(idx).unwrap().1;
-                    self.cached_idx = None;
-                    return Some(value);
-                }
-            }
-        }
-        // Fall back to linear seach
-        self.cached_idx = None;
-        for (idx,(stored_id,value)) in self.data.iter().enumerate() {
-            if store_id == id {
-                return Some(self.data.remove(idx).unwrap().1);
-            }
-        }
-
-        // Key was not found.
-        None
-    }
-
-}
-
-
-
-
+use serde::{Serialize, Deserialize};
 #[derive(Clone, Default, Debug)]
 #[derive(Serialize, Deserialize)]
-pub struct ImIndexedList<T> {
+pub struct ImIndexedList<T : Clone> {
     generation: usize,
     list :im::Vector<usize>,
     map :im::HashMap<usize, T>,
 }
 
 
-impl<T> ImIndexedList<T> {
+impl<T : Clone> ImIndexedList<T> {
     pub fn new() -> Self {
         ImIndexedList {
             generation: 0,
@@ -214,24 +124,26 @@ impl<T> ImIndexedList<T> {
         let id = self.generation;
         self.generation += 1;
 
-        self.list.push(id);
+        self.list.push_back(id);
         self.map.insert(id, t);
         id
     }
 
     pub fn remove(&mut self, id :usize) -> Option<T> {
-        if let Some(x) = self.map.remove(id) {
-            self.list.drain(|y| x == y);
+        if let Some(x) = self.map.remove(&id) {
+            if let Some(i) = self.list.iter().position(|i| id == *i) {
+                self.list.remove(i);
+            }
             Some(x)
         } else { None }
     }
 
     pub fn get(&mut self, id :usize) -> Option<&T> {
-        self.map.get(id)
+        self.map.get(&id)
     }
 
-    pub fn iter(&mut self) -> impl Iterator<Item = (usize,&T)> {
-        self.list.iter().map(|idx| (idx, map.get(idx).unwrap()))
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = (usize,&'a T)> {
+        self.list.iter().map(move |idx| (*idx, self.map.get(idx).unwrap()))
     }
 }
 

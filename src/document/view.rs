@@ -1,5 +1,5 @@
-use crate::model::{Pt,PtC};
-use crate::ui::ImVec2;
+use crate::document::model::{Pt,PtC};
+use crate::gui::ImVec2;
 use nalgebra_glm as glm;
 
 #[derive(Debug)]

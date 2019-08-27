@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use matches::matches;
 use rolling::input::staticinfrastructure::*;
 use petgraph::unionfind::UnionFind;
-use crate::model::Pt;
+use crate::document::model::Pt;
 
 
 fn take_boundary(node_ids :&HashMap<NodeId, Pt>, boundaries :&mut HashSet<NodeId>) -> Option<NodeId> {

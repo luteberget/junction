@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use rolling::input::staticinfrastructure as rolling_inf;
-use crate::model::*;
-use crate::dgraph::*;
+use crate::document::model::*;
+use crate::document::dgraph::*;
 
 #[derive(Debug)]
 pub struct Interlocking {
