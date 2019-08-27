@@ -30,19 +30,21 @@ impl BackgroundJobs {
 
 
 pub struct Windows {
+    pub config: bool,
     pub debug: bool,
     pub log: bool,
     pub quit: bool,
-    // ...
+    pub vehicles: bool,
 }
 
 impl Windows {
     pub fn closed() -> Self {
         Windows {
+            config :false,
             debug: false,
             log: false,
             quit: false,
-            // ...
+            vehicles: false,
         }
     }
 }

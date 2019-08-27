@@ -2,41 +2,36 @@ use crate::document::model::Model;
 use std::fs::File;
 use log::*;
 
-pub fn save(fileinfo :&mut FileInfo, filename :String, m :Model) -> Result<(),std::io::Error> {
+pub fn load(filename :&str) -> Result<Model, std::io::Error> {
+    serde_cbor::from_reader(File::open(&filename)?)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+}
+
+pub fn save(filename :&str, m :Model) -> Result<(),std::io::Error> {
     info!("Will save file to file name {:?}", filename);
-    serde_cbor::to_writer(&File::create(&filename)?, &m)
+    serde_cbor::to_writer(&File::create(filename)?, &m)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    fileinfo.set_saved(filename);
     Ok(())
 }
 
-pub fn save_interactive(fileinfo :&mut FileInfo, m :Model) -> Result<bool,std::io::Error> {
-    if let Some(filename) = fileinfo.filename.clone() {
-        save(fileinfo, filename, m).map(|_| true)
-    } else {
-        save_as_interactive(fileinfo,m)
-    }
-}
-
-pub fn save_as_interactive(fileinfo :&mut FileInfo, m :Model) -> Result<bool,std::io::Error> {
+pub fn save_interactive(m :Model) -> Result<bool,std::io::Error> {
     if let Some(filename) = tinyfiledialogs::save_file_dialog("Save model to file", "") {
-        save(fileinfo, filename, m).map(|_| true)
+        save(&filename, m).map(|_| true)
     } else {
         Ok(false) // user cancelled, this is not an error
     }
 }
 
-pub fn load_doc(fileinfo :&mut FileInfo) -> Result<Option<Model>, std::io::Error> {
+pub fn load_interactive() -> Result<Option<(Model,String)>, std::io::Error> {
     if let Some(filename) = tinyfiledialogs::open_file_dialog("Open model from file", "", None) {
         info!("Loading file from {:?}", filename);
-        let m = serde_cbor::from_reader(File::open(&filename)?)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        fileinfo.set_saved(filename);
-        Ok(Some(m))
+        let m = load(&filename)?;
+        Ok(Some((m,filename)))
     } else {
         Ok(None)
     }
 }
+
 
 #[derive(Debug)]
 #[derive(Clone)]

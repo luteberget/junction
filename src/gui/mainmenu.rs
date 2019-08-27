@@ -1,51 +1,13 @@
 use backend_glfw::imgui::*;
 use const_cstr::*;
-use crate::{file, viewmodel, canvas, diagram, model};
 use log::*;
-use crate::ui;
-use crate::import;
 
-pub struct ShowWindows {
-    pub config :bool,
-    pub debug :bool,
-    pub log :bool,
-    pub vehicles :bool,
-    pub quit :bool,
-    pub import :import::ImportWindow,
-}
+use crate::app::*;
+use crate::document::Document;
+use crate::file;
+use crate::gui::widgets;
 
-pub fn save(doc :&mut viewmodel::ViewModel) {
-    let model = doc.get_undoable().get().clone();
-    match file::save_interactive(&mut doc.fileinfo, model) {
-        Err(x) => { error!("Could not save file: {}", x); }
-        Ok(_) => {},
-    };
-}
-
-pub fn save_as(doc :&mut viewmodel::ViewModel) {
-        let model = doc.get_undoable().get().clone();
-        match file::save_as_interactive(&mut doc.fileinfo, model) {
-            Err(x) => { error!("Could not save file: {}", x); }
-            Ok(_) => {},
-        };
-}
-
-pub fn load(doc :&mut viewmodel::ViewModel, canvas :&mut canvas::Canvas, diagram :&mut diagram::Diagram) {
-        let mut fileinfo = doc.fileinfo.clone();
-        if let Ok(Some(m)) = file::load_doc(&mut fileinfo) {
-            info!("Loading model from file succeeded.");
-            let pool = doc.thread_pool.clone();
-            *doc = viewmodel::ViewModel::new(model::Undoable::from(m), fileinfo, pool);
-            *canvas = canvas::Canvas::new();
-            *diagram = diagram::Diagram::new();
-        } else {
-            info!("Loading file failed.");
-        }
-}
-
-pub fn main_menu(show :&mut ShowWindows,
-                 doc :&mut viewmodel::ViewModel, canvas :&mut canvas::Canvas, diagram :&mut diagram::Diagram,
-                 thread_pool :&threadpool::ThreadPool) {
+pub fn main_menu(app :&mut App) {
     unsafe {
         if igBeginMenuBar() {
 
@@ -53,59 +15,94 @@ pub fn main_menu(show :&mut ShowWindows,
 
                 // TODO warn about saving file when doing new file / load file
                 if igMenuItemBool(const_cstr!("New file").as_ptr(), std::ptr::null(), false, true) {
-                    *doc = viewmodel::ViewModel::new(model::Undoable::from(Default::default()), 
-                                                     file::FileInfo::empty(), thread_pool.clone());
-                    *canvas = canvas::Canvas::new();
-                    *diagram = diagram::Diagram::new();
+                    app.document = Document::empty(app.background_jobs.clone());
                 }
 
                 if igMenuItemBool(const_cstr!("Load file...").as_ptr(), std::ptr::null(), false, true) {
-                    load(doc, canvas, diagram);
+                    match file::load_interactive() {
+                        Ok(Some((m, filename))) => {
+                            info!("Loading model from file succeeded.");
+                            app.document = Document::from_model(m, app.background_jobs.clone());
+                            app.document.fileinfo.set_saved(filename);
+                        },
+                        Ok(None) => {
+                            info!("Load file cancelled by user.");
+                        },
+                        Err(e) => {
+                            error!("Error loading file: {}", e);
+                        },
+                    };
                 }
 
-                let save_label = if doc.fileinfo.filename.is_some() { const_cstr!("Save") } 
-                                    else { const_cstr!("Save...") };
-
-                if igMenuItemBool(save_label.as_ptr(), std::ptr::null(), false, true) {
-                    save(doc);
+                match &app.document.fileinfo.filename  {
+                    Some(filename) => {
+                        if igMenuItemBool(const_cstr!("Save").as_ptr(), 
+                                          std::ptr::null(), false, true) {
+                            match file::save(filename, app.document.model().clone()) {
+                                Err(e) => { error!("Error saving file: {}", e); },
+                                _ => {},
+                            };
+                        }
+                    },
+                    None => {
+                        if igMenuItemBool(const_cstr!("Save...").as_ptr(), 
+                                          std::ptr::null(), false, true) {
+                            match file::save_interactive(app.document.model().clone()) {
+                                Err(e) => { error!("Error saving file: {}", e); },
+                                _ => {},
+                            };
+                        }
+                    }
                 }
 
                 if igMenuItemBool(const_cstr!("Save as...").as_ptr(), std::ptr::null(), false, true) {
+                    match file::save_interactive(app.document.model().clone()) {
+                        Err(e) => { error!("Error saving file: {}", e); },
+                        _ => {},
+                    }
                 }
 
-                ui::sep();
+                widgets::sep();
 
                 if igMenuItemBool(const_cstr!("Import from railML...").as_ptr(), std::ptr::null(), false, true) {
-                    show.import.open();
-                }
-                if igMenuItemBool(const_cstr!("Export to railML...").as_ptr(), std::ptr::null(), false, true) {
+                    //show.import.open();
+                    // TODO
                 }
 
-                ui::sep();
-                if igMenuItemBool(const_cstr!("Quit").as_ptr(), std::ptr::null(), false, true) {
-                    show.quit = true;
+                if igMenuItemBool(const_cstr!("Export to railML...").as_ptr(), std::ptr::null(), false, true) {
+                    // TODO 
+                }
+
+                widgets::sep();
+                if igMenuItemBool(const_cstr!("Quit").as_ptr(), 
+                                  std::ptr::null(), false, true) {
+                    app.windows.quit = true;
                 }
 
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("Edit").as_ptr(), true) {
-                if igMenuItemBool(const_cstr!("Edit vehicles").as_ptr(), std::ptr::null(), show.vehicles, true) {
-                    show.vehicles = !show.vehicles;
+                if igMenuItemBool(const_cstr!("Edit vehicles").as_ptr(), 
+                                  std::ptr::null(), app.windows.vehicles, true) {
+                    app.windows.vehicles = !app.windows.vehicles;
                 }
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("View").as_ptr(), true) {
-                if igMenuItemBool(const_cstr!("Log window").as_ptr(), std::ptr::null(), show.log, true) {
-                    show.log = !show.log;
+                if igMenuItemBool(const_cstr!("Log window").as_ptr(), 
+                                  std::ptr::null(), app.windows.log, true) {
+                    app.windows.log = !app.windows.log;
                 }
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("Tools").as_ptr(), true) {
-                if igMenuItemBool(const_cstr!("View data").as_ptr(), std::ptr::null(), show.debug, true) {
-                    show.debug = !show.debug;
+                if igMenuItemBool(const_cstr!("View data").as_ptr(), 
+                                  std::ptr::null(), app.windows.debug, true) {
+                    app.windows.debug = !app.windows.debug;
                 }
-                if igMenuItemBool(const_cstr!("Configure colors").as_ptr(), std::ptr::null(), show.config, true) {
-                    show.config = !show.config;
+                if igMenuItemBool(const_cstr!("Configure colors").as_ptr(), 
+                                  std::ptr::null(), app.windows.config, true) {
+                    app.windows.config = !app.windows.config;
                 }
                 igEndMenu();
             }

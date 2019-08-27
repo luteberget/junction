@@ -38,8 +38,8 @@ fn main() {
                           app.config.get_font_size(),
                           |action| {
                               
-        // Request from window system to quit
         match action {
+            // Window system requested quit (clicked ALT+F4, close button, or similar)
             backend_glfw::SystemAction::Close => { app.windows.quit = true; },
             _ => {},
         };
