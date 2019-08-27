@@ -5,7 +5,7 @@ use crate::document::model::*;
 use crate::document::dgraph::*;
 use crate::document::topology;
 use crate::document::interlocking;
-use crate::document::canvas::unround_coord;
+use crate::document::infview::unround_coord;
 
 use crate::document::history;
 use crate::util;

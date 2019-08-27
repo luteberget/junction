@@ -1,6 +1,6 @@
 use nalgebra_glm as glm;
 use crate::document::objects::*;
-use crate::document::canvas::*;
+use crate::document::infview::*;
 use crate::util::*;
 use ordered_float::OrderedFloat;
 use serde::{Serialize,Deserialize};

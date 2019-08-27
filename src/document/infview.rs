@@ -6,7 +6,7 @@ use crate::document::objects::*;
 use crate::gui::ImVec2;
 
 #[derive(Debug)]
-pub struct Canvas {
+pub struct InfView {
     pub action :Action,
     pub selection :HashSet<Ref>,
     pub view :View,
@@ -32,7 +32,14 @@ pub enum NormalState {
 #[derive(Debug,Copy,Clone)]
 pub enum MoveType { Grid(PtC), Continuous }
 
-impl Canvas {
+impl InfView {
+    pub fn default() -> Self {
+        InfView {
+            action: Action::Normal(NormalState::Default),
+            selection: HashSet::new(),
+            view: View::default(),
+        }
+    }
 }
 
 

@@ -51,7 +51,7 @@ fn main() {
 
         // Advance time in animations
 		let dt = unsafe { (*backend_glfw::imgui::igGetIO()).DeltaTime } as f64;
-        if let Some(d) = &mut app.document.dispatch { d.advance(dt); }
+        if let Some(d) = &mut app.document.dispatch_view { d.advance(dt); }
 
         // Draw and interact with GUI
         let continue_running = gui::main(&mut app);

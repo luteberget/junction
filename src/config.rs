@@ -12,7 +12,7 @@ use serde::{Serialize, Deserialize};
 type Color = palette::rgb::Rgba;
 
 lazy_static! {
-    static ref COLORNAMES :EnumMap<RailUIColorName, const_cstr::ConstCStr> = {
+    pub static ref COLORNAMES :EnumMap<RailUIColorName, const_cstr::ConstCStr> = {
         enum_map! {
                 RailUIColorName::CanvasBackground => const_cstr!("Canvas background"),
                 RailUIColorName::CanvasGridPoint => const_cstr!("Canvas grid point"),
@@ -251,25 +251,6 @@ pub enum RailUIColorName {
     GraphTrainRear,
     GraphCommand,
 }
-
-pub fn edit_config_window(popen :&mut bool, config :&mut Config) {
-    unsafe {
-    igBegin(const_cstr!("Configuration").as_ptr(), popen as _, 0 as _);
-    edit_config(config);
-    igEnd();
-    }
-
-}
-
-pub fn edit_config(config :&mut Config) {
-    unsafe {
-        for (name,color) in config.colors.iter_mut() {
-            let name = COLORNAMES[name].as_ptr();
-            igColorEdit4(name, &mut color.color.red as _, 0 as _);
-        }
-    }
-}
-
 
 #[test]
 pub fn colr_no() {

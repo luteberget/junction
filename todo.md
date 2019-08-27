@@ -13,7 +13,7 @@
 * save/load config / colors
 * better color defaults
 * change fonts+size
-
+* save/load with extension .junc
 
 ## infrastructure model + sim
 * more objects

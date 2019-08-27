@@ -35,6 +35,7 @@ pub struct Windows {
     pub log: bool,
     pub quit: bool,
     pub vehicles: bool,
+    pub diagram_split :Option<f32>,
 }
 
 impl Windows {
@@ -45,6 +46,7 @@ impl Windows {
             log: false,
             quit: false,
             vehicles: false,
+            diagram_split: None,
         }
     }
 }

@@ -14,21 +14,21 @@ pub mod dispatch;
 pub mod mileage;
 
 // graphical view representation
-pub mod canvas;
+pub mod infview;
 pub mod view;
 //pub mod diagram;
 
 use crate::file;
 use crate::app::*;
 use model::*;
-
+use infview::*;
 use log::*;
 
 pub struct Document {
     viewmodel :viewmodel::ViewModel,
     pub fileinfo :file::FileInfo,
-    //pub canvas :Canvas,
-    pub dispatch :Option<Dispatch>,
+    pub inf_view :InfView,
+    pub dispatch_view :Option<DispatchView>,
 }
 
 impl BackgroundUpdates for Document {
@@ -39,18 +39,15 @@ impl BackgroundUpdates for Document {
 
 impl Document {
     pub fn empty(bg :BackgroundJobs) -> Self {
-        Document {
-            viewmodel: viewmodel::ViewModel::from_model(model::Model::empty(), bg),
-            fileinfo: file::FileInfo::empty(),
-            dispatch: None,
-        }
+        Self::from_model(model::Model::empty(), bg)
     }
 
     pub fn from_model(model :model::Model, bg: BackgroundJobs) -> Self {
         Document {
             viewmodel: viewmodel::ViewModel::from_model(model, bg),
             fileinfo: file::FileInfo::empty(),
-            dispatch: None,
+            inf_view: InfView::default(),
+            dispatch_view: None,
         }
     }
 
@@ -87,10 +84,18 @@ impl Document {
     }
 }
 
-pub enum Dispatch {
+pub enum DispatchView {
+    Manual(ManualDispatchView),
+    Auto(AutoDispatchView),
 }
 
-impl UpdateTime for Dispatch {
+pub struct ManualDispatchView {
+}
+
+pub struct AutoDispatchView {
+}
+
+impl UpdateTime for DispatchView {
     fn advance(&mut self, dt :f64) {}
 }
 
