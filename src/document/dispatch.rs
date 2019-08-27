@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::document::viewmodel::*;
+use crate::document::Document;
 use crate::document::model::*;
 use crate::document::objects::*;
 use crate::document::dgraph::*;
+use crate::document::history::*;
 
 use crate::util::VecMap;
 
@@ -81,19 +82,19 @@ impl InstantCache {
         false
     }
     
-    fn update(&mut self, vm :&ViewModel, idx:usize, time :f32) -> Option<()> {
-        let dgraph = vm.get_data().dgraph.as_ref()?;
-        let dispatch = vm.get_data().dispatch.get(idx)?.as_ref()?;
+    fn update(&mut self, doc :&Document, idx:usize, time :f32) -> Option<()> {
+        let dgraph = doc.data().dgraph.as_ref()?;
+        let dispatch = doc.data().dispatch.get(idx)?.as_ref()?;
         self.data.vecmap_insert(idx, Instant::from(time, &dispatch.history, dgraph));
         Some(())
     }
 
-    pub fn get_instant<'a>(&'a mut self, vm :&ViewModel, idx :usize, time :f32) -> Option<&'a Instant> {
-        if !self.is_cached(idx,time) { self.update(vm,idx,time); }
+    pub fn get_instant<'a>(&'a mut self, doc :&Document, idx :usize, time :f32) -> Option<&'a Instant> {
+        if !self.is_cached(idx,time) { self.update(doc,idx,time); }
         self.data.vecmap_get(idx)
     }
 
-    pub fn get_cached_instant<'a>(&'a self, vm :&ViewModel, idx :usize, time :f32) -> Option<&'a Instant> {
+    pub fn get_cached_instant<'a>(&'a self, doc :&Document, idx :usize, time :f32) -> Option<&'a Instant> {
         self.data.vecmap_get(idx)
     }
 }

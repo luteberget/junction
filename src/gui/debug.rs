@@ -1,75 +1,77 @@
 use backend_glfw::imgui::*;
 use const_cstr::*;
-use crate::ui;
-use crate::AllState;
+use crate::gui::widgets;
+use crate::app;
 
-pub fn debug_window(popen :&mut bool, allstate :AllState) {
+pub fn debug_window(mut popen :bool, app :&app::App) -> bool {
+    if !popen { return popen; }
     unsafe {
-    igBegin(const_cstr!("View data").as_ptr(), popen as _, 0 as _);
+    igBegin(const_cstr!("View data").as_ptr(), &mut popen as _, 0 as _);
     igPushTextWrapPos(0.0);
 
     let defaultopen = ImGuiTreeNodeFlags__ImGuiTreeNodeFlags_DefaultOpen;
 
     if igTreeNodeExStr(const_cstr!("Application state").as_ptr(), defaultopen as _) {
-        ui::show_text(&format!("{:#?}", allstate.viewmodel.fileinfo));
-        ui::show_text(&allstate.viewmodel.info());
+        widgets::show_text(&format!("{:#?}", app.document.fileinfo));
+        //ui::show_text(&app.document.viewmodel.info());
 
-        if igTreeNodeStr(const_cstr!("Canvas").as_ptr()) {
-            ui::show_text(&format!("{:#?}", allstate.canvas));
-            igTreePop();
-        }
-        if igTreeNodeStr(const_cstr!("Diagram").as_ptr()) {
-            ui::show_text(&format!("{:#?}", allstate.diagram));
-            igTreePop();
-        }
+        //if igTreeNodeStr(const_cstr!("Canvas").as_ptr()) {
+        //    ui::show_text(&format!("{:#?}", allstate.canvas));
+        //    igTreePop();
+        //}
+        //if igTreeNodeStr(const_cstr!("Diagram").as_ptr()) {
+        //    ui::show_text(&format!("{:#?}", allstate.diagram));
+        //    igTreePop();
+        //}
         igTreePop();
     }
 
 
     if igTreeNodeStr(const_cstr!("Model").as_ptr()) {
-        ui::show_text(&allstate.viewmodel.get_undoable().info());
+        // TODO threads 
+        //ui::show_text(&allstate.viewmodel.get_undoable().info());
 
-        let model = allstate.viewmodel.get_undoable().get();
+        let model = app.document.model();
 
         if igTreeNodeStr(const_cstr!("Line segments").as_ptr()) {
-            ui::show_text(&format!("{:#?}", model.linesegs));
+            widgets::show_text(&format!("{:#?}", model.linesegs));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("Objects").as_ptr()) {
-            ui::show_text(&format!("{:#?}", model.objects));
+            widgets::show_text(&format!("{:#?}", model.objects));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("Node data override").as_ptr()) {
-            ui::show_text(&format!("{:#?}", model.node_data));
+            widgets::show_text(&format!("{:#?}", model.node_data));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("Vehicles").as_ptr()) {
-            ui::show_text(&format!("{:#?}", model.vehicles));
+            widgets::show_text(&format!("{:#?}", model.vehicles));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("Dispatches").as_ptr()) {
-            ui::show_text(&format!("{:#?}", model.dispatches));
+            widgets::show_text(&format!("{:#?}", model.dispatches));
             igTreePop();
         }
         igTreePop();
     }
 
     if igTreeNodeStr(const_cstr!("Derived data / view model").as_ptr()) {
-        let derived = allstate.viewmodel.get_data();
+        let derived = app.document.data();
         if igTreeNodeStr(const_cstr!("Topology").as_ptr()) {
-            ui::show_text(&format!("{:#?}", derived.topology));
+            widgets::show_text(&format!("{:#?}", derived.topology));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("DGraph").as_ptr()) {
-            ui::show_text(&format!("{:#?}", derived.dgraph));
+            widgets::show_text(&format!("{:#?}", derived.dgraph));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("Interlocking").as_ptr()) {
-            ui::show_text(&format!("{:#?}", derived.interlocking));
+            widgets::show_text(&format!("{:#?}", derived.interlocking));
             igTreePop();
         }
         if igTreeNodeStr(const_cstr!("Dispatch").as_ptr()) {
-            ui::show_text(&format!("{:#?}", derived.dispatch));
+            widgets::show_text(&format!("{:#?}", derived.dispatch));
             igTreePop();
         }
         igTreePop();
@@ -80,5 +82,7 @@ pub fn debug_window(popen :&mut bool, allstate :AllState) {
     igPopTextWrapPos();
     igEnd();
     }
+
+    popen
 }
 

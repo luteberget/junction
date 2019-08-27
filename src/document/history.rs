@@ -1,7 +1,7 @@
 use rolling::input::staticinfrastructure as rolling_inf;
+pub use rolling::output::history::History;
 
 use crate::document::model::*;
-use crate::document::viewmodel::*;
 
 pub fn get_history<'a>(vehicles :&im::Vector<Vehicle>, 
                    inf :&rolling_inf::StaticInfrastructure, 

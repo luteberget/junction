@@ -23,7 +23,7 @@ pub fn main_menu(app :&mut App) {
                         Ok(Some((m, filename))) => {
                             info!("Loading model from file succeeded.");
                             app.document = Document::from_model(m, app.background_jobs.clone());
-                            app.document.fileinfo.set_saved(filename);
+                            app.document.fileinfo.set_saved_file(filename);
                         },
                         Ok(None) => {
                             info!("Load file cancelled by user.");
@@ -40,7 +40,7 @@ pub fn main_menu(app :&mut App) {
                                           std::ptr::null(), false, true) {
                             match file::save(filename, app.document.model().clone()) {
                                 Err(e) => { error!("Error saving file: {}", e); },
-                                _ => {},
+                                Ok(()) => { app.document.fileinfo.set_saved(); },
                             };
                         }
                     },
@@ -49,7 +49,8 @@ pub fn main_menu(app :&mut App) {
                                           std::ptr::null(), false, true) {
                             match file::save_interactive(app.document.model().clone()) {
                                 Err(e) => { error!("Error saving file: {}", e); },
-                                _ => {},
+                                Ok(Some(filename)) => { app.document.fileinfo.set_saved_file(filename); },
+                                _ => {}, // cancelled
                             };
                         }
                     }

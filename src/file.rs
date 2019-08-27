@@ -3,8 +3,9 @@ use std::fs::File;
 use log::*;
 
 pub fn load(filename :&str) -> Result<Model, std::io::Error> {
-    serde_cbor::from_reader(File::open(&filename)?)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    let m = serde_cbor::from_reader(File::open(&filename)?)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    Ok(m)
 }
 
 pub fn save(filename :&str, m :Model) -> Result<(),std::io::Error> {
@@ -14,11 +15,11 @@ pub fn save(filename :&str, m :Model) -> Result<(),std::io::Error> {
     Ok(())
 }
 
-pub fn save_interactive(m :Model) -> Result<bool,std::io::Error> {
+pub fn save_interactive(m :Model) -> Result<Option<String>,std::io::Error> {
     if let Some(filename) = tinyfiledialogs::save_file_dialog("Save model to file", "") {
-        save(&filename, m).map(|_| true)
+        save(&filename, m).map(|_| Some(filename))
     } else {
-        Ok(false) // user cancelled, this is not an error
+        Ok(None) // user cancelled, this is not an error
     }
 }
 
@@ -48,9 +49,14 @@ impl FileInfo {
         }
     }
 
-    pub fn set_saved(&mut self, filename :String) {
+    pub fn set_saved_file(&mut self, filename :String) {
         self.unsaved = false;
         self.filename = Some(filename);
+        self.update_window_title();
+    }
+
+    pub fn set_saved(&mut self) {
+        self.unsaved = false;
         self.update_window_title();
     }
 

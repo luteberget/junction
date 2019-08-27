@@ -104,7 +104,9 @@ impl Dispatch {
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(Serialize,Deserialize)]
-pub struct PlanSpec {}
+pub struct PlanSpec {
+    x :usize,
+}
 
 
 #[derive(Clone, Default)]

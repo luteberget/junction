@@ -7,28 +7,16 @@ use std::sync::Mutex;
 use crate::gui::widgets;
 
 pub fn view_log(popen :&mut bool, logstring :&Arc<Mutex<VecDeque<u8>>>) {
+    if !*popen { return; }
+
     unsafe {
         igBegin(const_cstr!("Log").as_ptr(), popen as _, 0 as _);
-        //igPushTextWrapPos(0.0);
-
         widgets::show_text("Log:");
-        {
         let buf = logstring.lock().unwrap();
         let (s1,s2) = buf.as_slices();
-        //let begin = s1.as_ptr() as *const i8;
-        //let end = begin.offset(s1.len() as isize);
-        //igTextUnformatted(begin,end);
-        //ui::long_text(
         widgets::long_text(std::str::from_utf8_unchecked(s1));
         igSameLine(0.0,-1.0);
         widgets::long_text(std::str::from_utf8_unchecked(s2));
-
-        //let begin = s2.as_ptr() as *const i8;
-        //let end = begin.offset(s2.len() as isize);
-        //igTextUnformatted(begin,end);
-        }
-
-        //igPopTextWrapPos();
         igEnd();
     }
 

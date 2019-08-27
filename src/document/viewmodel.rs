@@ -15,8 +15,6 @@ use crate::document::dispatch;
 use std::sync::Arc;
 use nalgebra_glm as glm;
 
-pub use rolling::output::history::History;
-
 #[derive(Default)]
 pub struct Derived {
     pub dgraph :Option<Arc<DGraph>>,
@@ -26,8 +24,8 @@ pub struct Derived {
 }
 
 pub struct ViewModel {
-    model: Undoable<Model, EditClass>,
-    derived :Derived,
+    pub(super) model: Undoable<Model, EditClass>,
+    pub(super) derived :Derived,
     get_data :Option<Receiver<SetData>>,
     bg :app::BackgroundJobs,
 }
@@ -64,7 +62,7 @@ impl ViewModel {
         }
     }
 
-    fn update(&mut self) {
+    pub(super) fn update(&mut self) {
         let model = self.model.get().clone(); // persistent structs
         let topology = Arc::new(topology::convert(&model, 50.0).unwrap());
         self.derived.topology = Some(topology.clone());
@@ -112,53 +110,20 @@ impl ViewModel {
         });
     }
 
-    // TODO what is a better api here?
-    pub fn get_undoable(&self) -> &Undoable<Model,EditClass> {
-        &self.model
-    }
-
-    pub fn get_data(&self) -> &Derived {
-        &self.derived
-    }
-
-    pub fn edit_model(&mut self, mut f :impl FnMut(&mut Model) -> Option<EditClass>) {
-        let mut new_model = self.get_undoable().get().clone();
-        let cl = f(&mut new_model);
-        self.set_model(new_model, cl);
-    }
-
-    pub fn set_model(&mut self, m :Model, cl :Option<EditClass>) {
-        info!("Updating model");
-        self.model.set(m, cl);
-        self.on_changed();
-    }
-
-    pub fn override_edit_class(&mut self, cl :EditClass) {
-        self.model.override_edit_class(cl);
-    }
-
-    pub fn undo(&mut self) { if self.model.undo() { self.on_changed(); } }
-    pub fn redo(&mut self) { if self.model.redo() { self.on_changed(); } }
-
-    fn on_changed(&mut self) {
-        // TODO move this to Document
-        //self.fileinfo.set_unsaved();
-        self.update();
-    }
 
     pub fn get_rect(&self, a :PtC, b :PtC) -> Vec<Ref> {
         let mut r = Vec::new();
-        for (a,b) in self.get_undoable().get().get_linesegs_in_rect(a,b) {
+        for (a,b) in self.model.get().get_linesegs_in_rect(a,b) {
             r.push(Ref::LineSeg(a,b));
         }
-        if let Some(topo) = self.get_data().topology.as_ref() {
+        if let Some(topo) = self.derived.topology.as_ref() {
             for (pt,_) in topo.locations.iter() {
                 if util::in_rect(glm::vec2(pt.x as f32,pt.y as f32), a,b) {
                     r.push(Ref::Node(*pt));
                 }
             }
         }
-        for (pta,_) in self.get_undoable().get().objects.iter() {
+        for (pta,_) in self.model.get().objects.iter() {
             if util::in_rect(unround_coord(*pta), a, b) {
                 r.push(Ref::Object(*pta));
             }
@@ -168,7 +133,7 @@ impl ViewModel {
 
     pub fn get_closest(&self, pt :PtC) -> Option<(Ref,f32)> {
         let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
-        if let Some(((p1,p2),_param,(d,_n))) = self.get_undoable().get().get_closest_lineseg(pt) {
+        if let Some(((p1,p2),_param,(d,_n))) = self.model.get().get_closest_lineseg(pt) {
             thing = Some(Ref::LineSeg(p1,p2));
             dist_sqr = d; 
         }
@@ -180,7 +145,7 @@ impl ViewModel {
             }
         }
 
-        if let Some(((p,_obj),d)) = self.get_undoable().get().get_closest_object(pt) {
+        if let Some(((p,_obj),d)) = self.model.get().get_closest_object(pt) {
             if d < 0.5*0.5 {
                 thing = Some(Ref::Object(*p));
                 dist_sqr = d;
@@ -193,7 +158,7 @@ impl ViewModel {
     pub fn get_closest_node(&self, pt :PtC) -> Option<(Pt,f32)> {
         let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
         for p in corners(pt) {
-            for (px,_) in self.get_data().topology.as_ref()?.locations.iter() {
+            for (px,_) in self.derived.topology.as_ref()?.locations.iter() {
                 if &p == px {
                     let d = glm::length2(&(pt-glm::vec2(p.x as f32,p.y as f32)));
                     if d < dist_sqr {

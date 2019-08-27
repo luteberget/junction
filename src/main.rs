@@ -45,7 +45,7 @@ fn main() {
         };
 
         // Check background threads for updates
-        app.document.viewmodel.check();
+        app.document.check();
         // TODO app.windows.import.check();
         // TODO app.windows.synthesis.check()
 

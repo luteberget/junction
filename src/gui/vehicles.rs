@@ -1,14 +1,14 @@
-use crate::model::*;
-use crate::ui;
+use crate::document::Document;
+use crate::document::model::*;
 use const_cstr::*;
-use crate::viewmodel::*;
 use backend_glfw::imgui::*;
+use crate::gui::widgets;
 
-pub fn edit_vehicles(vm :&mut ViewModel) {
+pub fn edit_vehicles(doc :&mut Document) {
     unsafe {
-    let mut new_model = vm.get_undoable().get().clone();
+    let mut new_model = doc.model().clone();
     let mut modified = None;
-    for (i,v) in vm.get_undoable().get().vehicles.iter().enumerate() {
+    for (i,v) in doc.model().vehicles.iter().enumerate() {
         igPushIDInt(i as _);
 
         let mut name = v.name.clone().into_bytes();
@@ -65,35 +65,37 @@ pub fn edit_vehicles(vm :&mut ViewModel) {
     }
 
     if modified.is_some() {
-        vm.set_model(new_model, modified);
+        doc.set_model(new_model, modified);
     }
 
-    if vm.get_undoable().get().vehicles.len() == 0 {
-        ui::show_text("No vehicles defined.");
+    if doc.model().vehicles.len() == 0 {
+        widgets::show_text("No vehicles defined.");
     }
 
     if igButton(const_cstr!("Add vehicle").as_ptr(), ImVec2 { x: 0.0, y: 0.0 }) {
-        let mut new_model = vm.get_undoable().get().clone();
-        let name = format!("Vehicle {}", new_model.vehicles.len() +1);
-        new_model.vehicles.push_back(Vehicle {
-            name: name,
-            length: 100.0,
-            max_acc: 1.0,
-            max_brk: 0.5,
-            max_vel: 50.0,
+        doc.edit_model(|m| {
+            let name = format!("Vehicle {}", m.vehicles.len() +1);
+            m.vehicles.push_back(Vehicle {
+                name: name,
+                length: 100.0,
+                max_acc: 1.0,
+                max_brk: 0.5,
+                max_vel: 50.0,
+            });
+            None
         });
-        vm.set_model(new_model, None);
     }
 
     }
 }
 
 
-pub fn edit_vehicles_window(popen :&mut bool, vm :&mut ViewModel) {
+pub fn edit_vehicles_window(popen :&mut bool, doc :&mut Document) {
+    if !*popen { return; }
     unsafe {
     igBegin(const_cstr!("Vehicles").as_ptr(), popen as *mut bool, 0 as _);
 
-    edit_vehicles(vm);
+    edit_vehicles(doc);
 
     igEnd();
     }
