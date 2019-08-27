@@ -8,11 +8,12 @@
 * user test
 
 ## minor
-* rename to junction
-* hotkeys (save,load)
+* x  rename to junction
+* x  hotkeys (save,load)
 * save/load config / colors
 * better color defaults
 * change fonts+size
+
 
 ## infrastructure model + sim
 * more objects
@@ -44,10 +45,15 @@
 * edit dispatch
 * auto-dispatch/movements/constraints-based-train
 
+* gui for dispatch/auto-dispatch
+
 ## railml
 
 * import railml 2.x 
   * schematic config
+  * X  convert tracks
+  *    convert objects
+
 * import railml 2.x nor?
 * import railml 3
 * export railml 2.x
@@ -77,4 +83,12 @@
 
 ## bugs
 1. can undo creation of manual dispatch, but still displayed and crashes when adding new commands.
+
+# file format
+
+* defined, versioned file format 
+* how to handle backwards compatiblity when using json/cbor serialization?
+
+
+
 
