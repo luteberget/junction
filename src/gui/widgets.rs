@@ -2,6 +2,9 @@ use backend_glfw::imgui::*;
 use const_cstr::const_cstr;
 use std::ptr;
 
+use crate::document::model::PtC;
+use crate::document::view::View;
+
 
 pub fn in_root_window(f :impl FnOnce()) {
     unsafe{
@@ -24,14 +27,79 @@ pub fn in_root_window(f :impl FnOnce()) {
     }
 }
 
-pub fn canvas(size :ImVec2, color :u32, name :*const i8, f :impl FnOnce(*mut ImDrawList,ImVec2) -> Option<()>) {
+pub struct Draw {
+    pub draw_list :*mut ImDrawList,
+    pub pos :ImVec2,
+    pub size :ImVec2,
+    pub view :View,
+    pub pointer :PtC,
+}
+
+pub struct CanvasDraw {
+    draw_list :*mut ImDrawList,
+    pos :ImVec2,
+    size :ImVec2,
+    view :View,
+}
+
+impl CanvasDraw {
+    fn conv(&self, a :PtC) -> ImVec2 {
+        self.pos + self.view.world_ptc_to_screen(a)
+    }
+
+    pub fn line(&mut self, a :PtC, b :PtC, color :u32, width: f32) {
+        unsafe { ImDrawList_AddLine(self.draw_list, self.conv(a), self.conv(b), color, width); }
+    }
+}
+
+pub struct Canvas {
+    name :*const i8,
+    bg_color: Option<u32>,
+    size: Option<ImVec2>,
+    view: View,
+}
+
+impl Canvas {
+    pub fn new(name :*const i8, view :View) -> Canvas {
+        Canvas {
+            name: name,
+            bg_color: None,
+            size: None,
+            view: view,
+        }
+    }
+
+    pub fn size(self, size :ImVec2) -> Canvas { Canvas { size: Some(size), .. self } }
+    pub fn stretch(self) -> Canvas { Canvas { size: None, .. self } }
+    pub fn background(self, color :u32) -> Canvas { Canvas { bg_color: Some(color), .. self } }
+
+    pub fn draw(self, f:impl FnOnce(&CanvasDraw)) {
+        unsafe  {
+            let size = self.size.unwrap_or_else(|| igGetContentRegionAvail_nonUDT2().into() );
+            let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
+
+            let draw_list = igGetWindowDrawList();
+            if let Some(bg)  =self.bg_color {
+                ImDrawList_AddRectFilled(draw_list, pos, pos + size, bg, 0.0, 0);
+            }
+            let _clicked = igInvisibleButton(self.name, size); // TODO do we need this?
+            ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
+
+            f(&CanvasDraw { draw_list, pos, size, view: self.view });
+            ImDrawList_PopClipRect(draw_list);
+        }
+    }
+}
+
+pub fn canvas(size :ImVec2, color :u32, name :*const i8, view :View, f :impl FnOnce(&mut Draw) -> Option<()>) {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();
         ImDrawList_AddRectFilled(draw_list, pos, pos + size, color, 0.0, 0);
         let clicked = igInvisibleButton(name, size);
         ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
-        f(draw_list, pos);
+        let pointer = view.screen_to_world_ptc( (*igGetIO()).MousePos - pos );
+        f(&mut Draw { pos, size, draw_list, view,pointer });
         ImDrawList_PopClipRect(draw_list);
     }
 }

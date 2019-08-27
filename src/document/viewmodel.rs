@@ -8,8 +8,8 @@ use crate::document::interlocking;
 use crate::document::infview::unround_coord;
 
 use crate::document::history;
-use crate::util;
 use crate::app;
+use crate::util;
 use crate::util::VecMap;
 use crate::document::dispatch;
 use std::sync::Arc;
@@ -110,65 +110,5 @@ impl ViewModel {
         });
     }
 
-
-    pub fn get_rect(&self, a :PtC, b :PtC) -> Vec<Ref> {
-        let mut r = Vec::new();
-        for (a,b) in self.model.get().get_linesegs_in_rect(a,b) {
-            r.push(Ref::LineSeg(a,b));
-        }
-        if let Some(topo) = self.derived.topology.as_ref() {
-            for (pt,_) in topo.locations.iter() {
-                if util::in_rect(glm::vec2(pt.x as f32,pt.y as f32), a,b) {
-                    r.push(Ref::Node(*pt));
-                }
-            }
-        }
-        for (pta,_) in self.model.get().objects.iter() {
-            if util::in_rect(unround_coord(*pta), a, b) {
-                r.push(Ref::Object(*pta));
-            }
-        }
-        r
-    }
-
-    pub fn get_closest(&self, pt :PtC) -> Option<(Ref,f32)> {
-        let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
-        if let Some(((p1,p2),_param,(d,_n))) = self.model.get().get_closest_lineseg(pt) {
-            thing = Some(Ref::LineSeg(p1,p2));
-            dist_sqr = d; 
-        }
-
-        if let Some((p,d)) = self.get_closest_node(pt) {
-            if d < 0.5*0.5 {
-                thing = Some(Ref::Node(p));
-                dist_sqr = d;
-            }
-        }
-
-        if let Some(((p,_obj),d)) = self.model.get().get_closest_object(pt) {
-            if d < 0.5*0.5 {
-                thing = Some(Ref::Object(*p));
-                dist_sqr = d;
-            }
-        }
-
-        thing.map(|t| (t,dist_sqr))
-    }
-
-    pub fn get_closest_node(&self, pt :PtC) -> Option<(Pt,f32)> {
-        let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
-        for p in corners(pt) {
-            for (px,_) in self.derived.topology.as_ref()?.locations.iter() {
-                if &p == px {
-                    let d = glm::length2(&(pt-glm::vec2(p.x as f32,p.y as f32)));
-                    if d < dist_sqr {
-                        thing = Some(p);
-                        dist_sqr = d;
-                    }
-                }
-            }
-        }
-        thing.map(|t| (t,dist_sqr))
-    }
 }
 

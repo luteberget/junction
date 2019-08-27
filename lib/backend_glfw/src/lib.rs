@@ -45,6 +45,9 @@ pub mod imgui {
         pub fn length_sq(&self) -> f32 {
             (self.x*self.x+self.y*self.y)
         }
+        pub fn zero() -> ImVec2 {
+            ImVec2 { x: 0.0, y: 0.0 }
+        }
     }
 
 }

@@ -9,6 +9,8 @@ pub mod infview;
 pub mod plan;
 pub mod diagram;
 pub mod dispatch;
+pub mod menus;
+pub mod draw_inf;
 
 pub use backend_glfw::imgui::ImVec2;
 

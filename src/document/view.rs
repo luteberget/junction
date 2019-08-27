@@ -3,6 +3,7 @@ use crate::gui::ImVec2;
 use nalgebra_glm as glm;
 
 #[derive(Debug)]
+#[derive(Clone)]
 pub struct View {
     scale :usize,
     translation :ImVec2,

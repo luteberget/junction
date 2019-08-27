@@ -6,6 +6,7 @@
 * end user documentation (README.md)
 * web page
 * user test
+* rewrite viewport/canvas plotting (canvas object with wrapped addLine, etc., functions)
 
 ## minor
 * x  rename to junction
