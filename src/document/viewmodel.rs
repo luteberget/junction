@@ -96,15 +96,15 @@ impl ViewModel {
             if !send_ok.is_ok() { println!("job canceled after interlocking"); return; }
             info!("Interlocking successful with {:?} routes", interlocking.routes.len());
 
-            for (i,dispatch) in model.dispatches.iter().enumerate() {
+            for (i,dispatch) in model.dispatches.iter() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
                 let history = history::get_history(&model.vehicles,
                                                    &dgraph.rolling_inf,
-                                                   interlocking.routes.iter().map(|(r,_)| r),
+                                                   &interlocking,
                                                    &(dispatch.0)).unwrap();
                 info!("Simulation successful {:?}", &dispatch.0);
                 let view = dispatch::DispatchView::from_history(&dgraph, history);
-                let send_ok = tx.send(SetData::Dispatch(i, view));
+                let send_ok = tx.send(SetData::Dispatch(*i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
         });

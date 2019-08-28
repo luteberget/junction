@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use backend_glfw::imgui::*;
 use const_cstr::const_cstr;
 use std::ptr;
@@ -161,6 +163,9 @@ impl Splitter {
     }
 }
 
+
+//pub fn dropdown<'a, T>(choices :impl Iterator<Item = &'a T>) -> Option<&'a T> {
+//}
 
 
 pub fn radio_select<'a, T>(choices: &'a [(*const i8, bool, T)]) -> Option<&'a T> {

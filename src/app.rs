@@ -1,6 +1,6 @@
 use crate::document::Document;
 use crate::config::Config;
-use crate::gui::logview::LogStore;
+use crate::gui::windows::logview::LogStore;
 
 pub struct App {
     pub document :Document,

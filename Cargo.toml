@@ -22,7 +22,7 @@ im = { version = "13.0", features = ["serde"] }
 nalgebra = { version = "0.18", features = ["serde-serialize"] }
 nalgebra-glm = "0.4"
 petgraph = "0.4"
-serde =  { version = "1.0", features = ["derive"] }
+serde =  { version = "1.0", features = ["derive", "rc"] }
 serde_cbor = "0.10"
 
 font-kit = "0.4"

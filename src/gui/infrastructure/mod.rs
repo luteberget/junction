@@ -1,3 +1,6 @@
+pub mod draw;
+pub mod menus;
+
 use const_cstr::*;
 use matches::*;
 use backend_glfw::imgui::*;
@@ -13,8 +16,6 @@ use crate::document::model::*;
 use crate::document::objects::*;
 use crate::gui::widgets;
 use crate::gui::widgets::Draw;
-use crate::gui::menus;
-use crate::gui::draw_inf;
 use crate::config::RailUIColorName;
 
 
@@ -37,10 +38,10 @@ pub fn inf_view(app :&mut App) {
 }
 
 fn draw_inf(app :&mut App, draw :&Draw, preview_route :Option<usize>) {
-    draw_inf::base(app,draw);
-    if let Some(r) = preview_route { draw_inf::route(app, draw, r); }
-    draw_inf::state(app,draw);
-    draw_inf::trains(app,draw);
+    draw::base(app,draw);
+    if let Some(r) = preview_route { draw::route(app, draw, r); }
+    draw::state(app,draw);
+    draw::trains(app,draw);
 }
 
 fn scroll(inf_view :&mut InfView) { 
@@ -277,61 +278,41 @@ fn context_menu(doc :&mut Document, draw :&Draw, preview_route :&mut Option<usiz
     }
 }
 
-
 fn context_menu_contents(doc :&mut Document, preview_route :&mut Option<usize>) {
     unsafe {
-
-        widgets::show_text(&format!("selection: {:?}", doc.inf_view.selection));
-        //
-        // TODO cache some info about selection? In case it is very big and we need to know
-        // every frame whether it contains a Node or not.
-        // 
-
-        if doc.inf_view.selection.len() == 1 {
-            if let Some(Ref::Node(pt)) = doc.inf_view.selection.iter().cloned().nth(0) {
-                menus::node_editor(doc, pt);
-            }
+    widgets::show_text(&format!("selection: {:?}", doc.inf_view.selection));
+    widgets::sep();
+    if !doc.inf_view.selection.is_empty() {
+        if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
+            delete_selection(doc);
         }
+    }
+    widgets::sep();
+    if doc.inf_view.selection.len() == 1 {
+        let thing = doc.inf_view.selection.iter().nth(0).cloned().unwrap();
+        context_menu_single(doc,thing,preview_route);
+    }
+    }
+}
 
+fn context_menu_single(doc :&mut Document, thing :Ref, preview_route :&mut Option<usize>) {
+
+    // Node editor
+    if let Ref::Node(pt) = thing { 
+        menus::node_editor(doc, pt);
         widgets::sep();
-        if !doc.inf_view.selection.is_empty() {
-            if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
-                delete_selection(doc);
-            }
-        }
+    }
 
+    // Object editor
+    if let Ref::Object(pta) = thing { 
+        menus::object_menu(doc, pta);
         widgets::sep();
-        let mut dispatch_action = None;
-        if doc.inf_view.selection.len() == 1 {
+    }
 
-
-            // Object menu
-            if let Some(Ref::Object(pta)) = doc.inf_view.selection.iter().cloned().nth(0) {
-                menus::object_menu(doc, pta);
-            }
-
-            if let Some(il) = doc.data().interlocking.as_ref() {
-                if let Some(Ref::Node(pt)) = doc.inf_view.selection.iter().cloned().nth(0) {
-                    if let Some(rs) = il.boundary_routes.get(&pt) {
-                        let (preview,action) = menus::route_selector(il,rs);
-                        *preview_route = preview;
-                        dispatch_action = action;
-                    }
-                }
-                if let Some(Ref::Object(pta)) = doc.inf_view.selection.iter().cloned().nth(0) {
-                    if let Some(rs) = il.signal_routes.get(&pta) {
-                        let (preview,action) = menus::route_selector(il,rs);
-                        *preview_route = preview;
-                        dispatch_action = action;
-                    }
-                }
-            }
-        }
-        // This can be moved inside the route_selector?
-        if let Some(route_id) = dispatch_action {
-            start_route(doc, route_id);
-        }
-
+    // Manual dispatch from boundaries and signals
+    let action = menus::route_selector(doc, thing, preview_route);
+    if let Some(routespec) = action {
+        start_route(doc, routespec);
     }
 }
 
@@ -344,28 +325,22 @@ fn delete_selection(doc :&mut Document) {
     doc.set_model(new_model, None);
 }
 
-fn start_route(doc :&mut Document, route_id :usize) {
-    //   if let Some(il) = doc.data().interlocking.as_ref() {
-    //   let mut model = doc.model().clone();
+fn start_route(doc :&mut Document, cmd :Command) {
+    let mut model = doc.model().clone();
 
-    //   if doc.dispatch_view.is_some() {
-    //   }
+    let (dispatch_idx,time) = match &doc.dispatch_view {
+        Some(DispatchView::Manual(m)) => (m.dispatch_idx, m.time),
+        None | Some(DispatchView::Auto(_)) => {
+            let dispatch_idx = model.dispatches.insert(Default::default());
+            let time = 0.0;
+            doc.dispatch_view = Some(DispatchView::Manual(ManualDispatchView {
+                dispatch_idx: dispatch_idx, time: 0.0, play: true
+            }));
+            (dispatch_idx,time)
+        },
+    };
 
-    //   let (dispatch_idx,time,play) = app.doc.unwrap_or_else(|| {
-    //       model.dispatches.push_back(Default::default()); // empty dispatch
-    //       let d = (model.dispatches.len()-1, 0.0, true);
-    //       self.active_dispatch = Some(d);
-    //       d
-    //   });
-
-    //   let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
-    //   let cmd = match (il.routes[route_idx].0).entry {
-    //       rolling_inf::RouteEntryExit::Boundary(_) =>
-    //           Command::Train { route: route_idx, vehicle: 0 },
-    //       rolling_inf::RouteEntryExit::Signal(_) | rolling_inf::RouteEntryExit::SignalTrigger {..
-    //           Command::Route { route: route_idx },
-    //   };
-    //   dispatch.insert(time as f64, cmd);
-    //   doc.set_model(model,None);
-    //   //println!("DISPATCHES: {:?}", doc.get_undoable().get().dispatches);
+    let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
+    dispatch.insert(time as f64, cmd);
+    doc.set_model(model, None);
 }

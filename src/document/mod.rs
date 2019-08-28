@@ -154,9 +154,14 @@ pub enum DispatchView {
 }
 
 pub struct ManualDispatchView {
+    pub dispatch_idx :usize,
+    pub time :f64,
+    pub play :bool,
 }
 
 pub struct AutoDispatchView {
+    pub plan_idx :usize,
+    pub dispatch :Option<ManualDispatchView>,
 }
 
 impl UpdateTime for DispatchView {

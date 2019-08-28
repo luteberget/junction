@@ -1,6 +1,7 @@
 use const_cstr::*;
 use matches::*;
 use backend_glfw::imgui::*;
+use rolling::input::staticinfrastructure as rolling_inf;
 
 use crate::app::App;
 use crate::document::*;
@@ -11,6 +12,7 @@ use crate::document::view::*;
 use crate::document::interlocking::*;
 use crate::gui::widgets;
 use crate::config::RailUIColorName;
+
 
 
 pub fn node_editor(doc :&mut Document, pt :Pt) -> Option<()> {
@@ -90,24 +92,32 @@ pub fn object_menu(doc :&mut Document, pta :PtA) -> Option<()> {
     Some(())
 }
 
-pub fn route_selector(il :&Interlocking, routes :&[usize]) -> (Option<usize>,Option<usize>) {
+pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize>) -> Option<Command> {
+    let il = doc.data().interlocking.as_ref()?;
+    let routes = il.get_routes(thing)?;
+
     unsafe {
         let mut some = false;
-        let mut preview = None;
         let mut action = None;
         for idx in routes {
             some = true;
             igPushIDInt(*idx as _);
+
+            let cmd = match il.routes[*idx].route.entry {
+                rolling_inf::RouteEntryExit::Boundary(_) => Command::Train(0, il.routes[*idx].id),
+                _ => Command::Route(il.routes[*idx].id),
+            };
+
             if igSelectable(const_cstr!("##route").as_ptr(), false,
                             0 as _, ImVec2::zero()) {
-                //self.start_boundary_route(doc, *idx);
-                action = Some(*idx);
+                action = Some(cmd);
             }
             if igIsItemHovered(0) {
-                preview = Some(*idx);
+                *preview = Some(*idx);
             }
-            igSameLine(0.0,-1.0); widgets::show_text(&format!("Route to {:?}",
-                                            (il.routes[*idx].0).exit));
+            igSameLine(0.0,-1.0); 
+
+            widgets::show_text(&format!("Route to {:?}", (il.routes[*idx].route).exit));
 
             igPopID();
 
@@ -115,7 +125,7 @@ pub fn route_selector(il :&Interlocking, routes :&[usize]) -> (Option<usize>,Opt
         if !some {
             widgets::show_text("No routes.");
         }
-        (preview,action)
+        action
     }
 }
 

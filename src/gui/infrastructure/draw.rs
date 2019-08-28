@@ -4,6 +4,7 @@ use crate::util;
 use crate::document::model::*;
 use crate::document::objects::*;
 use crate::document::infview::*;
+use crate::document::interlocking::*;
 use crate::config::*;
 
 use backend_glfw::imgui::*;
@@ -163,7 +164,43 @@ pub fn base(app :&mut App, draw :&Draw) {
     }
 }
 
-pub fn route(app :&mut App, draw :&Draw, r :usize) { 
+pub fn route(app :&mut App, draw :&Draw, route_idx :usize) -> Option<()> { 
+    unsafe {
+        let il = app.document.data().interlocking.as_ref()?;
+        let dgraph = app.document.data().dgraph.as_ref()?;
+        let RouteInfo { route, path, ..} = &il.routes[route_idx];
+        let color_path = app.config.color_u32(RailUIColorName::CanvasRoutePath);
+        let color_section = app.config.color_u32(RailUIColorName::CanvasRouteSection);
+
+        for sec in route.resources.sections.iter() {
+            if let Some(edges) = dgraph.tvd_edges.get(sec) {
+                for (a,b) in edges.iter() {
+                    if let Some(v) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
+                        for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
+                            ImDrawList_AddLine(draw.draw_list,
+                                               draw.pos + draw.view.world_ptc_to_screen(*pt_a),
+                                               draw.pos + draw.view.world_ptc_to_screen(*pt_b),
+                                               color_section, 3.5);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (a,b) in path {
+            if let Some(v) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
+                for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
+                    ImDrawList_AddLine(draw.draw_list,
+                                       draw.pos + draw.view.world_ptc_to_screen(*pt_a),
+                                       draw.pos + draw.view.world_ptc_to_screen(*pt_b),
+                                       color_path, 6.0);
+                }
+            }
+        }
+        // TODO highlight end signal/boundary
+
+        Some(())
+    }
 }
 
 pub fn trains(app :&mut App, draw :&Draw) { 

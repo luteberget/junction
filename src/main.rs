@@ -10,7 +10,7 @@ use crate::app::*;
 
 fn main() {
     // Init logging
-    let logstring = gui::logview::StringLogger::init(log::LevelFilter::Trace).unwrap();
+    let logstring = gui::windows::logview::StringLogger::init(log::LevelFilter::Trace).unwrap();
     info!("Starting {} v{}.", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     // User config not directly related to model or ui state. (colors, fonts, etc.)

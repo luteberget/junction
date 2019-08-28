@@ -2,10 +2,11 @@ use rolling::input::staticinfrastructure as rolling_inf;
 pub use rolling::output::history::History;
 
 use crate::document::model::*;
+use crate::document::interlocking::*;
 
-pub fn get_history<'a>(vehicles :&im::Vector<Vehicle>, 
+pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>, 
                    inf :&rolling_inf::StaticInfrastructure, 
-                   routes :impl IntoIterator<Item = &'a rolling_inf::Route>,
+                   il :&Interlocking,
                    commands :&[(f64, Command)]) -> Result<History, String> {
 
     // infrastructure and routes are already prepared by the dgraph module
@@ -24,29 +25,35 @@ pub fn get_history<'a>(vehicles :&im::Vector<Vehicle>,
         }
 
         match c {
-            Command::Route { route } => dispatch.push(DispatchAction::Route(*route)),
-            Command::Train { vehicle, route } => {
-                // get train params
-                let vehicle = vehicles.get(*vehicle).cloned().unwrap_or(Vehicle {
-                    name :format!("Default train"),
-                    length: 210.0,
-                    max_acc: 0.95,
-                    max_brk: 0.75,
-                    max_vel: 180.0 / 3.6, // 180 km/h in m/s
-                });
+            Command::Route(routespec) => {
+                if let Some(route_idx) = il.find_route(routespec) {
+                    dispatch.push(DispatchAction::Route(*route_idx));
+                }
+            }
+            Command::Train(vehicle, routespec) => {
+                if let Some(route_idx) = il.find_route(routespec) {
+                    // get train params
+                    let vehicle = vehicles.get(*vehicle).cloned().unwrap_or(Vehicle {
+                        name :format!("Default train"),
+                        length: 210.0,
+                        max_acc: 0.95,
+                        max_brk: 0.75,
+                        max_vel: 180.0 / 3.6, // 180 km/h in m/s
+                    });
 
-                let train_params = rolling::railway::dynamics::TrainParams {
-                    length: vehicle.length as _,
-                    max_acc: vehicle.max_acc as _,
-                    max_brk: vehicle.max_brk as _,
-                    max_vel: vehicle.max_vel as _,
-                };
+                    let train_params = rolling::railway::dynamics::TrainParams {
+                        length: vehicle.length as _,
+                        max_acc: vehicle.max_acc as _,
+                        max_brk: vehicle.max_brk as _,
+                        max_vel: vehicle.max_vel as _,
+                    };
 
-                // just make some name for now
-                let name = format!("train{}", train_no+1);
-                train_no += 1;
+                    // just make some name for now
+                    let name = format!("train{}", train_no+1);
+                    train_no += 1;
 
-                dispatch.push(DispatchAction::Train(name, train_params, *route));
+                    dispatch.push(DispatchAction::Train(name, train_params, *route_idx));
+                }
             },
         }
     }
@@ -58,8 +65,9 @@ pub fn get_history<'a>(vehicles :&im::Vector<Vehicle>,
 
     // TODO don't convert on the fly?
     //println!("Starting rolling");
-    let history = rolling::evaluate_plan(inf, &routes.into_iter().cloned().enumerate().collect(), 
-             &rolling::input::dispatch::Dispatch { actions: dispatch }, None);
+    let history = rolling::evaluate_plan(inf,
+                                         &il.routes.iter().map(|r| r.route.clone()).enumerate().collect(),
+                                         &rolling::input::dispatch::Dispatch { actions: dispatch }, None);
 
     //println!("History output: {:?}", history);
     // TODO Convert back? Or just keep it like this

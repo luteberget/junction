@@ -8,8 +8,8 @@ pub fn edit_vehicles(doc :&mut Document) {
     unsafe {
     let mut new_model = doc.model().clone();
     let mut modified = None;
-    for (i,v) in doc.model().vehicles.iter().enumerate() {
-        igPushIDInt(i as _);
+    for (i,v) in doc.model().vehicles.iter() {
+        igPushIDInt(*i as _);
 
         let mut name = v.name.clone().into_bytes();
         for i in 0..3 { name.push('#' as _); } 
@@ -26,8 +26,8 @@ pub fn edit_vehicles(doc :&mut Document) {
                 let terminator = name.iter().position(|&c| c == 0).unwrap();
                 name.truncate(terminator);
                 let s = String::from_utf8_unchecked(name);
-                new_model.vehicles[i].name = s;
-                modified = Some(EditClass::VehicleName(i));
+                new_model.vehicles.get_mut(*i).unwrap().name = s;
+                modified = Some(EditClass::VehicleName(*i));
             }
 
             let format = const_cstr!("%.3f");
@@ -38,26 +38,26 @@ pub fn edit_vehicles(doc :&mut Document) {
             igSliderFloat(const_cstr!("Length").as_ptr(), 
                           &mut len as *mut _, 1.0, 1000.0, format.as_ptr(), 1.0);
             if igIsItemEdited() {
-                new_model.vehicles[i].length = len;
-                modified = Some(EditClass::VehicleLen(i));
+                new_model.vehicles.get_mut(*i).unwrap().length = len;
+                modified = Some(EditClass::VehicleLen(*i));
             }
             igSliderFloat(const_cstr!("Accel").as_ptr(), 
                           &mut acc as *mut _, 0.05, 1.5, format.as_ptr(), 1.0);
             if igIsItemEdited() {
-                new_model.vehicles[i].max_acc = acc;
-                modified = Some(EditClass::VehicleAcc(i));
+                new_model.vehicles.get_mut(*i).unwrap().max_acc = acc;
+                modified = Some(EditClass::VehicleAcc(*i));
             }
             igSliderFloat(const_cstr!("Brake").as_ptr(), 
                           &mut brk as *mut _, 0.05, 1.5, format.as_ptr(), 1.0);
             if igIsItemEdited() {
-                new_model.vehicles[i].max_brk = brk;
-                modified = Some(EditClass::VehicleBrk(i));
+                new_model.vehicles.get_mut(*i).unwrap().max_brk = brk;
+                modified = Some(EditClass::VehicleBrk(*i));
             }
             igSliderFloat(const_cstr!("Max.vel").as_ptr(), 
                           &mut vel as *mut _, 1.0, 200.0, format.as_ptr(), 1.0);
             if igIsItemEdited() {
-                new_model.vehicles[i].max_vel = vel;
-                modified = Some(EditClass::VehicleVel(i));
+                new_model.vehicles.get_mut(*i).unwrap().max_vel = vel;
+                modified = Some(EditClass::VehicleVel(*i));
             }
         }
 
@@ -68,20 +68,20 @@ pub fn edit_vehicles(doc :&mut Document) {
         doc.set_model(new_model, modified);
     }
 
-    if doc.model().vehicles.len() == 0 {
+    if doc.model().vehicles.iter().next().is_none() {
         widgets::show_text("No vehicles defined.");
     }
 
     if igButton(const_cstr!("Add vehicle").as_ptr(), ImVec2 { x: 0.0, y: 0.0 }) {
         doc.edit_model(|m| {
-            let name = format!("Vehicle {}", m.vehicles.len() +1);
-            m.vehicles.push_back(Vehicle {
-                name: name,
+            let id = m.vehicles.insert( Vehicle {
+                name: String::new(),
                 length: 100.0,
                 max_acc: 1.0,
                 max_brk: 0.5,
                 max_vel: 50.0,
             });
+            m.vehicles.get_mut(id).unwrap().name = format!("Vehicle {}", id);
             None
         });
     }

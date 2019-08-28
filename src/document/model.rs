@@ -5,6 +5,8 @@ use crate::util::*;
 use ordered_float::OrderedFloat;
 use serde::{Serialize,Deserialize};
 
+use std::sync::Arc;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[derive(Serialize,Deserialize)]
 pub enum Side {
@@ -83,10 +85,20 @@ impl AB {
 
 #[derive(Copy, Clone)]
 #[derive(Debug)]
+#[derive(Hash, PartialEq, Eq)]
+#[derive(Serialize,Deserialize)]
+pub struct RouteSpec {
+    pub from: Ref,
+    pub to: Ref,
+    pub alternative: usize,
+}
+
+#[derive(Copy, Clone)]
+#[derive(Debug)]
 #[derive(Serialize,Deserialize)]
 pub enum Command {
-    Train { route :usize, vehicle :usize },
-    Route { route: usize },
+    Train(usize, RouteSpec),
+    Route(RouteSpec),
 }
 
 #[derive(Serialize,Deserialize)]
@@ -105,9 +117,63 @@ impl Dispatch {
 #[derive(Debug)]
 #[derive(Serialize,Deserialize)]
 pub struct PlanSpec {
-    x :usize,
 }
 
+
+pub type ListId = usize;
+
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct ShortGenList<T> {
+    generation :ListId,
+    list :Vec<(ListId,T)>,
+}
+
+/// Stupid persistent usize-indexed data structure, Vec-backed, 
+/// always copies the whole Vec when editing after sharing. 
+/// And iterates over the whole Vec to look up by usize-id.
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct ImShortGenList<T>(Arc<ShortGenList<T>>);
+
+impl<T :Clone> ImShortGenList<T> {
+    pub fn insert(&mut self, t :T) -> ListId {
+        let inner = Arc::make_mut(&mut self.0);
+        let id = inner.generation;
+        inner.generation += 1;
+        inner.list.push((id,t));
+        id
+    }
+
+    pub fn get(&self, id :ListId) -> Option<&T> {
+        self.0.list.iter().find(|c| c.0 == id).map(|c| &c.1)
+    }
+
+    pub fn get_mut(&mut self, id :ListId) -> Option<&mut T> {
+        Arc::make_mut(&mut self.0).list.iter_mut().find(|c| c.0 == id).map(|c| &mut c.1)
+    }
+
+    pub fn remove(&mut self, id :ListId) -> Option<T> {
+        let pos = self.0.list.iter().position(|c| c.0 == id)?;
+        let inner = Arc::make_mut(&mut self.0);
+        Some(inner.list.remove(pos).1)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(usize, T)> {
+        self.0.list.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut T)> {
+        Arc::make_mut(&mut self.0).list.iter_mut().map(|(a,b)| (&*a, b))
+    }
+
+}
+
+impl<T:Clone> Default for ImShortGenList<T> {
+    fn default() -> Self { ImShortGenList(Arc::new(ShortGenList { generation: 0, list :Vec::new() })) }
+}
 
 #[derive(Clone, Default)]
 #[derive(Debug)]
@@ -116,15 +182,16 @@ pub struct Model {
     pub linesegs: im::HashSet<(Pt,Pt)>,
     pub objects: im::HashMap<PtA, Object>,
     pub node_data: im::HashMap<Pt, NDType>,
-    pub vehicles :im::Vector<Vehicle>,
-    pub dispatches :im::Vector<Dispatch>,
-    pub plans :im::Vector<PlanSpec>,
+    pub vehicles :ImShortGenList<Vehicle>, 
+    pub dispatches :ImShortGenList<Dispatch>,
+    pub plans :ImShortGenList<PlanSpec>,
 }
 
 
 #[derive(Hash,PartialEq,Eq)]
 #[derive(Copy,Clone)]
 #[derive(Debug)]
+#[derive(Serialize,Deserialize)]
 pub enum Ref {
     Node(Pt),
     LineSeg(Pt,Pt),
