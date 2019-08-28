@@ -20,9 +20,10 @@ use crate::config::RailUIColorName;
 
 
 pub fn inf_view(app :&mut App) {
-    inf_toolbar(app);
+    unsafe {
+    let pos_before : ImVec2 = igGetCursorPos_nonUDT2().into();
 
-    let size = unsafe { igGetContentRegionAvail_nonUDT2().into() };
+    let size = igGetContentRegionAvail_nonUDT2().into();
     widgets::canvas(size,
                     app.config.color_u32(RailUIColorName::CanvasBackground),
                     const_cstr!("railwaycanvas").as_ptr(),
@@ -35,6 +36,13 @@ pub fn inf_view(app :&mut App) {
         draw_inf(app, draw, preview_route);
         Some(())
     });
+
+    let pos_after = igGetCursorPos_nonUDT2().into();
+    let framespace = igGetFrameHeightWithSpacing() - igGetFrameHeight();
+    igSetCursorPos(pos_before + ImVec2 { x: 2.0*framespace, y: 2.0*framespace });
+    inf_toolbar(app);
+    igSetCursorPos(pos_after);
+    }
 }
 
 fn draw_inf(app :&mut App, draw :&Draw, preview_route :Option<usize>) {
@@ -314,6 +322,9 @@ fn context_menu_single(doc :&mut Document, thing :Ref, preview_route :&mut Optio
     if let Some(routespec) = action {
         start_route(doc, routespec);
     }
+
+    // Add visits to auto dispatch
+    menus::add_plan_visit(doc, thing);
 }
 
 

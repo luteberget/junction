@@ -5,6 +5,7 @@ use std::ffi::CString;
 use crate::document::*;
 use crate::app::*;
 use crate::gui::widgets;
+use crate::gui::plan;
 
 pub fn dispatch_view(app :&mut App) {
     dispatch_select_bar(app);
@@ -13,8 +14,8 @@ pub fn dispatch_view(app :&mut App) {
             //diagram_view(app);
         },
         Some(DispatchView::Auto(a)) => {
-            //plan_view(app);
-            if let Some(m) = &a.dispatch {
+            plan::plan_view(app);
+            if let Some(DispatchView::Auto(_)) = &app.document.dispatch_view {
                 //diagram_view();
             }
         },
@@ -28,21 +29,14 @@ pub fn dispatch_select_bar(app :&mut App) {
             app.document.dispatch_view = new;
         }
 
-        igSameLine(0.0, -1.0);
-        if igButton(const_cstr!("(+) Manual").as_ptr(), ImVec2::zero()) {
-            // TODO
-        }
-
-        igSameLine(0.0, -1.0);
-        if igButton(const_cstr!("(+) Auto").as_ptr(), ImVec2::zero()) {
-            // TODO 
-        }
     }
 }
 
 /// Select a new dispatch view from manual or auto dispatches already existing in model
 pub fn dispatch_select(app :&mut App) -> Option<Option<DispatchView>> {
     unsafe {
+        let mut new_dispatch_auto = None;
+
         let mut retval = None;
         igPushItemWidth(250.0);
         let current_name = match app.document.dispatch_view {
@@ -58,7 +52,8 @@ pub fn dispatch_select(app :&mut App) -> Option<Option<DispatchView>> {
         let mut curr_auto = if let Some(DispatchView::Auto(AutoDispatchView { plan_idx , ..})) = &app.document.dispatch_view {
             Some(plan_idx) } else { None };
 
-        if igBeginCombo(const_cstr!("##sel").as_ptr(), current_name.as_ptr(), 0) {
+        let comboflag = ImGuiComboFlags__ImGuiComboFlags_HeightLarge;
+        if igBeginCombo(const_cstr!("##sel").as_ptr(), current_name.as_ptr(), comboflag as _) {
 
             if igSelectable(const_cstr!("None").as_ptr(), app.document.dispatch_view.is_none(), 0 as _, ImVec2::zero()) {
                 retval = Some(None);
@@ -87,6 +82,12 @@ pub fn dispatch_select(app :&mut App) -> Option<Option<DispatchView>> {
             if !any { widgets::show_text("No dispatches."); }
             igPopID();
 
+            igSpacing();
+            if igButton(const_cstr!("(+) Manual").as_ptr(), ImVec2::zero()) {
+                new_dispatch_auto = Some(false);
+            }
+            igSpacing();
+
             widgets::sep();
             igPushIDInt(2);
             let mut any = false;
@@ -108,10 +109,39 @@ pub fn dispatch_select(app :&mut App) -> Option<Option<DispatchView>> {
             igPopID();
 
 
+            igSpacing();
+            if igButton(const_cstr!("(+) Auto").as_ptr(), ImVec2::zero()) {
+                new_dispatch_auto = Some(true);
+            }
+            igSpacing();
 
             igEndCombo();
         }
         igPopItemWidth();
+
+        if new_dispatch_auto == Some(false) {
+            // Create new dispatch and set it to current
+            let mut model = app.document.model().clone();
+            let id = model.dispatches.insert(Default::default());
+            app.document.set_model(model, None);
+            app.document.dispatch_view = Some(DispatchView::Manual(ManualDispatchView {
+                dispatch_idx: id,
+                time: 0.0,
+                play: false,
+            }));
+        }
+
+        if new_dispatch_auto == Some(true) {
+            // Create new plan and set it to current
+            let mut model = app.document.model().clone();
+            let id = model.plans.insert(Default::default());
+            app.document.set_model(model, None);
+            app.document.dispatch_view = Some(DispatchView::Auto(AutoDispatchView {
+                plan_idx: id,
+                dispatch: None,
+            }));
+        }
+
         retval
     }
 }

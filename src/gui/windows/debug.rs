@@ -53,6 +53,10 @@ pub fn debug_window(mut popen :bool, app :&app::App) -> bool {
             widgets::show_text(&format!("{:#?}", model.dispatches));
             igTreePop();
         }
+        if igTreeNodeStr(const_cstr!("Plans").as_ptr()) {
+            widgets::show_text(&format!("{:#?}", model.plans));
+            igTreePop();
+        }
         igTreePop();
     }
 

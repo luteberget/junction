@@ -2,6 +2,7 @@ use const_cstr::*;
 use matches::*;
 use backend_glfw::imgui::*;
 use rolling::input::staticinfrastructure as rolling_inf;
+use std::ffi::CString;
 
 use crate::app::App;
 use crate::document::*;
@@ -11,6 +12,7 @@ use crate::document::infview::*;
 use crate::document::view::*;
 use crate::document::interlocking::*;
 use crate::gui::widgets;
+use crate::gui::plan;
 use crate::config::RailUIColorName;
 
 
@@ -97,35 +99,55 @@ pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize
     let routes = il.get_routes(thing)?;
 
     unsafe {
+
+        let have_dispatch = matches!(&doc.dispatch_view, Some(DispatchView::Manual(_)));
+        if have_dispatch {
+            widgets::show_text("Add dispatch command:");
+        } else {
+            widgets::show_text("New dispatch:");
+        }
+
         let mut some = false;
         let mut action = None;
+        igIndent(14.0);
         for idx in routes {
             some = true;
             igPushIDInt(*idx as _);
 
-            let cmd = match il.routes[*idx].route.entry {
-                rolling_inf::RouteEntryExit::Boundary(_) => Command::Train(0, il.routes[*idx].id),
-                _ => Command::Route(il.routes[*idx].id),
-            };
+            let is_boundary = matches!(il.routes[*idx].route.entry, rolling_inf::RouteEntryExit::Boundary(_));
+            let text = CString::new(format!("Route to {:?}", (il.routes[*idx].route).exit)).unwrap();
 
-            if igSelectable(const_cstr!("##route").as_ptr(), false,
-                            0 as _, ImVec2::zero()) {
-                action = Some(cmd);
+            if is_boundary {
+                if igBeginMenu(text.as_ptr(), true) {
+                    if let Some(train_id) = plan::select_train(doc.model()) {
+                        action = Some(Command::Train(train_id, il.routes[*idx].id));
+                    }
+                    *preview = Some(*idx);
+                    igEndMenu();
+                }
+            } else {
+                if igSelectable(text.as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    action = Some(Command::Route(il.routes[*idx].id));
+                }
+                if igIsItemHovered(0) {
+                    *preview = Some(*idx);
+                }
             }
-            if igIsItemHovered(0) {
-                *preview = Some(*idx);
-            }
-            igSameLine(0.0,-1.0); 
-
-            widgets::show_text(&format!("Route to {:?}", (il.routes[*idx].route).exit));
-
             igPopID();
 
         }
         if !some {
             widgets::show_text("No routes.");
         }
+        igUnindent(14.0);
         action
     }
 }
+
+
+pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
+
+}
+
+
 

@@ -113,12 +113,21 @@ impl Dispatch {
     }
 }
 
-#[derive(Clone)]
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
 #[derive(Serialize,Deserialize)]
 pub struct PlanSpec {
+    pub trains: ImShortGenList<(Option<ListId>, ImShortGenList<Visit>)>,
+    pub order :Vec<(VisitRef,VisitRef,Option<f64>)>,
 }
 
+pub type VisitRef = (ListId,ListId);
+
+#[derive(Clone, Debug)]
+#[derive(Serialize,Deserialize)]
+pub struct Visit {
+    loc :Vec<Result<Ref,PtC>>,
+    dwell :Option<f64>,
+}
 
 pub type ListId = usize;
 
@@ -167,6 +176,10 @@ impl<T :Clone> ImShortGenList<T> {
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut T)> {
         Arc::make_mut(&mut self.0).list.iter_mut().map(|(a,b)| (&*a, b))
+    }
+
+    pub fn new() -> Self {
+        Self(Arc::new(ShortGenList { generation: 0, list :Vec::new() }))
     }
 
 }

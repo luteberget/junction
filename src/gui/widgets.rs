@@ -86,6 +86,7 @@ impl Canvas {
                 ImDrawList_AddRectFilled(draw_list, pos, pos + size, bg, 0.0, 0);
             }
             let _clicked = igInvisibleButton(self.name, size); // TODO do we need this?
+            igSetItemAllowOverlap();
             ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
 
             f(&CanvasDraw { draw_list, pos, size, view: self.view });
@@ -94,12 +95,14 @@ impl Canvas {
     }
 }
 
-pub fn canvas(size :ImVec2, color :u32, name :*const i8, view :View, f :impl FnOnce(&mut Draw) -> Option<()>) {
+pub fn canvas(mut size :ImVec2, color :u32, name :*const i8, view :View, f :impl FnOnce(&mut Draw) -> Option<()>) {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();
         ImDrawList_AddRectFilled(draw_list, pos, pos + size, color, 0.0, 0);
+        size.y -= igGetFrameHeightWithSpacing() - igGetFrameHeight();
         let clicked = igInvisibleButton(name, size);
+        igSetItemAllowOverlap();
         ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
         let mouse = (*igGetIO()).MousePos - pos;
         let pointer = view.screen_to_world_ptc(mouse);
@@ -125,7 +128,8 @@ pub struct Splitter {
 impl Splitter {
     pub fn new(is_horizontal: bool, sz :&mut f32) -> Self {
         unsafe {
-            let root = igGetContentRegionAvail_nonUDT2();
+            let mut root = igGetContentRegionAvail_nonUDT2();
+            root.y -= igGetFrameHeightWithSpacing() - igGetFrameHeight();
             let (same,other) = if is_horizontal { (root.x, root.y) } else { (root.y, root.x) };
             if *sz + 100.0 > same { *sz = same - 100.0 ; }
             let mut after_size = same - *sz;

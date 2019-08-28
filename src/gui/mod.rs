@@ -31,7 +31,18 @@ pub fn main(app :&mut App) -> bool {
         // 2. Manual dispatch view (diagram_view = Some(DiagramView::Manual(...)))
         // 3. Auto-dispatch view (diagram_view = Some(DiagramView::Manual(...)))
         match &app.document.dispatch_view {
-            None => { infrastructure::inf_view(app); },
+            None => { 
+                infrastructure::inf_view(app); 
+                unsafe {
+                    use backend_glfw::imgui::*;
+                    let pos = igGetCursorPos_nonUDT2().into();
+                    let frameh = igGetFrameHeight();
+                    let framespace = igGetFrameHeightWithSpacing() - frameh;
+                    igSetCursorPos(pos + ImVec2 { x: 2.0*framespace, y : -frameh-3.0*framespace });
+                    dispatch::dispatch_select_bar(app);
+                    igSetCursorPos(pos);
+                }
+            },
             Some(_) => {
 
                 // TODO splitting size logic here?
