@@ -146,7 +146,57 @@ pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize
 
 
 pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
+    let mut action = None;
 
+    unsafe {
+        if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, .. })) = &doc.dispatch_view {
+            widgets::show_text("Add visit to plan");
+
+            if let Some(plan) = doc.model().plans.get(*plan_idx) {
+                igIndent(14.0);
+                for (train_id, (_veh, visits)) in plan.trains.iter() {
+                    igPushIDInt(*train_id as _);
+                    if igSelectable(const_cstr!("##pat").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                        action = Some(Some((*plan_idx,*train_id)));
+                    }
+                    igSameLine(0.0,-1.0); widgets::show_text(&format!("Train {}", train_id));
+                    igPopID();
+                }
+                igUnindent(14.0);
+            }
+
+        } else {
+            if igSelectable(const_cstr!("Create new plan").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                action = Some(None);
+            }
+        }
+    }
+
+    if let Some(opt_train) = action {
+        let mut set_plan = None;
+        doc.edit_model(|m| {
+            let visit = Visit { loc: vec![Ok(thing)], dwell: None, };
+            let visits = if let Some((plan_idx,  train_id)) = opt_train {
+                let (_,visits) = m.plans.get_mut(plan_idx).unwrap()
+                                 .trains.get_mut(train_id).unwrap();
+                visits
+            } else {
+                let plan_idx = m.plans.insert(Default::default());
+                let plan = m.plans.get_mut(plan_idx).unwrap();
+                let train_idx = plan.trains.insert((None, ImShortGenList::new()));
+                let (_, visits) = plan.trains.get_mut(train_idx).unwrap();
+                set_plan = Some(plan_idx);
+                visits
+            };
+            visits.insert(visit);
+            None
+        });
+
+        if let Some(plan_idx) = set_plan { 
+            doc.dispatch_view = Some(DispatchView::Auto(AutoDispatchView { 
+                plan_idx, dispatch: None }));
+        }
+    }
 }
 
 

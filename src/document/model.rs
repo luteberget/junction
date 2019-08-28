@@ -125,8 +125,8 @@ pub type VisitRef = (ListId,ListId);
 #[derive(Clone, Debug)]
 #[derive(Serialize,Deserialize)]
 pub struct Visit {
-    loc :Vec<Result<Ref,PtC>>,
-    dwell :Option<f64>,
+    pub loc :Vec<Result<Ref,PtC>>,
+    pub dwell :Option<f64>,
 }
 
 pub type ListId = usize;

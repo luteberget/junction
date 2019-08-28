@@ -322,6 +322,7 @@ fn context_menu_single(doc :&mut Document, thing :Ref, preview_route :&mut Optio
     if let Some(routespec) = action {
         start_route(doc, routespec);
     }
+    widgets::sep();
 
     // Add visits to auto dispatch
     menus::add_plan_visit(doc, thing);
