@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use const_cstr::*;
 use backend_glfw::imgui::*;
 use std::ffi::CString;
@@ -26,6 +27,7 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
     let mut action = None;
     let mut hovered_visit = None;
     unsafe {
+
         let h1 = igGetFrameHeightWithSpacing();
         let h2 = igGetFrameHeight();
         let row_height = h2 + 4.0*(h1-h2);
@@ -39,15 +41,64 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
 
         widgets::sep();
 
-        //igDummy(ImVec2 { x: 0.0, y: 7.0 } );
 
         //let toposort = get_toposort(app, plan_idx);
 
+
         let mut positions :Vec<ImVec2> = Vec::new();
 
-        let key = const_cstr!("VISIT").as_ptr();
         if let Some(plan) = app.document.viewmodel.model().plans.get(plan_idx) {
+
+            //let mut incoming_edges : HashMap<VisitKey, usize> = HashMap::new();
+            //for (train_id,(_,visits)) in plan.trains.iter() {
+            //    for ((id_a,_),(id_b,_)) in visits.iter().zip(visits.iter().skip(1)) {
+            //        let num = incoming_edges.entry(
+            //            VisitKey { train: *train_id, visit: *id_b, location: None }).or_insert(0);
+            //        *num += 1;
+            //    }
+            //}
+
+            //for (_,visit_ref,_) in plan.order.iter() {
+            //    let num = incoming_edges.entry(
+            //        VisitKey { train: visit_ref.0, visit: visit_ref.1, location: None }).or_insert(0);
+            //    *num += 1;
+            //}
+
+            let mut incoming_edges : Vec<(ListId, Vec<(ListId, usize)>)> = Vec::new();
+            for (train_id,(_,visits)) in plan.trains.iter() {
+                incoming_edges.push((*train_id,visits.iter().map(|(v,_)| (*v,0usize)).collect()) );
+            }
+
+            for (_,(target_train,target_visit),_) in plan.order.iter() {
+                for (t, vs) in incoming_edges.iter_mut() {
+                    if t == target_train {
+                        for (v, n) in vs.iter_mut() {
+                            if v == target_visit {
+                                *n += 1;
+                            }
+                        }
+                    }
+                }
+            }
+
+            let remove_edge = |es :&mut Vec<(ListId, Vec<(ListId, usize)>)>, (source_train,source_visit)| {
+                for (t,vs) in es.iter_mut() {
+                    if *t == source_train {
+                        for (v, n) in vs.iter_mut() {
+                            if *v == source_visit {
+                                *n -= 1;
+                            }
+                        }
+                    }
+                }
+            };
+
+
+
+            // First draw each train as  a line, and store the screen pos of where to start drawing
+            // visit boxes.
             for (train_id,(vehicle_ref,visits)) in plan.trains.iter() {
+                igDummy(ImVec2 { x: 0.0, y: 7.0 });
                 igPushIDInt(*train_id as _);
 
                 igAlignTextToFramePadding();
@@ -67,120 +118,91 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                     yellow_button(const_cstr!("?").as_ptr());
                 }
 
-                positions.push(igGetCursorPos_nonUDT2().into());
+                igSameLine(0.0,-1.0);
+                let pos :ImVec2 = igGetCursorPos_nonUDT2().into();
+                positions.push(pos + ImVec2 { x: 0.0, y: -5.0 } );
+                igPopID();
+                igNewLine();
+                igDummy(ImVec2 { x: 0.0, y: 7.0 });
+                widgets::sep();
+            }
 
+            let end_pos :ImVec2 = igGetCursorPos_nonUDT2().into();
 
-                // write each visit.
-                // TODO do this afterwards, using sorting information from ordering constraints
-                for (visit_id, visit) in visits.iter() {
-                    let mut visit_key = VisitKey { train: *train_id, visit: *visit_id, location: None };
-                    igPushIDInt(*visit_id as _);
-                    igSameLine(0.0,-1.0);
-                    igDummy(dummy_size);
-                    if let Some(other_key) = drop_visitkey(key) {
-                        action = Some(Action::VisitMoveBefore { source: other_key,
-                            target: VisitKey { train: *train_id, visit: *visit_id, location: None }});
+            // Find a train whose leftmost visit has no incoming constraints
+            while let Some((train_idx, (train_id,visits))) = incoming_edges.iter_mut()
+                .enumerate().find(|(_,(_,vs))| vs.get(0).map(|x| x.1) == Some(0)) {
 
+                let (visit_id,zero_incoming) = visits.remove(0);
+                assert_eq!(zero_incoming, 0);
+
+                // lookup the visit info in the plan
+                let visit = plan.trains.get(*train_id).unwrap().1.get(visit_id).unwrap();
+
+                let train_id = *train_id;
+
+                // Then check constraints here, decrement incoming on targets.
+                for ((strain,svisit),(ttrain,tvisit),_) in plan.order.iter() {
+                    if *strain == train_id && *svisit == visit_id {
+                        remove_edge(&mut incoming_edges, (*ttrain,*tvisit));
+                        // if this is the case, we need to advance the cursor to be to the right
+                        let other_train_idx = incoming_edges.iter().position(|(t,_)| t == ttrain).unwrap();
+
+                        let this_x = positions[train_idx].x;
+                        let other_x = &mut positions[other_train_idx].x;
+                        *other_x = other_x.max(this_x + 32.0);
                     }
-
-                    igSameLine(0.0,-1.0);
-                    let visit_width = 32.0*(1.0 + visit.loc.len() as f32 + 
-                                                if visit.dwell.is_some() { 1.0 } else { 0.0 });
-                    igPushStyleColorU32(ImGuiCol__ImGuiCol_ChildBg,
-                                          igGetColorU32(ImGuiCol__ImGuiCol_Button, 1.0));
-                    if igBeginChild(const_cstr!("##vfrm").as_ptr(), ImVec2 { x: visit_width, y: row_height}, true, 0 as _) {
-                        if igBeginDragDropSource(0 as _) {
-
-                            igSetDragDropPayload(key, 
-                                 &mut visit_key as *mut VisitKey as *mut std::ffi::c_void, 
-                                                 std::mem::size_of::<VisitKey>(), 0 as _);
-
-                            igAlignTextToFramePadding();
-                            widgets::show_text(&format!("Move"));
-                            for (loc_id, loc) in visit.loc.iter().enumerate() {
-                                igPushIDInt(loc_id as _);
-                                igSameLine(0.0,-1.0);
-                                red_button(const_cstr!("Nd").as_ptr());
-                                igPopID();
-                            }
-
-                            igEndDragDropSource();
-                        }
-
-
-                        for (loc_id,loc) in visit.loc.iter().enumerate() {
-                            igPushIDInt(loc_id as _);
-                            let mut visit_key = VisitKey { location: Some(loc_id), .. visit_key };
-                            red_button(const_cstr!("Nd").as_ptr());
-                            igSameLine(0.0,-1.0);
-                            if igBeginDragDropSource(0 as _) {
-                                igSetDragDropPayload(key, 
-                                                     &mut visit_key as *mut VisitKey as *mut std::ffi::c_void,
-                                                     std::mem::size_of::<VisitKey>(), 0 as _);
-                                igAlignTextToFramePadding();
-                                widgets::show_text(&format!("Move"));
-                                igSameLine(0.0,-1.0);
-                                red_button(const_cstr!("Nd").as_ptr());
-                                igEndDragDropSource();
-                            } else if igIsItemHovered(0) {
-                                igBeginTooltip();
-                                widgets::show_text(&format!("Visit {} {:?}", visit_id, visit));
-                                igEndTooltip();
-                            }
-
-                            igPopID();
-                        }
-
-                        igEndChild();
-                    }
-                    igPopStyleColor(1);
-
-                    if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-                        // Maybe start drawing arrow
-                        if let Some(DispatchView::Auto(AutoDispatchView { action, .. })) = &mut app.document.dispatch_view {
-                            if let PlanViewAction::None = action {
-                                *action = PlanViewAction::DragFrom(visit_key, igGetMousePos_nonUDT2().into());
-                            }
-                        }
-                    }
-
-                    if igIsItemHovered(0) {
-                        hovered_visit = Some(visit_key);
-                    }
-
-
-                    if let Some(other_key) = drop_visitkey(key) {
-                        action = Some(Action::VisitMerge { source: other_key, target: visit_key });
-                    }
-
-
-                    igPopID();
                 }
 
-                igPushIDInt(123123 as _);
+                igSetCursorPos(positions[train_idx]);
+                // Draw the visit here.
+
+                edit_visit(&mut app.document.dispatch_view, VisitKey { train: train_id, visit: visit_id, location: None }, 
+                           visit, &mut hovered_visit, &mut action);
                 igSameLine(0.0,-1.0);
-                igDummy(dummy_size + ImVec2 { x: 2.0*32.0, y: 0.0 });
+
+                let new_pos =  igGetCursorPos_nonUDT2().into();
+                positions[train_idx] = new_pos;
+            }
+
+
+            for (pos,(train_id,_)) in positions.into_iter().zip(incoming_edges.iter()) {
+                igSetCursorPos(pos);
+                igPushIDInt(123123 as _);
+                igDummy(dummy_size + ImVec2 { x: 1.0*32.0, y: 0.0 });
+                let key = const_cstr!("VISIT").as_ptr();
                 if let Some(other_key) = drop_visitkey(key) {
                     action = Some(Action::VisitMoveToEnd { source: other_key, target: *train_id });
                 }
                 igPopID();
-
-                widgets::sep();
-                igPopID();
             }
 
-            if let Some(DispatchView::Auto(AutoDispatchView { action, .. })) = &mut app.document.dispatch_view {
+            igSetCursorPos(end_pos);
+
+            //    // write each visit.
+            //    // TODO do this afterwards, using sorting information from ordering constraints
+
+
+            //    widgets::sep();
+            //    igPopID();
+            //}
+
+            if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, action, .. })) = &mut app.document.dispatch_view {
                 if let PlanViewAction::DragFrom(other_key, mouse_pos) = *action {
                     if !igIsMouseDown(1) {
                         *action = PlanViewAction::None;
                         if let Some(visit_key) = hovered_visit {
-                            println!("ADD CONSTRAINT {:?} {:?}", other_key, visit_key);
+                            let plan_idx = *plan_idx;
+                            app.document.edit_model(|m| {
+                                m.plans.get_mut(plan_idx).unwrap().order.push(((other_key.train, other_key.visit), (visit_key.train, visit_key.visit), None));
+                                println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
+                                None
+                            });
                         } else {
-                            println!("Dragged outside");
                         }
                     } else {
                         ImDrawList_AddLine(igGetForegroundDrawList(), igGetMousePos_nonUDT2().into(), mouse_pos, 
-                                          igGetColorU32(ImGuiCol__ImGuiCol_Text, 1.0), 4.0);
+                                          igGetColorU32(ImGuiCol__ImGuiCol_Text as _, 1.0), 4.0);
                     }
                 }
             }
@@ -378,5 +400,97 @@ fn drop_visitkey(key :*const i8) -> Option<VisitKey> {
     }
 }
 
-fn draw_location_buttons()  {
+
+fn edit_visit(dispatch_view :&mut Option<DispatchView>, visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, action :&mut Option<Action>) {
+unsafe {
+    let key = const_cstr!("VISIT").as_ptr();
+    igPushIDInt(visit_key.train as _); 
+    igPushIDInt(visit_key.visit as _); 
+
+    let h1 = igGetFrameHeightWithSpacing();
+    let h2 = igGetFrameHeight();
+    let row_height = h2 + 4.0*(h1-h2);
+    let dummy_size = ImVec2 { x: 20.0, y: row_height };
+
+    //for (visit_id, visit) in visits.iter() {
+    //    let mut visit_key = VisitKey { train: *train_id, visit: *visit_id, location: None };
+
+    igDummy(dummy_size);
+    if let Some(other_key) = drop_visitkey(key) {
+        *action = Some(Action::VisitMoveBefore { source: other_key, target: visit_key });
+    }
+    igSameLine(0.0,-1.0);
+    let visit_width = 32.0*(1.0 + visit.loc.len() as f32 + 
+                                if visit.dwell.is_some() { 1.0 } else { 0.0 });
+    igPushStyleColorU32(ImGuiCol__ImGuiCol_ChildBg as _,
+                          igGetColorU32(ImGuiCol__ImGuiCol_Button as _, 1.0));
+    if igBeginChild(const_cstr!("##vfrm").as_ptr(), ImVec2 { x: visit_width, y: row_height}, true, 0 as _) {
+        if igBeginDragDropSource(0 as _) {
+
+            let mut visit_key = visit_key;
+            igSetDragDropPayload(key, 
+                 &mut visit_key as *mut VisitKey as *mut std::ffi::c_void, 
+                                 std::mem::size_of::<VisitKey>(), 0 as _);
+
+            igAlignTextToFramePadding();
+            widgets::show_text(&format!("Move"));
+            for (loc_id, loc) in visit.loc.iter().enumerate() {
+                igPushIDInt(loc_id as _);
+                igSameLine(0.0,-1.0);
+                red_button(const_cstr!("Nd").as_ptr());
+                igPopID();
+            }
+
+            igEndDragDropSource();
+        }
+
+
+        for (loc_id,loc) in visit.loc.iter().enumerate() {
+            igPushIDInt(loc_id as _);
+            let mut visit_key = VisitKey { location: Some(loc_id), .. visit_key };
+            red_button(const_cstr!("Nd").as_ptr());
+            igSameLine(0.0,-1.0);
+            if igBeginDragDropSource(0 as _) {
+                igSetDragDropPayload(key, 
+                                     &mut visit_key as *mut VisitKey as *mut std::ffi::c_void,
+                                     std::mem::size_of::<VisitKey>(), 0 as _);
+                igAlignTextToFramePadding();
+                widgets::show_text(&format!("Move"));
+                igSameLine(0.0,-1.0);
+                red_button(const_cstr!("Nd").as_ptr());
+                igEndDragDropSource();
+            } else if igIsItemHovered(0) {
+                igBeginTooltip();
+                widgets::show_text(&format!("Visit {} {:?}", visit_key.visit, visit));
+                igEndTooltip();
+            }
+
+            igPopID();
+        }
+
+        igEndChild();
+    }
+    igPopStyleColor(1);
+
+    if igIsItemHovered(0) && igIsMouseClicked(1, false) {
+        // Maybe start drawing arrow
+        if let Some(DispatchView::Auto(AutoDispatchView { action, .. })) = dispatch_view {
+            if let PlanViewAction::None = action {
+                *action = PlanViewAction::DragFrom(visit_key, igGetMousePos_nonUDT2().into());
+            }
+        }
+    }
+
+    if igIsItemHovered(0) {
+        *hovered_visit = Some(visit_key);
+    }
+
+
+    if let Some(other_key) = drop_visitkey(key) {
+        *action = Some(Action::VisitMerge { source: other_key, target: visit_key });
+    }
+
+    igPopID();
+    igPopID();
+}
 }

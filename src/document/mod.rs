@@ -168,6 +168,7 @@ pub struct AutoDispatchView {
 
 
 #[derive(Debug, Copy, Clone)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct VisitKey { 
     pub train: usize, 
     pub visit: usize, 

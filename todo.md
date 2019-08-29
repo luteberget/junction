@@ -44,7 +44,25 @@
 ## dispatch
 * better dispatch representation
 * edit dispatch
+
 * auto-dispatch/movements/constraints-based-train
+ * X plan datastructure
+ * X add new plan from infrastructure + dispatch menu
+ * X add new train, show trains as rows
+ * X add new visits to train from infrastructure context menu
+ * X rearrange visits, merge visits, split visits
+ * X add constraints
+ * X topo sort view by constraints
+ *   draw constraints
+ *   delete constraints
+ *   delete trains
+ *   delete plans and dispatches
+ *   rename trains, dispatches, plans
+ *   disallow bad constraints, drop non-working constraints when rearranging visits
+ *   highlight visits location in infrastructure
+ *   visit types: boundary vs. middle
+ *   dwell time
+ *   constraint maximum time diff
 
 * gui for dispatch/auto-dispatch
 
