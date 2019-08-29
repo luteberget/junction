@@ -26,9 +26,10 @@ use log::*;
 use crate::util;
 use crate::util::VecMap;
 use nalgebra_glm as glm;
+use backend_glfw::imgui::ImVec2;
 
 pub struct Document {
-    viewmodel :viewmodel::ViewModel,
+    pub viewmodel :viewmodel::ViewModel,
     pub fileinfo :file::FileInfo,
     pub inf_view :InfView,
     pub dispatch_view :Option<DispatchView>,
@@ -161,7 +162,21 @@ pub struct ManualDispatchView {
 
 pub struct AutoDispatchView {
     pub plan_idx :usize,
+    pub action :PlanViewAction,
     pub dispatch :Option<ManualDispatchView>,
+}
+
+
+#[derive(Debug, Copy, Clone)]
+pub struct VisitKey { 
+    pub train: usize, 
+    pub visit: usize, 
+    pub location: Option<usize> 
+}
+
+pub enum PlanViewAction {
+    None,
+    DragFrom(VisitKey, ImVec2),
 }
 
 impl UpdateTime for DispatchView {

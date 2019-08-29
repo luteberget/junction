@@ -119,7 +119,7 @@ pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize
 
             if is_boundary {
                 if igBeginMenu(text.as_ptr(), true) {
-                    if let Some(train_id) = plan::select_train(doc.model()) {
+                    if let Some(train_id) = plan::select_train(doc.model(), &None) {
                         action = Some(Command::Train(train_id, il.routes[*idx].id));
                     }
                     *preview = Some(*idx);
@@ -194,7 +194,7 @@ pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
 
         if let Some(plan_idx) = set_plan { 
             doc.dispatch_view = Some(DispatchView::Auto(AutoDispatchView { 
-                plan_idx, dispatch: None }));
+                plan_idx, dispatch: None, action: PlanViewAction::None, }));
         }
     }
 }

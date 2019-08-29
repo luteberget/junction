@@ -53,6 +53,7 @@ impl app::BackgroundUpdates for ViewModel {
 }
 
 impl ViewModel {
+    pub fn model(&self) -> &Model { &self.model.get() }
     pub fn from_model(model :Model, bg: app::BackgroundJobs) -> Self {
         ViewModel {
             model: Undoable::from(model),

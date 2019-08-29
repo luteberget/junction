@@ -99,6 +99,7 @@ pub fn dispatch_select(app :&mut App) -> Option<Option<DispatchView>> {
                     retval = Some(Some(DispatchView::Auto(AutoDispatchView {
                         plan_idx: *id,
                         dispatch: None,
+                        action: PlanViewAction::None,
                     })));
                 }
                 igSameLine(0.0,-1.0); widgets::show_text(&format!("Plan {}", id));
@@ -139,6 +140,7 @@ pub fn dispatch_select(app :&mut App) -> Option<Option<DispatchView>> {
             app.document.dispatch_view = Some(DispatchView::Auto(AutoDispatchView {
                 plan_idx: id,
                 dispatch: None,
+                action: PlanViewAction::None,
             }));
         }
 

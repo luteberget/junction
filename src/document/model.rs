@@ -149,10 +149,20 @@ pub struct ImShortGenList<T>(Arc<ShortGenList<T>>);
 
 impl<T :Clone> ImShortGenList<T> {
     pub fn insert(&mut self, t :T) -> ListId {
+        let pos = self.0.list.len();
+        self.insert_at(pos, t)
+    }
+
+    pub fn insert_before(&mut self, idx :ListId, t :T) -> ListId {
+        let pos = self.0.list.iter().position(|(i,_)| *i == idx).unwrap_or(self.0.list.len());
+        self.insert_at(pos, t)
+    }
+
+    fn insert_at(&mut self, pos :usize, t: T) -> ListId {
         let inner = Arc::make_mut(&mut self.0);
         let id = inner.generation;
         inner.generation += 1;
-        inner.list.push((id,t));
+        inner.list.insert(pos, (id,t));
         id
     }
 
