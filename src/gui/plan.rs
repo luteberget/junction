@@ -23,6 +23,14 @@ enum Action {
     NewTrain,
 }
 
+fn plan_dispatches(app :&mut App, plan_idx :ListId) -> Option<()> {
+    //if igBeginCombo(const_cstr!("##chtr").as_ptr(), v_name.as_ptr(), 0) {
+    //    v = select_train(model, current_id);
+    //    igEndCombo();
+    //}
+    None
+}
+
 
 pub fn edit_plan(app :&mut App, plan_idx :ListId) {
 
@@ -40,6 +48,9 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
         if igButton(const_cstr!("(+) Train").as_ptr(), ImVec2::zero()) {
             action = Some(Action::NewTrain);
         }
+
+        igSameLine(0.0,-1.0);
+        plan_dispatches(app, plan_idx);
 
         widgets::sep();
 
