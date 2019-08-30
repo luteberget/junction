@@ -53,7 +53,8 @@
  * X rearrange visits, merge visits, split visits
  * X add constraints
  * X topo sort view by constraints
- *   draw constraints
+ * X draw constraints
+ *   bug: VisitKey invalidated by moving visit from one train to another
  *   delete constraints
  *   delete trains
  *   delete plans and dispatches

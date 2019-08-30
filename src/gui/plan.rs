@@ -7,6 +7,7 @@ use crate::app::*;
 use crate::document::model::*;
 use crate::document::*;
 use crate::gui::widgets;
+use crate::config::*;
 
 pub fn plan_view(app :&mut App) {
     if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, .. })) = &app.document.dispatch_view {
@@ -41,28 +42,8 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
 
         widgets::sep();
 
-
-        //let toposort = get_toposort(app, plan_idx);
-
-
         let mut positions :Vec<ImVec2> = Vec::new();
-
         if let Some(plan) = app.document.viewmodel.model().plans.get(plan_idx) {
-
-            //let mut incoming_edges : HashMap<VisitKey, usize> = HashMap::new();
-            //for (train_id,(_,visits)) in plan.trains.iter() {
-            //    for ((id_a,_),(id_b,_)) in visits.iter().zip(visits.iter().skip(1)) {
-            //        let num = incoming_edges.entry(
-            //            VisitKey { train: *train_id, visit: *id_b, location: None }).or_insert(0);
-            //        *num += 1;
-            //    }
-            //}
-
-            //for (_,visit_ref,_) in plan.order.iter() {
-            //    let num = incoming_edges.entry(
-            //        VisitKey { train: visit_ref.0, visit: visit_ref.1, location: None }).or_insert(0);
-            //    *num += 1;
-            //}
 
             let mut incoming_edges : Vec<(ListId, Vec<(ListId, usize)>)> = Vec::new();
             for (train_id,(_,visits)) in plan.trains.iter() {
@@ -93,10 +74,8 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 }
             };
 
-
-
-            // First draw each train as  a line, and store the screen pos of where to start drawing
-            // visit boxes.
+            // First draw each train as an empty row, and store the screen 
+            // pos of where to start drawing visit boxes.
             for (train_id,(vehicle_ref,visits)) in plan.trains.iter() {
                 igDummy(ImVec2 { x: 0.0, y: 7.0 });
                 igPushIDInt(*train_id as _);
@@ -119,7 +98,7 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 }
 
                 igSameLine(0.0,-1.0);
-                let pos :ImVec2 = igGetCursorPos_nonUDT2().into();
+                let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
                 positions.push(pos + ImVec2 { x: 0.0, y: -5.0 } );
                 igPopID();
                 igNewLine();
@@ -127,7 +106,8 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 widgets::sep();
             }
 
-            let end_pos :ImVec2 = igGetCursorPos_nonUDT2().into();
+            let end_pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
+            let mut visit_pos :HashMap<VisitKey, ImVec2> = HashMap::new();
 
             // Find a train whose leftmost visit has no incoming constraints
             while let Some((train_idx, (train_id,visits))) = incoming_edges.iter_mut()
@@ -154,20 +134,23 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                     }
                 }
 
-                igSetCursorPos(positions[train_idx]);
-                // Draw the visit here.
+                igSetCursorScreenPos(positions[train_idx]);
+                let vkey = VisitKey { train: train_id, visit: visit_id, location: None }; 
+                visit_pos.insert(vkey, positions[train_idx] +
+                                 ImVec2 { x: 2.0*dummy_size.x, y: 0.5* dummy_size.y });
 
-                edit_visit(&mut app.document.dispatch_view, VisitKey { train: train_id, visit: visit_id, location: None }, 
+                // Draw the visit here.
+                edit_visit(&mut app.document.dispatch_view, vkey,
                            visit, &mut hovered_visit, &mut action);
                 igSameLine(0.0,-1.0);
 
-                let new_pos =  igGetCursorPos_nonUDT2().into();
+                let new_pos =  igGetCursorScreenPos_nonUDT2().into();
                 positions[train_idx] = new_pos;
             }
 
 
             for (pos,(train_id,_)) in positions.into_iter().zip(incoming_edges.iter()) {
-                igSetCursorPos(pos);
+                igSetCursorScreenPos(pos);
                 igPushIDInt(123123 as _);
                 igDummy(dummy_size + ImVec2 { x: 1.0*32.0, y: 0.0 });
                 let key = const_cstr!("VISIT").as_ptr();
@@ -177,15 +160,19 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 igPopID();
             }
 
-            igSetCursorPos(end_pos);
+            // Draw constraints
+            let draw_list = igGetWindowDrawList();
+            for ((strain,svisit),(ttrain,tvisit),_) in plan.order.iter() {
+                let pos1 = visit_pos[&VisitKey { train: *strain, visit: *svisit, location: None }];
+                let pos2 = visit_pos[&VisitKey { train: *ttrain, visit: *tvisit, location: None }];
+                let elbow = ImVec2 { x: pos1.x, y: pos2.y };
+                ImDrawList_AddLine(draw_list, pos1, elbow, 
+                                   app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
+                ImDrawList_AddLine(draw_list, elbow, pos2, 
+                                   app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
+            }
 
-            //    // write each visit.
-            //    // TODO do this afterwards, using sorting information from ordering constraints
-
-
-            //    widgets::sep();
-            //    igPopID();
-            //}
+            igSetCursorScreenPos(end_pos);
 
             if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, action, .. })) = &mut app.document.dispatch_view {
                 if let PlanViewAction::DragFrom(other_key, mouse_pos) = *action {
