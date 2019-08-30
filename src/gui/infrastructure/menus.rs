@@ -175,7 +175,7 @@ pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
     if let Some(opt_train) = action {
         let mut set_plan = None;
         doc.edit_model(|m| {
-            let visit = Visit { loc: vec![Ok(thing)], dwell: None, };
+            let visit = Visit { locs: vec![Ok(thing)], dwell: None, };
             let visits = if let Some((plan_idx,  train_id)) = opt_train {
                 let (_,visits) = m.plans.get_mut(plan_idx).unwrap()
                                  .trains.get_mut(train_id).unwrap();

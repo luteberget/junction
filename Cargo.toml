@@ -32,6 +32,7 @@ toml = "*"
 
 backend_glfw = { path = "lib/backend_glfw" }
 rolling = { path = "../trainspotting/rolling" }
+planner = { path = "../trainspotting/planner" }
 route_finder = { path = "lib/route_finder" }
 lsqr = { path = "../lsqr-rs" }
 

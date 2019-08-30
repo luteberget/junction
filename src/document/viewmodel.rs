@@ -12,6 +12,7 @@ use crate::app;
 use crate::util;
 use crate::util::VecMap;
 use crate::document::dispatch;
+use crate::document::plan;
 use std::sync::Arc;
 use nalgebra_glm as glm;
 
@@ -108,6 +109,15 @@ impl ViewModel {
                 let send_ok = tx.send(SetData::Dispatch(*i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
+
+            for (i,plan) in model.plans.iter() {
+                let x = plan::get_dispatches(&interlocking,
+                                             &model.vehicles,
+                                             plan);
+
+                info!("Planninc successful. {:?}", x);
+            }
+
         });
     }
 

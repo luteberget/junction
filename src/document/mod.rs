@@ -12,6 +12,7 @@ pub mod interlocking;
 pub mod history;
 pub mod dispatch;
 pub mod mileage;
+pub mod plan;
 
 // graphical view representation
 pub mod infview;

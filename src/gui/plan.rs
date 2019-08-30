@@ -163,13 +163,19 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
             // Draw constraints
             let draw_list = igGetWindowDrawList();
             for ((strain,svisit),(ttrain,tvisit),_) in plan.order.iter() {
-                let pos1 = visit_pos[&VisitKey { train: *strain, visit: *svisit, location: None }];
-                let pos2 = visit_pos[&VisitKey { train: *ttrain, visit: *tvisit, location: None }];
-                let elbow = ImVec2 { x: pos1.x, y: pos2.y };
-                ImDrawList_AddLine(draw_list, pos1, elbow, 
-                                   app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
-                ImDrawList_AddLine(draw_list, elbow, pos2, 
-                                   app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
+                let pos1 = visit_pos.get(&VisitKey { train: *strain, visit: *svisit, location: None });
+                let pos2 = visit_pos.get(&VisitKey { train: *ttrain, visit: *tvisit, location: None });
+                if let (Some(pos1),Some(pos2)) = (pos1.cloned(),pos2.cloned()) {
+                    let elbow = ImVec2 { x: pos1.x, y: pos2.y };
+                    ImDrawList_AddCircleFilled(draw_list, pos1, 8.0,
+                                       app.config.color_u32(RailUIColorName::GraphCommand), 8);
+                    ImDrawList_AddCircleFilled(draw_list, pos2, 8.0,
+                                       app.config.color_u32(RailUIColorName::GraphCommand), 8);
+                    ImDrawList_AddLine(draw_list, pos1, pos2, 
+                                       app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
+                    //ImDrawList_AddLine(draw_list, elbow, pos2, 
+                                       //app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
+                }
             }
 
             igSetCursorScreenPos(end_pos);
@@ -241,9 +247,9 @@ fn visit_move(m: &mut Model, plan :usize, source :VisitKey, t_train_idx: usize, 
     let s_train = plan.trains.get_mut(source.train)?;
     let s_visit = s_train.1.get_mut(source.visit)?;
     let new_visit = if let Some(loc_idx) = source.location {
-        let data = s_visit.loc.remove(loc_idx);
-        if s_visit.loc.len() == 0 { s_train.1.remove(source.visit); }
-        Visit { loc: vec![data], dwell: None }
+        let data = s_visit.locs.remove(loc_idx);
+        if s_visit.locs.len() == 0 { s_train.1.remove(source.visit); }
+        Visit { locs: vec![data], dwell: None }
     } else {
         s_train.1.remove(source.visit)?
     };
@@ -261,17 +267,17 @@ fn visit_merge(m :&mut Model, plan :usize, source :VisitKey, target :VisitKey) -
     let s_train = plan.trains.get_mut(source.train)?;
     let s_visit = s_train.1.get_mut(source.visit)?;
     if let Some(loc_idx) = source.location {
-        let data = s_visit.loc.remove(loc_idx);
+        let data = s_visit.locs.remove(loc_idx);
         // no more data left, remove the visit
-        if s_visit.loc.len() == 0 { s_train.1.remove(source.visit); }
+        if s_visit.locs.len() == 0 { s_train.1.remove(source.visit); }
         let t_train = plan.trains.get_mut(target.train)?;
         let t_visit = t_train.1.get_mut(target.visit)?;
-        t_visit.loc.push(data);
+        t_visit.locs.push(data);
     } else {
-        let data = s_train.1.remove(source.visit)?.loc;
+        let data = s_train.1.remove(source.visit)?.locs;
         let t_train = plan.trains.get_mut(target.train)?;
         let t_visit = t_train.1.get_mut(target.visit)?;
-        t_visit.loc.extend(data);
+        t_visit.locs.extend(data);
     }
     Some(())
 }
@@ -407,7 +413,7 @@ unsafe {
         *action = Some(Action::VisitMoveBefore { source: other_key, target: visit_key });
     }
     igSameLine(0.0,-1.0);
-    let visit_width = 32.0*(1.0 + visit.loc.len() as f32 + 
+    let visit_width = 32.0*(1.0 + visit.locs.len() as f32 + 
                                 if visit.dwell.is_some() { 1.0 } else { 0.0 });
     igPushStyleColorU32(ImGuiCol__ImGuiCol_ChildBg as _,
                           igGetColorU32(ImGuiCol__ImGuiCol_Button as _, 1.0));
@@ -421,7 +427,7 @@ unsafe {
 
             igAlignTextToFramePadding();
             widgets::show_text(&format!("Move"));
-            for (loc_id, loc) in visit.loc.iter().enumerate() {
+            for (loc_id, loc) in visit.locs.iter().enumerate() {
                 igPushIDInt(loc_id as _);
                 igSameLine(0.0,-1.0);
                 red_button(const_cstr!("Nd").as_ptr());
@@ -432,7 +438,7 @@ unsafe {
         }
 
 
-        for (loc_id,loc) in visit.loc.iter().enumerate() {
+        for (loc_id,loc) in visit.locs.iter().enumerate() {
             igPushIDInt(loc_id as _);
             let mut visit_key = VisitKey { location: Some(loc_id), .. visit_key };
             red_button(const_cstr!("Nd").as_ptr());

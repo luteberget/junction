@@ -7,6 +7,7 @@ use crate::document::dgraph::*;
 pub struct Interlocking {
     pub routes: Vec<RouteInfo>,
     pub boundary_routes: HashMap<Pt, Vec<usize>>,
+    pub boundary_out_routes: HashMap<Pt, Vec<usize>>,
     pub signal_routes: HashMap<PtA, Vec<usize>>,
     pub alternatives :HashMap<(Ref,Ref), Vec<usize>>,
 }
@@ -41,6 +42,7 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
         .expect("interlocking route finder failed");
 
     let mut boundary_routes = HashMap::new();
+    let mut boundary_out_routes = HashMap::new();
     let mut signal_routes = HashMap::new();
     let mut route_info = Vec::new();
     let mut alternatives : HashMap<(Ref,Ref), Vec<usize>> = HashMap::new();
@@ -67,6 +69,9 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
 
         let to = match route.exit {
             rolling_inf::RouteEntryExit::Boundary(Some(boundary)) => {
+                if let Some(pt) = dgraph.node_ids.get(&boundary) {
+                    boundary_out_routes.entry(*pt).or_insert(Vec::new()).push(route_idx);
+                }
                 Ref::Node(dgraph.node_ids[&boundary])
             },
             rolling_inf::RouteEntryExit::Signal(signal) |
@@ -84,7 +89,11 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
         route_info.push(RouteInfo { route, id: RouteSpec { from, to, alternative }, path });
     }
 
-    let interlocking = Interlocking { routes: route_info, boundary_routes, signal_routes, alternatives };
+        println!("boindary{:?}", boundary_routes);
+        println!("boundOUT{:?}", boundary_out_routes);
+
+    let interlocking = Interlocking { routes: route_info, 
+        boundary_routes, boundary_out_routes, signal_routes, alternatives };
 
     interlocking
 }
