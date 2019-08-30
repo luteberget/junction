@@ -684,8 +684,8 @@ fn optimize_locations(base_inf :&Infrastructure, signals :&mut Vec<Object>,
         v[i] = 1.0;
         v
     }).collect::<Vec<_>>();
-    use rand::{thread_rng, Rng};
-    thread_rng().shuffle(&mut search_vectors);
+    use rand::{thread_rng, Rng, seq::SliceRandom};
+    search_vectors.shuffle(&mut thread_rng());
 
 
     pub fn pos2intrinsic(min_dist :f64,

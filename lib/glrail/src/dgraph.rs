@@ -113,7 +113,9 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
     for (object_id, Object(_,_,o)) in inf.iter_objects() {
         match o {
             ObjectType::Signal(dir) => {
-                let objid = new_object_id(&mut model.objects, rolling_inf::StaticObject::Signal);
+                let objid = new_object_id(&mut model.objects, rolling_inf::StaticObject::Signal {
+                    has_distant: false,
+                });
                 static_signals.insert(object_id, objid);
             },
             _ => {},
@@ -314,7 +316,7 @@ pub fn convert_entities(inf :&Infrastructure) -> Result<(DGraph,Vec<DGraphConver
 
     //add_sight = route_finder::add_sight(&mut model, 200.0);
 
-    let tvd_sections = route_finder::detectors_to_sections(&mut model, &detector_nodes)?;
+    let (tvd_sections,_) = route_finder::detectors_to_sections(&mut model, &detector_nodes, &HashSet::new())?;
 
     // Call tvd section finder
 

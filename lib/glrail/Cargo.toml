@@ -5,13 +5,13 @@ authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-imgui-sys-bindgen = { path = "../lib/imgui-sys-bindgen" }
-route_finder = { path = "../lib/route_finder" }
+imgui-sys-bindgen = { path = "../../lib/imgui-sys-bindgen" }
+route_finder = { path = "../../lib/route_finder" }
 # sdl2 = { version = "*", features = ["bundled","static-link"] }
 sdl2 = { version = "*" }
 gl = "*"
 const-cstr="*"
-railplotlib = { path = "../../railplot/lib/railplotlib" }
+railplotlib = { path = "../../../railplot/lib/railplotlib" }
 log="*"
 simple-logging="*"
 serde =  { version = "1.0", features = ["derive"] }
@@ -21,13 +21,13 @@ ordered-float = "*"
 nalgebra = "*"
 tinyfiledialogs = "*"
 threadpool="*"
-rolling = { path = "../../trainspotting/rolling" }
-planner = { path = "../../trainspotting/planner" }
+rolling = { path = "../../../trainspotting/rolling" }
+planner = { path = "../../../trainspotting/planner" }
 generational-arena = { version = "0.2", features = ["serde"] }
 bimap = "*"
 ron = "*"
-rand = "*"
+rand = "0.7"
 timeit ="*"
-numerical_optimization = { path = "../lib/numerical_optimization" }
-backend_glfw = { path = "../lib/backend_glfw" }
-imgui-sys-opengl = { path = "../lib/imgui-sys-opengl" }
+numerical_optimization = { path = "../../lib/numerical_optimization" }
+backend_glfw = { path = "../../lib/backend_glfw" }
+imgui-sys-opengl = { path = "../../lib/imgui-sys-opengl" }

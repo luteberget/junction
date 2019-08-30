@@ -114,7 +114,7 @@ fn mk_instant( time :f64, history: &History,
     for infevent in &history.inf {
         match infevent {
             InfrastructureLogEvent::Wait(dt) => { t += dt; if t > time { break; } },
-            InfrastructureLogEvent::Authority(sig_d,l) => {
+            InfrastructureLogEvent::Authority(sig_d,(l,_)) => {
                 // sig has type rolling_inf::ObjectId
                 if let Some(EntityId::Object(sig_g)) = dgraph.object_ids.get_by_right(sig_d) {
                     match l {
@@ -126,7 +126,7 @@ fn mk_instant( time :f64, history: &History,
             InfrastructureLogEvent::Reserved(tvd,b) => {
                 sections_reserved.insert(*tvd,*b);
             },
-            InfrastructureLogEvent::Occupied(tvd,b) => {
+            InfrastructureLogEvent::Occupied(tvd,b,_,_) => {
                 sections_occupied.insert(*tvd,*b);
             },
             InfrastructureLogEvent::Position(sw,p) => {
