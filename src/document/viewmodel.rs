@@ -1,5 +1,6 @@
 use log::*;
 use std::sync::mpsc::*;
+use std::collections::HashMap;
 
 use crate::document::model::*;
 use crate::document::dgraph::*;
@@ -20,8 +21,9 @@ use nalgebra_glm as glm;
 pub struct Derived {
     pub dgraph :Option<Arc<DGraph>>,
     pub interlocking :Option<Arc<interlocking::Interlocking>>,
-    pub dispatch :Vec<Option<dispatch::DispatchView>>,
     pub topology: Option<Arc<topology::Topology>>,
+    pub dispatch :Vec<Option<dispatch::DispatchView>>,
+    pub plandispatches :HashMap<usize, Vec<Option<dispatch::DispatchView>>>,
 }
 
 pub struct ViewModel {
@@ -36,6 +38,7 @@ pub enum SetData {
     DGraph(Arc<DGraph>),
     Interlocking(Arc<interlocking::Interlocking>),
     Dispatch(usize,dispatch::DispatchView),
+    PlanDispatch(usize,usize,dispatch::DispatchView),
 }
 
 impl app::BackgroundUpdates for ViewModel {
@@ -47,6 +50,11 @@ impl app::BackgroundUpdates for ViewModel {
                 SetData::Dispatch(idx,h) => { 
                     self.derived.dispatch.vecmap_insert(idx,h);
                     //cache.clear_dispatch(idx);
+                },
+                SetData::PlanDispatch(plan_idx,dispatch_idx,h) => {
+                    self.derived.plandispatches.entry(plan_idx)
+                        .or_insert(Vec::new())
+                        .vecmap_insert(dispatch_idx, h);
                 },
             }
         }
@@ -111,20 +119,23 @@ impl ViewModel {
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
 
-            for (i,plan) in model.plans.iter() {
+            for (plan_idx,plan) in model.plans.iter() {
                 let dispatches = plan::get_dispatches(&interlocking,
                                              &model.vehicles,
                                              plan).unwrap();
 
                 info!("Planninc successful. {:?}", dispatches);
 
-                for d in dispatches {
+                for (dispatch_idx,d) in dispatches.into_iter().enumerate() {
                     let history = history::get_history(&model.vehicles,
                                          &dgraph.rolling_inf,
                                          &interlocking,
                                          &d.0).unwrap(); // TODO UNWRAP?
                     info!("Planned simulation successful");
                     let view = dispatch::DispatchView::from_history(&dgraph, history);
+                    let send_ok = tx.send(SetData::PlanDispatch(*plan_idx, dispatch_idx, view));
+                    if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}/{}", 
+                                                   plan_idx, dispatch_idx); }
                 }
 
             }
