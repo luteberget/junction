@@ -516,10 +516,14 @@ fn good_location_marker(config :&Config, vm :&ViewModel, loc :&PlanLoc, first_vi
 
             match nctype {
                 NDType::OpenEnd => {
-                    name = if vc.x > 0 { const_cstr!("->") }
-                    else if vc.x < 0 { const_cstr!("<-") }
-                    else if vc.y > 0 { const_cstr!("^ ") }
-                    else if vc.y < 0 { const_cstr!("v ") }
+                    name = if (vc.x > 0 && first_visit) || (vc.x < 0 && !first_visit) { 
+                        const_cstr!("->") }
+                    else if (vc.x < 0 && first_visit) || (vc.x > 0 && !first_visit) { 
+                        const_cstr!("<-") }
+                    else if (vc.y > 0 && first_visit) || (vc.y < 0 && !first_visit) { 
+                        const_cstr!("^ ") }
+                    else if (vc.y < 0 && first_visit) || (vc.y > 0 && !first_visit) { 
+                        const_cstr!("v ") }
                     else { return Err(()); };
                     col = if first_visit {
                         config.color_u32(RailUIColorName::CanvasTrack)

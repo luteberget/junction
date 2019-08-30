@@ -15,7 +15,11 @@ pub fn get_dispatches(il :&Interlocking,
                       plan :&PlanSpec,
                       ) -> Result<Vec<Dispatch>, String> {
 
-    let routes = il.routes.iter().map(|r| r.route.clone()).enumerate().collect();
+    let routes : HashMap<usize,rolling_inf::Route> = 
+        il.routes.iter().map(|r| r.route.clone()).enumerate().collect();
+    let route_specs : HashMap<usize,RouteSpec> = 
+        il.routes.iter().map(|r| r.id.clone()).enumerate().collect();
+
     let plan_inf = convert_inf(&routes);
     let plan_usage = convert_plan(il, vehicles, plan).
         map_err(|e| format!("{:?}", e))?;
@@ -32,17 +36,64 @@ pub fn get_dispatches(il :&Interlocking,
         true
     });
 
+
+    let mut outputs = Vec::new();
     if let Some(r) = &routeplan {
         println!("plaN() return \n{}", planner::input::format_schedule(r));
-    } else { println!("plan() returned nothing."); }
+        let single = convert_dispatch_commands(r, &routes, &route_specs, plan).unwrap();
+        println!("dispatch {:?}", single);
+        outputs.push(single);
+    } else { 
+        println!("plan() returned nothing."); 
+    }
 
-    //if let Some(routeplan) = routeplan {
-        //let commands = convert_dispatch_commands(&routeplan, routes, usage);
-    //}
+    // Convert back to dispatch
 
-    Ok(Vec::new())
+    Ok(outputs)
 
 }
+
+
+fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan,
+                          routes :&HashMap<usize, rolling_inf::Route>,
+                          route_specs :&HashMap<usize, RouteSpec>,
+                          plan :&PlanSpec) -> Result<Dispatch,()> {
+
+    use std::collections::BTreeSet;
+
+    let mut commands = Vec::new();
+    let mut last_active_routes = BTreeSet::new();
+
+    for state in routeplan.iter() {
+        let active_routes = state.iter().filter_map(|((elementary,part),train_id)| {
+            // use partial as representative for elementary route
+            if *part == 0 && train_id.is_some() {
+                Some((*elementary, train_id.unwrap())) 
+            } else { None }
+        }).collect::<BTreeSet<_>>();
+
+        for (new_route, train_id) in active_routes.difference(&last_active_routes) {
+            // check if the route is in the birth of a train (comes from boundary)
+            match routes[new_route].entry {
+                rolling_inf::RouteEntryExit::Boundary(_) => {
+                    // Spawn new train
+                    commands.push((0.0, Command::Train(
+                                plan.trains.get(*train_id).unwrap().0.unwrap(), //vehicle id
+                                route_specs[new_route])));
+                },
+                rolling_inf::RouteEntryExit::Signal(_) 
+                    | rolling_inf::RouteEntryExit::SignalTrigger { .. } => {
+                        commands.push((0.0, Command::Route(route_specs[new_route])));
+                },
+            }
+        }
+
+        last_active_routes = active_routes;
+    }
+
+    Ok(Dispatch(commands))
+}
+
 
 fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infrastructure {
 

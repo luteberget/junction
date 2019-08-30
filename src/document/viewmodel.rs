@@ -112,11 +112,21 @@ impl ViewModel {
             }
 
             for (i,plan) in model.plans.iter() {
-                let x = plan::get_dispatches(&interlocking,
+                let dispatches = plan::get_dispatches(&interlocking,
                                              &model.vehicles,
-                                             plan);
+                                             plan).unwrap();
 
-                info!("Planninc successful. {:?}", x);
+                info!("Planninc successful. {:?}", dispatches);
+
+                for d in dispatches {
+                    let history = history::get_history(&model.vehicles,
+                                         &dgraph.rolling_inf,
+                                         &interlocking,
+                                         &d.0).unwrap(); // TODO UNWRAP?
+                    info!("Planned simulation successful");
+                    let view = dispatch::DispatchView::from_history(&dgraph, history);
+                }
+
             }
 
         });
