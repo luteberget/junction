@@ -6,6 +6,7 @@ use std::ffi::CString;
 use crate::app::*;
 use crate::document::model::*;
 use crate::document::*;
+use crate::document::viewmodel::ViewModel;
 use crate::gui::widgets;
 use crate::config::*;
 
@@ -45,15 +46,19 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
         let mut positions :Vec<ImVec2> = Vec::new();
         if let Some(plan) = app.document.viewmodel.model().plans.get(plan_idx) {
 
-            let mut incoming_edges : Vec<(ListId, Vec<(ListId, usize)>)> = Vec::new();
+            let mut incoming_edges : Vec<(ListId, Vec<(bool, ListId, usize)>)> = Vec::new();
             for (train_id,(_,visits)) in plan.trains.iter() {
-                incoming_edges.push((*train_id,visits.iter().map(|(v,_)| (*v,0usize)).collect()) );
+                incoming_edges.push((*train_id,visits.iter().map(|(v,_)| (false,*v,0usize)).collect()) );
+                // mark first visit in each train for special presentation in location_marker
+                let l = incoming_edges.len()-1;
+                if let Some(v) = incoming_edges[l].1.get_mut(0) { v.0 = true; }
             }
+
 
             for (_,(target_train,target_visit),_) in plan.order.iter() {
                 for (t, vs) in incoming_edges.iter_mut() {
                     if t == target_train {
-                        for (v, n) in vs.iter_mut() {
+                        for (_fst, v, n) in vs.iter_mut() {
                             if v == target_visit {
                                 *n += 1;
                             }
@@ -62,10 +67,10 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 }
             }
 
-            let remove_edge = |es :&mut Vec<(ListId, Vec<(ListId, usize)>)>, (source_train,source_visit)| {
+            let remove_edge = |es :&mut Vec<(ListId, Vec<(bool, ListId, usize)>)>, (source_train,source_visit)| {
                 for (t,vs) in es.iter_mut() {
                     if *t == source_train {
-                        for (v, n) in vs.iter_mut() {
+                        for (_fst, v, n) in vs.iter_mut() {
                             if *v == source_visit {
                                 *n -= 1;
                             }
@@ -111,9 +116,9 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
 
             // Find a train whose leftmost visit has no incoming constraints
             while let Some((train_idx, (train_id,visits))) = incoming_edges.iter_mut()
-                .enumerate().find(|(_,(_,vs))| vs.get(0).map(|x| x.1) == Some(0)) {
+                .enumerate().find(|(_,(_,vs))| vs.get(0).map(|x| x.2) == Some(0)) {
 
-                let (visit_id,zero_incoming) = visits.remove(0);
+                let (first_visit,visit_id,zero_incoming) = visits.remove(0);
                 assert_eq!(zero_incoming, 0);
 
                 // lookup the visit info in the plan
@@ -140,8 +145,9 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                                  ImVec2 { x: 2.0*dummy_size.x, y: 0.5* dummy_size.y });
 
                 // Draw the visit here.
-                edit_visit(&mut app.document.dispatch_view, vkey,
-                           visit, &mut hovered_visit, &mut action);
+                edit_visit(&app.config, &app.document.viewmodel, 
+                           &mut app.document.dispatch_view, 
+                           vkey, visit, &mut hovered_visit, &mut action, first_visit);
                 igSameLine(0.0,-1.0);
 
                 let new_pos =  igGetCursorScreenPos_nonUDT2().into();
@@ -394,7 +400,7 @@ fn drop_visitkey(key :*const i8) -> Option<VisitKey> {
 }
 
 
-fn edit_visit(dispatch_view :&mut Option<DispatchView>, visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, action :&mut Option<Action>) {
+fn edit_visit(config :&Config, vm :&ViewModel, dispatch_view :&mut Option<DispatchView>, visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, action :&mut Option<Action>, first_visit :bool) {
 unsafe {
     let key = const_cstr!("VISIT").as_ptr();
     igPushIDInt(visit_key.train as _); 
@@ -430,7 +436,7 @@ unsafe {
             for (loc_id, loc) in visit.locs.iter().enumerate() {
                 igPushIDInt(loc_id as _);
                 igSameLine(0.0,-1.0);
-                red_button(const_cstr!("Nd").as_ptr());
+                location_marker(config, vm, loc, first_visit, action);
                 igPopID();
             }
 
@@ -441,7 +447,7 @@ unsafe {
         for (loc_id,loc) in visit.locs.iter().enumerate() {
             igPushIDInt(loc_id as _);
             let mut visit_key = VisitKey { location: Some(loc_id), .. visit_key };
-            red_button(const_cstr!("Nd").as_ptr());
+            location_marker(config,vm,loc,first_visit,action);
             igSameLine(0.0,-1.0);
             if igBeginDragDropSource(0 as _) {
                 igSetDragDropPayload(key, 
@@ -450,7 +456,7 @@ unsafe {
                 igAlignTextToFramePadding();
                 widgets::show_text(&format!("Move"));
                 igSameLine(0.0,-1.0);
-                red_button(const_cstr!("Nd").as_ptr());
+                location_marker(config,vm,loc,first_visit,action);
                 igEndDragDropSource();
             } else if igIsItemHovered(0) {
                 igBeginTooltip();
@@ -487,3 +493,76 @@ unsafe {
     igPopID();
 }
 }
+
+fn location_marker(config :&Config, vm :&ViewModel, loc :&PlanLoc, first_visit :bool, action :&mut Option<Action>) -> Option<()> {
+    unsafe {
+    if good_location_marker(config, vm, loc, first_visit, action).is_err() {
+        //Somethign wrong with looking up data for location marker, draw a gray '?' 
+        igButton( const_cstr!("?").as_ptr() , ImVec2 { x: 0.0, y: 0.0 } );
+    }
+    None
+    }
+}
+
+fn good_location_marker(config :&Config, vm :&ViewModel, loc :&PlanLoc, first_visit :bool, action :&mut Option<Action>) -> Result<(),()> {
+    unsafe {
+    let name;
+    let col;
+    match loc {
+        Ok(Ref::Node(pt))  => {
+            // assume a node here.
+            let (nctype,vc) = vm.data().topology.as_ref().ok_or(())?
+                .locations.get(pt).ok_or(())?;
+
+            match nctype {
+                NDType::OpenEnd => {
+                    name = if vc.x > 0 { const_cstr!("->") }
+                    else if vc.x < 0 { const_cstr!("<-") }
+                    else if vc.y > 0 { const_cstr!("^ ") }
+                    else if vc.y < 0 { const_cstr!("v ") }
+                    else { return Err(()); };
+                    col = if first_visit {
+                        config.color_u32(RailUIColorName::CanvasTrack)
+                    } else {
+                        config.color_u32(RailUIColorName::CanvasRoutePath)
+                    };
+                },
+                NDType::Sw(_)  => {
+                    name = const_cstr!("Sw");
+                    col = config.color_u32(RailUIColorName::GraphCommand);
+                },
+                NDType::Cont => { 
+                    name = const_cstr!("C ");
+                    col = config.color_u32(RailUIColorName::GraphTrainFront);
+                }
+                NDType::Crossing(_) => { 
+                    name = const_cstr!("Cr");
+                    col = config.color_u32(RailUIColorName::GraphBlockReserved);
+                },
+                NDType::Err | NDType::BufferStop => { return Err(()); }
+            };
+
+        },
+        Ok(Ref::LineSeg(_,_)) => {
+            name = const_cstr!("--");
+            col = config.color_u32(RailUIColorName::CanvasTrackDrawing);
+        },
+        Ok(Ref::Object(_)) => {
+            // TODO check object type or just allow signals?
+            name = const_cstr!("-O");
+            col = config.color_u32(RailUIColorName::CanvasSignalStop);
+        }
+        Err(ptc) =>  {
+            return Err(());
+        }
+    };
+    igPushStyleColorU32(ImGuiCol__ImGuiCol_Button as _, col);
+    igButton(name.as_ptr(), ImVec2::zero());
+    igPopStyleColor(1);
+    Ok(())
+    }
+}
+
+
+
+
