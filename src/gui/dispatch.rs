@@ -6,17 +6,29 @@ use crate::document::*;
 use crate::app::*;
 use crate::gui::widgets;
 use crate::gui::plan;
+use crate::gui::diagram::diagram_view;
 
 pub fn dispatch_view(app :&mut App) {
     dispatch_select_bar(app);
     match &app.document.dispatch_view {
         Some(DispatchView::Manual(m)) => {
-            //diagram_view(app);
+            if let Some(Some(dv)) = app.document.data().dispatch.get(m.dispatch_idx) {
+                diagram_view(app, dv);
+            }
         },
         Some(DispatchView::Auto(a)) => {
             plan::plan_view(app);
-            if let Some(DispatchView::Auto(_)) = &app.document.dispatch_view {
-                //diagram_view();
+            if let Some(DispatchView::Auto(AutoDispatchView { 
+                plan_idx, 
+                dispatch: Some(ManualDispatchView { dispatch_idx , .. }),
+                ..
+            })) = &app.document.dispatch_view {
+
+                if let Some(Some(Some(dv))) = app.document.data()
+                    .plandispatches.get(plan_idx).map(|vs| vs.get(*dispatch_idx)) {
+
+                    diagram_view(app, dv);
+                }
             }
         },
         None => {}, // should not happen

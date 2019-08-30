@@ -24,10 +24,49 @@ enum Action {
 }
 
 fn plan_dispatches(app :&mut App, plan_idx :ListId) -> Option<()> {
-    //if igBeginCombo(const_cstr!("##chtr").as_ptr(), v_name.as_ptr(), 0) {
-    //    v = select_train(model, current_id);
-    //    igEndCombo();
-    //}
+    let mut action = None;
+    unsafe {
+        if let Some(DispatchView::Auto(AutoDispatchView { dispatch, .. })) = &app.document.dispatch_view {
+            let dispatch_idx = if let Some(ManualDispatchView { dispatch_idx, .. }) = dispatch {
+                Some(*dispatch_idx) } else { None };
+            let dispatch_name = if let Some(dispatch_idx) = dispatch_idx {
+                CString::new(format!("Dispatch {}", dispatch_idx)).unwrap()
+            } else { CString::new(format!("None")).unwrap() };
+
+            if igBeginCombo(const_cstr!("##chtr").as_ptr(), dispatch_name.as_ptr(), 0) {
+                if igSelectable(const_cstr!("None").as_ptr(), dispatch_idx.is_none(), 0 as _, ImVec2::zero()) {
+
+                    action = Some(None);
+                }
+
+                if let Some(dispatches) = app.document.data().plandispatches.get(&plan_idx) {
+                    for (di,d) in dispatches.iter().enumerate() {
+                        igPushIDInt(di as _);
+                        if let Some(d) = d {
+                            if igSelectable(const_cstr!("##asdf").as_ptr(), 
+                                         dispatch_idx == Some(di), 
+                                         0 as _ , ImVec2::zero()) {
+                                action = Some(Some(di));
+                            }
+
+                            igSameLine(0.0,-1.0);
+                            widgets::show_text(&format!("Dispatch {}", di));
+                        }
+                        igPopID();
+                    }
+                }
+
+                igEndCombo();
+            }
+        }
+    }
+
+    if let Some(new_dispatch) = action {
+        if let Some(DispatchView::Auto(AutoDispatchView { dispatch, .. })) = &mut app.document.dispatch_view {
+            *dispatch = new_dispatch.map(|d| ManualDispatchView { dispatch_idx: d, time: 0.0, play: false });
+        }
+    }
+
     None
 }
 
