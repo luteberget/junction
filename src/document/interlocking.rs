@@ -89,8 +89,6 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
         route_info.push(RouteInfo { route, id: RouteSpec { from, to, alternative }, path });
     }
 
-        println!("boindary{:?}", boundary_routes);
-        println!("boundOUT{:?}", boundary_out_routes);
 
     let interlocking = Interlocking { routes: route_info, 
         boundary_routes, boundary_out_routes, signal_routes, alternatives };

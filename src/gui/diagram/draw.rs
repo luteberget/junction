@@ -92,7 +92,7 @@ pub fn command_icons(config :&Config, analysis :&Analysis,
                                      p + half_icon_size, col1, 0.0, 0);
             ImDrawList_AddRect(draw.draw_list, 
                                p - half_icon_size, 
-                               p + half_icon_size, col1, 0.0, 0, 4.0);
+                               p + half_icon_size, col2, 0.0, 0, 1.0);
         }
     }
 

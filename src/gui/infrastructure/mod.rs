@@ -15,6 +15,7 @@ use crate::document::view::*;
 use crate::document::interlocking::*;
 use crate::document::model::*;
 use crate::document::analysis::*;
+use crate::document::dispatch::*;
 use crate::document::objects::*;
 use crate::gui::widgets;
 use crate::gui::widgets::Draw;
@@ -37,7 +38,7 @@ pub fn inf_view(config :&Config,
         let mut preview_route = None;
         context_menu(analysis, inf_view, dispatch_view, draw, &mut preview_route);
         interact(config, analysis, inf_view, draw);
-        draw_inf(config, analysis, inf_view, draw, preview_route);
+        draw_inf(config, analysis, inf_view, dispatch_view, draw, preview_route);
         Some(())
     });
 
@@ -49,12 +50,25 @@ pub fn inf_view(config :&Config,
     }
 }
 
-fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&InfView, 
+fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&mut InfView, 
+            dispatch_view :&Option<DispatchView>,
             draw :&Draw, preview_route :Option<usize>) {
 
-    draw::base(config, analysis, inf_view, draw);
+    let instant = {
+        if let Some(dref) = dispatch_view_ref(dispatch_view) {
+            inf_view.instant_cache.update(analysis, dref);
+            inf_view.instant_cache.get(dref)
+        } else { None }
+    };
+
+    draw::base(config, analysis, inf_view, instant, dispatch_view, draw);
     if let Some(r) = preview_route { draw::route(config, analysis, inf_view, draw, r); }
 
+    if let Some(instant) = instant {
+        draw::trains(config, instant, inf_view, draw);
+    }
+
+    //draw::state(config, analysis, inf_view, draw);
     //draw::state(app,draw);
     //draw::trains(app,draw);
 }
@@ -386,3 +400,17 @@ fn start_route(analysis :&mut Analysis, dispatch_view :&mut Option<DispatchView>
     dispatch.insert(time as f64, cmd);
     analysis.set_model(model, None);
 }
+
+fn dispatch_view_ref(dispatch_view :&Option<DispatchView>) -> Option<DispatchRef> {
+    match dispatch_view {
+        Some(DispatchView::Manual(ManualDispatchView { dispatch_idx, time, .. })) => {
+           Some((Ok(*dispatch_idx),*time as _))
+        },
+        Some(DispatchView::Auto(AutoDispatchView { plan_idx,
+            dispatch: Some(ManualDispatchView { dispatch_idx, time, .. }), .. })) => {
+           Some((Err((*plan_idx, *dispatch_idx)), *time as _))
+        },
+        _ => { return None; },
+    }
+}
+

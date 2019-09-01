@@ -3,6 +3,7 @@ use crate::document::model::{Ref, PtA, PtC, Pt};
 use nalgebra_glm as glm;
 use crate::document::view::*;
 use crate::document::objects::*;
+use crate::document::dispatch;
 use crate::gui::ImVec2;
 
 #[derive(Debug)]
@@ -10,7 +11,7 @@ pub struct InfView {
     pub action :Action,
     pub selection :HashSet<Ref>,
     pub view :View,
-    //pub instant_cache: dispatch::InstantCache,
+    pub instant_cache: dispatch::InstantCache,
 }
 
 #[derive(Debug)]
@@ -38,6 +39,7 @@ impl InfView {
             action: Action::Normal(NormalState::Default),
             selection: HashSet::new(),
             view: View::default(),
+            instant_cache: dispatch::InstantCache::new(),
         }
     }
 }

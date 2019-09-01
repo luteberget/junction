@@ -2,9 +2,11 @@ use crate::app::*;
 use crate::gui::widgets::Draw;
 use crate::util;
 use crate::document::model::*;
+use crate::document::*;
 use crate::document::analysis::*;
 use crate::document::objects::*;
 use crate::document::infview::*;
+use crate::document::dispatch::*;
 use crate::document::interlocking::*;
 use crate::config::*;
 
@@ -13,16 +15,12 @@ use nalgebra_glm as glm;
 use matches::*;
 use std::collections::HashMap;
 
-pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Draw) {
+pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView, 
+            instant :Option<&Instant>,
+            dispatch_view :&Option<DispatchView>, draw :&Draw) {
     let empty_state = HashMap::new();
-    let mut object_states :&HashMap<PtA,Vec<ObjectState>> = &empty_state;
-
-    // TODO get instant
-    //if let Some((idx,time,_play)) = self.active_dispatch.as_ref() {
-    //    if let Some(instant) = self.instant_cache.get_cached_instant(vm, *idx, *time) {
-    //        object_states = &instant.infrastructure.object_state;
-    //    }
-    //}
+    let object_states = if let Some(instant) = instant { 
+        &instant.infrastructure.object_state } else { &empty_state };
 
     let m = analysis.model();
     let d = analysis.data();
@@ -200,9 +198,56 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
     }
 }
 
-pub fn trains(app :&mut App, draw :&Draw) { 
+pub fn trains(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Draw) -> Option<()> { 
+    let color = config.color_u32(RailUIColorName::CanvasTrain);
+    let sight_color = config.color_u32(RailUIColorName::CanvasTrainSight);
+    for t in instant.trains.iter() {
+        for (p1,p2) in t.lines.iter() {
+            unsafe {
+            ImDrawList_AddLine(draw.draw_list,
+                               draw.pos + inf_view.view.world_ptc_to_screen(*p1),
+                               draw.pos + inf_view.view.world_ptc_to_screen(*p2),
+                               color, 7.0);
+            }
+        }
+
+        if let Some(front) = t.get_front() {
+            for pta in t.signals_sighted.iter() {
+                unsafe {
+                ImDrawList_AddLine(draw.draw_list,
+                                   draw.pos + inf_view.view.world_ptc_to_screen(front),
+                                   draw.pos + inf_view.view.world_ptc_to_screen(unround_coord(*pta)),
+                                   sight_color, 1.0);
+                }
+            }
+        }
+
+    }
+
+
+    Some(())
 }
 
-pub fn state(app :&mut App, draw :&Draw) { 
+pub fn state(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Draw) {
+    for (_tvd, status, lines) in instant.infrastructure.sections.iter() {
+        let color = match status {
+            SectionStatus::Occupied => config.color_u32(RailUIColorName::CanvasTVDOccupied),
+            SectionStatus::Reserved => config.color_u32(RailUIColorName::CanvasTVDReserved),
+            _ => config.color_u32(RailUIColorName::CanvasTVDFree),
+        };
+
+        for (p1,p2) in lines.iter() {
+            unsafe {
+                ImDrawList_AddLine(draw.draw_list,
+                                   draw.pos + inf_view.view.world_ptc_to_screen(*p1),
+                                   draw.pos + inf_view.view.world_ptc_to_screen(*p2),
+                                   color, 4.0);
+            }
+        }
+    }
 }
+
+
+
+
 

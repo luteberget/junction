@@ -1,3 +1,4 @@
+use nalgebra_glm as glm;
 use const_cstr::*;
 use backend_glfw::imgui::*;
 
@@ -29,6 +30,13 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
             draw::diagram(config, graph, draw, viewport);
             draw::command_icons(config, analysis, graph, viewport, draw);
             draw::time_slider(config, draw, viewport, dv.time);
+
+            let mouse_time = glm::lerp_scalar(viewport.time.0 as f32, viewport.time.1 as f32,
+                                              draw.mouse.y/draw.size.y);
+
+            if igIsItemHovered(0) && igIsMouseDown(0) {
+                dv.time = mouse_time as f64;
+            }
 
             Some(())
         });

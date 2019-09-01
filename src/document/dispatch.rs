@@ -5,6 +5,7 @@ use crate::document::model::*;
 use crate::document::objects::*;
 use crate::document::dgraph::*;
 use crate::document::history::*;
+use crate::document::analysis::*;
 
 use crate::util::VecMap;
 
@@ -60,44 +61,32 @@ impl DispatchOutput {
     }
 }
 
+pub type DispatchRef = (Result<usize, (usize,usize)>, f32);
 #[derive(Debug)]
 pub struct InstantCache {
-    data :Vec<Option<Instant>>,
+    cached : Option<(DispatchRef, Instant)>,
 }
 
 impl InstantCache {
-    pub fn new() -> Self { InstantCache { data: Vec::new() } }
-    pub fn dispatch_time(&self, idx :usize) -> Option<f32> {
-        self.data.vecmap_get(idx).map(|i| i.time)
-    }
-
-    pub fn clear_dispatch(&mut self, idx :usize) {
-        self.data.vecmap_remove(idx);
-    }
-
-    fn is_cached(&mut self, idx :usize, time :f32) -> bool {
-        if let Some(instant) = self.data.vecmap_get(idx) {
-            if instant.time == time {
-                return true;
-            }  
-        }
-        false
-    }
+    pub fn new() -> Self { InstantCache { cached: None } }
     
-    fn update(&mut self, doc :&Document, idx:usize, time :f32) -> Option<()> {
-        let dgraph = doc.analysis.data().dgraph.as_ref()?;
-        let dispatch = doc.analysis.data().dispatch.get(idx)?.as_ref()?;
-        self.data.vecmap_insert(idx, Instant::from(time, &dispatch.history, dgraph));
+    pub fn update(&mut self, analysis :&Analysis, r:DispatchRef) -> Option<()> {
+        if self.cached.as_ref().map(|x| &x.0) == Some(&r) { return Some(()); }
+        let (d,time) = r;
+        let dgraph = analysis.data().dgraph.as_ref()?;
+        let dispatch = match d {
+            Ok(d) => analysis.data().dispatch.get(d)?.as_ref()?,
+            Err((p,d)) => analysis.data().plandispatches.get(&p)?.get(d)?.as_ref()?,
+        };
+        self.cached = Some(((d, time), Instant::from(time, &dispatch.history, dgraph)));
         Some(())
     }
 
-    pub fn get_instant<'a>(&'a mut self, doc :&Document, idx :usize, time :f32) -> Option<&'a Instant> {
-        if !self.is_cached(idx,time) { self.update(doc,idx,time); }
-        self.data.vecmap_get(idx)
-    }
-
-    pub fn get_cached_instant<'a>(&'a self, doc :&Document, idx :usize, time :f32) -> Option<&'a Instant> {
-        self.data.vecmap_get(idx)
+    pub fn get<'a>(&'a self, q :DispatchRef) -> Option<&'a Instant> {
+        match &self.cached {
+            Some((d,v)) if d == &q => Some(&v),
+            _ => None,
+        }
     }
 }
 
