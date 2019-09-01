@@ -19,11 +19,12 @@ enum Action {
 }
 
 pub fn edit_plan(config :&Config, analysis :&mut Analysis, 
-                 auto_dispatch :&mut AutoDispatchView) -> Option<AutoDispatchView> {
+                 auto_dispatch :&mut AutoDispatchView) -> Option<Option<DispatchView>> {
     let plan_idx = auto_dispatch.plan_idx;
 
     let mut action = None;
     let mut hovered_visit = None;
+    let mut new_dispatchview = None;
 
     unsafe {
 
@@ -209,6 +210,7 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
 
             // app.document.dispatch_view = None;
             // TODO by returning Err?
+            new_dispatchview = Some(None);
         }
 
     }
@@ -246,7 +248,7 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
         _ => {},
     }
 
-    None // TODO wrong
+    new_dispatchview
 }
 
 fn plan_dispatches(analysis :&Analysis, adv :&mut AutoDispatchView)  {

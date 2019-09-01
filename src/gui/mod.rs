@@ -42,7 +42,8 @@ pub fn main(app :&mut App) -> bool {
                 let frameh = igGetFrameHeight();
                 let framespace = igGetFrameHeightWithSpacing() - frameh;
                 igSetCursorPos(pos + ImVec2 { x: 2.0*framespace, y : -frameh-3.0*framespace });
-                dispatch::dispatch_select_bar(&None, analysis);
+                let new_dispatchview = dispatch::dispatch_select_bar(&None, analysis);
+                if let Some(nd) = new_dispatchview { *dispatch_view = nd; }
                 igSetCursorPos(pos);
             }
         } else {
@@ -53,7 +54,10 @@ pub fn main(app :&mut App) -> bool {
                 .left(const_cstr!("inf_canv").as_ptr(), || {
                     infrastructure::inf_view(config, analysis, inf_view, dispatch_view); })
                 .right(const_cstr!("dia_dptch").as_ptr(), || {
-                    dispatch::dispatch_view(config, analysis, dispatch_view.as_mut().unwrap() ); });
+                    if let Some(d) = dispatch::dispatch_view(config, analysis, dispatch_view.as_mut().unwrap() ) {
+                        *dispatch_view = d;
+                    }
+                });
         }
     });
 

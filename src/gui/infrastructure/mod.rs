@@ -54,7 +54,7 @@ fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&InfView,
             draw :&Draw, preview_route :Option<usize>) {
 
     draw::base(config, analysis, inf_view, draw);
-    if let Some(r) = preview_route { draw::route(config, analysis, draw, r); }
+    if let Some(r) = preview_route { draw::route(config, analysis, inf_view, draw, r); }
 
     //draw::state(app,draw);
     //draw::trains(app,draw);
@@ -78,9 +78,18 @@ fn scroll(inf_view :&mut InfView) {
 
 fn interact(config :&Config, analysis :&mut Analysis, inf_view :&mut InfView, draw :&Draw) {
     match &inf_view.action {
-        Action::Normal(normal) => { interact_normal(config, analysis, inf_view, draw, *normal); },
-        Action::DrawingLine(from) => { interact_drawing(config, analysis, inf_view, draw, *from); },
-        Action::InsertObject(obj) => { interact_insert(config,analysis,draw,obj.clone()); },
+        Action::Normal(normal) => { 
+            let normal = *normal;
+            interact_normal(config, analysis, inf_view, draw, normal); 
+        },
+        Action::DrawingLine(from) => { 
+            let from = *from;
+            interact_drawing(config, analysis, inf_view, draw, from); 
+        },
+        Action::InsertObject(obj) => { 
+            let obj = obj.clone();
+            interact_insert(config, analysis, inf_view, draw, obj); 
+        },
     }
 }
 
@@ -105,8 +114,8 @@ fn interact_normal(config :&Config, analysis :&mut Analysis,
             },
             NormalState::DragMove(typ) => {
                 if igIsMouseDragging(0,-1.0) {
-                    let delta = draw.view.screen_to_world_ptc((*io).MouseDelta) -
-                                draw.view.screen_to_world_ptc(ImVec2 { x:0.0, y: 0.0 });
+                    let delta = inf_view.view.screen_to_world_ptc((*io).MouseDelta) -
+                                inf_view.view.screen_to_world_ptc(ImVec2 { x:0.0, y: 0.0 });
                     match typ {
                         MoveType::Continuous => { if delta.x != 0.0 || delta.y != 0.0 {
                             move_selected_objects(analysis, inf_view, delta); }},
@@ -121,7 +130,8 @@ fn interact_normal(config :&Config, analysis :&mut Analysis,
             }
             NormalState::Default => {
                 if !(*io).KeyCtrl && igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
-                    if let Some((r,_)) = analysis.get_closest(draw.pointer) {
+                    if let Some((r,_)) = analysis.get_closest(
+                            inf_view.view.screen_to_world_ptc(draw.mouse)) {
                         if !inf_view.selection.contains(&r) {
                             inf_view.selection = std::iter::once(r).collect();
                         }
@@ -139,7 +149,8 @@ fn interact_normal(config :&Config, analysis :&mut Analysis,
                 } else {
                     if igIsItemHovered(0) && igIsMouseReleased(0) {
                         if !(*io).KeyShift { inf_view.selection.clear(); }
-                        if let Some((r,_)) = analysis.get_closest(draw.pointer) {
+                        if let Some((r,_)) = analysis.get_closest(
+                                inf_view.view.screen_to_world_ptc(draw.mouse)) {
                             inf_view.selection.insert(r);
                         }
                     }
@@ -189,18 +200,19 @@ fn interact_drawing(config :&Config, analysis :&mut Analysis, inf_view :&mut Inf
                     draw :&Draw, from :Option<Pt>) {
     unsafe {
         let color = config.color_u32(RailUIColorName::CanvasTrackDrawing);
+        let pt_end = inf_view.view.screen_to_world_pt(draw.mouse);
         // Draw preview
         if let Some(pt) = from {
-            for (p1,p2) in util::route_line(pt, draw.pointer_grid) {
-                ImDrawList_AddLine(draw.draw_list, draw.pos + draw.view.world_pt_to_screen(p1),
-                                                   draw.pos + draw.view.world_pt_to_screen(p2),
+            for (p1,p2) in util::route_line(pt, pt_end) {
+                ImDrawList_AddLine(draw.draw_list, draw.pos + inf_view.view.world_pt_to_screen(p1),
+                                                   draw.pos + inf_view.view.world_pt_to_screen(p2),
                                               color, 2.0);
             }
 
             if !igIsMouseDown(0) {
                 let mut new_model = analysis.model().clone();
                 let mut any_lines = false;
-                for (p1,p2) in util::route_line(pt,draw.pointer_grid) {
+                for (p1,p2) in util::route_line(pt,pt_end) {
                     let unit = util::unit_step_diag_line(p1,p2);
                     for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
                         any_lines = true;
@@ -213,22 +225,22 @@ fn interact_drawing(config :&Config, analysis :&mut Analysis, inf_view :&mut Inf
             }
         } else {
             if igIsItemHovered(0) && igIsMouseDown(0) {
-                inf_view.action = Action::DrawingLine(Some(draw.pointer_grid));
+                inf_view.action = Action::DrawingLine(Some(pt_end));
             }
         }
     }
 }
 
 fn interact_insert(config :&Config, analysis :&mut Analysis, 
-                   draw :&Draw, obj :Option<Object>) {
+                   inf_view :&InfView, draw :&Draw, obj :Option<Object>) {
     unsafe {
         if let Some(mut obj) = obj {
-            let moved = obj.move_to(analysis.model(),draw.pointer);
-            obj.draw(draw.pos,&draw.view,draw.draw_list,
+            let moved = obj.move_to(analysis.model(),inf_view.view.screen_to_world_ptc(draw.mouse));
+            obj.draw(draw.pos,&inf_view.view,draw.draw_list,
                      config.color_u32(RailUIColorName::CanvasSymbol),&[],&config);
 
             if let Some(err) = moved {
-                let p = draw.pos + draw.view.world_ptc_to_screen(obj.loc);
+                let p = draw.pos + inf_view.view.world_ptc_to_screen(obj.loc);
                 let window = ImVec2 { x: 4.0, y: 4.0 };
                 ImDrawList_AddRect(draw.draw_list, p - window, p + window,
                                    config.color_u32(RailUIColorName::CanvasSymbolLocError),
@@ -293,7 +305,7 @@ fn context_menu(analysis :&mut Analysis,
     }
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        if let Some((r,_)) = analysis.get_closest(draw.pointer) {
+        if let Some((r,_)) = analysis.get_closest(inf_view.view.screen_to_world_ptc(draw.mouse)) {
             if !inf_view.selection.contains(&r) {
                 inf_view.selection = std::iter::once(r).collect();
             }

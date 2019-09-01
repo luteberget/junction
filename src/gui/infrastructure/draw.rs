@@ -161,7 +161,7 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dra
     }
 }
 
-pub fn route(config :&Config, analysis :&Analysis, draw :&Draw, route_idx :usize) -> Option<()> { 
+pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Draw, route_idx :usize) -> Option<()> { 
     unsafe {
         let il = analysis.data().interlocking.as_ref()?;
         let dgraph = analysis.data().dgraph.as_ref()?;
@@ -175,8 +175,8 @@ pub fn route(config :&Config, analysis :&Analysis, draw :&Draw, route_idx :usize
                     if let Some(v) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
                         for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
                             ImDrawList_AddLine(draw.draw_list,
-                                               draw.pos + draw.view.world_ptc_to_screen(*pt_a),
-                                               draw.pos + draw.view.world_ptc_to_screen(*pt_b),
+                                               draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
+                                               draw.pos + inf_view.view.world_ptc_to_screen(*pt_b),
                                                color_section, 3.5);
                         }
                     }
@@ -188,8 +188,8 @@ pub fn route(config :&Config, analysis :&Analysis, draw :&Draw, route_idx :usize
             if let Some(v) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
                 for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
                     ImDrawList_AddLine(draw.draw_list,
-                                       draw.pos + draw.view.world_ptc_to_screen(*pt_a),
-                                       draw.pos + draw.view.world_ptc_to_screen(*pt_b),
+                                       draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
+                                       draw.pos + inf_view.view.world_ptc_to_screen(*pt_b),
                                        color_path, 6.0);
                 }
             }

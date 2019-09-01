@@ -10,17 +10,17 @@ use crate::gui::widgets;
 use crate::gui::plan;
 use crate::gui::diagram::diagram_view;
 
-pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut DispatchView) -> Option<DispatchView> {
-    let mut new_dispatch :Option<DispatchView> = None;
+pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut DispatchView) -> Option<Option<DispatchView>> {
+    let mut new_dispatch :Option<Option<DispatchView>> = None;
     let sel = dispatch_select_bar(&Some(*dv), analysis);
-    if let Some(sel) = sel { new_dispatch = sel; }
+    new_dispatch = sel.or(new_dispatch);
 
     match dv {
         DispatchView::Manual(manual) => {
         },
         DispatchView::Auto(auto) => {
             let new_auto = plan::edit_plan(config, analysis, auto);
-            if let Some(sel) = new_auto { new_dispatch = Some(DispatchView::Auto(sel)); }
+            new_dispatch = new_auto.or(new_dispatch);
         },
     }
 
