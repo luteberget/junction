@@ -9,6 +9,8 @@ use crate::gui::widgets;
 use crate::config::*;
 use crate::app::*;
 use crate::document::*;
+use crate::gui::widgets::Draw;
+
 mod draw;
 
 pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) {
@@ -24,7 +26,9 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
                     time: (graph.time_interval.0 as _, graph.time_interval.1 as _),
                     pos: (graph.pos_interval.0 as _, graph.pos_interval.1 as _),
                 }); }
-            let viewport = dv.viewport.as_ref().unwrap();
+            let viewport = dv.viewport.as_mut().unwrap();
+
+            scroll(draw, viewport);
 
             // Need to get a DispatchOutput from analysis.
             draw::diagram(config, graph, draw, viewport);
@@ -42,6 +46,38 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
         });
     }
 }
+
+fn scroll(draw :&Draw, viewport :&mut DiagramViewport) {
+    fn translate((a,b) :(f64,f64), d:f64) -> (f64,f64) { (a+d,b+d) }
+    fn dilate((a,b) :(f64,f64), f :f64) -> (f64,f64) {
+        let mid = 0.5*(a+b);
+        let dist = 0.5*(b-a);
+        (mid - f*dist, mid + f*dist)
+    }
+
+    unsafe {
+        if !igIsItemHovered(0) { return; }
+        let io = igGetIO();
+        let wheel = (*io).MouseWheel;
+        if wheel != 0.0 {
+            let factor = 1.0 + (-wheel as f64 / 20.0);
+            viewport.time = dilate(viewport.time, factor);
+            viewport.pos = dilate(viewport.pos, factor);
+        }
+
+        if ((*io).KeyCtrl && igIsMouseDragging(0,-1.0)) || igIsMouseDragging(2, -1.0) {
+            let mouse_delta = (*io).MouseDelta;
+            let delta = ImVec2 { x: -mouse_delta.x / draw.size.x * 
+               ( (viewport.pos.1 - viewport.pos.0) as f32) ,
+                                 y: -mouse_delta.y / draw.size.y * 
+                                     ((viewport.time.1 - viewport.time.0) as f32), };
+
+            viewport.pos = translate(viewport.pos, delta.x as _);
+            viewport.time = translate(viewport.time, delta.y as _);
+        }
+    }
+}
+
 
 fn diagram_toolbar(dv :&mut ManualDispatchView) {
     unsafe {

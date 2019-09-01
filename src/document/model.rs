@@ -53,6 +53,16 @@ pub struct Vehicle {
     pub max_vel :f32,
 }
 
+impl Default for Vehicle {
+    fn default() -> Vehicle { Vehicle {
+        name : "Default vehicle".to_string(),
+        length: 210.0,
+        max_acc: 0.9,
+        max_brk: 0.85,
+        max_vel: 50.0,
+    } }
+}
+
 #[derive(Debug,Copy,Clone, PartialEq, Eq)]
 #[derive(Serialize,Deserialize)]
 pub enum CrossingType { 
@@ -245,7 +255,11 @@ pub fn corners(pt :PtC) -> Vec<Pt> {
 }
 
 impl Model {
-    pub fn empty() -> Self { Default::default() }
+    pub fn empty() -> Self { 
+        let mut model : Model = Default::default();
+        model.vehicles.insert(Default::default());
+        model
+    }
 
     pub fn get_closest_object<'a>(&'a self, pt :PtC) -> Option<((&'a PtA,&'a Object),f32)> {
         // TODO performance
@@ -320,6 +334,7 @@ pub enum EditClass {
     VehicleBrk(usize),
     VehicleVel(usize),
 }
+
 
 
 pub struct Undoable<T, C> {

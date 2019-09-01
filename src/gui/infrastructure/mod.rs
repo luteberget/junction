@@ -66,6 +66,7 @@ fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&mut InfView,
 
     if let Some(instant) = instant {
         draw::trains(config, instant, inf_view, draw);
+        draw::state(config, instant, inf_view, draw);
     }
 
     //draw::state(config, analysis, inf_view, draw);
