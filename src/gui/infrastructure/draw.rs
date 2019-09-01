@@ -2,6 +2,7 @@ use crate::app::*;
 use crate::gui::widgets::Draw;
 use crate::util;
 use crate::document::model::*;
+use crate::document::analysis::*;
 use crate::document::objects::*;
 use crate::document::infview::*;
 use crate::document::interlocking::*;
@@ -12,7 +13,7 @@ use nalgebra_glm as glm;
 use matches::*;
 use std::collections::HashMap;
 
-pub fn base(app :&mut App, draw :&Draw) { 
+pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Draw) {
     let empty_state = HashMap::new();
     let mut object_states :&HashMap<PtA,Vec<ObjectState>> = &empty_state;
 
@@ -23,12 +24,8 @@ pub fn base(app :&mut App, draw :&Draw) {
     //    }
     //}
 
-    let doc = &app.document;
-    let m = doc.model();
-    let d = doc.data();
-    let inf_view = &doc.inf_view;
-    let config = &app.config;
-
+    let m = analysis.model();
+    let d = analysis.data();
     unsafe {
 
         let sel_window = if let Action::Normal(NormalState::SelectWindow(a)) = &inf_view.action {
@@ -164,13 +161,13 @@ pub fn base(app :&mut App, draw :&Draw) {
     }
 }
 
-pub fn route(app :&mut App, draw :&Draw, route_idx :usize) -> Option<()> { 
+pub fn route(config :&Config, analysis :&Analysis, draw :&Draw, route_idx :usize) -> Option<()> { 
     unsafe {
-        let il = app.document.data().interlocking.as_ref()?;
-        let dgraph = app.document.data().dgraph.as_ref()?;
+        let il = analysis.data().interlocking.as_ref()?;
+        let dgraph = analysis.data().dgraph.as_ref()?;
         let RouteInfo { route, path, ..} = &il.routes[route_idx];
-        let color_path = app.config.color_u32(RailUIColorName::CanvasRoutePath);
-        let color_section = app.config.color_u32(RailUIColorName::CanvasRouteSection);
+        let color_path = config.color_u32(RailUIColorName::CanvasRoutePath);
+        let color_section = config.color_u32(RailUIColorName::CanvasRouteSection);
 
         for sec in route.resources.sections.iter() {
             if let Some(edges) = dgraph.tvd_edges.get(sec) {

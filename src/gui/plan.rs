@@ -6,15 +6,10 @@ use std::ffi::CString;
 use crate::app::*;
 use crate::document::model::*;
 use crate::document::*;
-use crate::document::viewmodel::Analysis;
+use crate::document::analysis::Analysis;
 use crate::gui::widgets;
 use crate::config::*;
 
-pub fn plan_view(app :&mut App) {
-    if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, .. })) = &app.document.dispatch_view {
-        edit_plan(app, *plan_idx);
-    }
-}
 enum Action { 
     VisitMerge { source: VisitKey, target :VisitKey },
     VisitMoveBefore { source: VisitKey, target :VisitKey },
@@ -23,58 +18,13 @@ enum Action {
     NewTrain,
 }
 
-fn plan_dispatches(app :&mut App, plan_idx :ListId) -> Option<()> {
-    let mut action = None;
-    unsafe {
-        if let Some(DispatchView::Auto(AutoDispatchView { dispatch, .. })) = &app.document.dispatch_view {
-            let dispatch_idx = if let Some(ManualDispatchView { dispatch_idx, .. }) = dispatch {
-                Some(*dispatch_idx) } else { None };
-            let dispatch_name = if let Some(dispatch_idx) = dispatch_idx {
-                CString::new(format!("Dispatch {}", dispatch_idx)).unwrap()
-            } else { CString::new(format!("None")).unwrap() };
-
-            if igBeginCombo(const_cstr!("##chtr").as_ptr(), dispatch_name.as_ptr(), 0) {
-                if igSelectable(const_cstr!("None").as_ptr(), dispatch_idx.is_none(), 0 as _, ImVec2::zero()) {
-
-                    action = Some(None);
-                }
-
-                if let Some(dispatches) = app.document.data().plandispatches.get(&plan_idx) {
-                    for (di,d) in dispatches.iter().enumerate() {
-                        igPushIDInt(di as _);
-                        if let Some(d) = d {
-                            if igSelectable(const_cstr!("##asdf").as_ptr(), 
-                                         dispatch_idx == Some(di), 
-                                         0 as _ , ImVec2::zero()) {
-                                action = Some(Some(di));
-                            }
-
-                            igSameLine(0.0,-1.0);
-                            widgets::show_text(&format!("Dispatch {}", di));
-                        }
-                        igPopID();
-                    }
-                }
-
-                igEndCombo();
-            }
-        }
-    }
-
-    if let Some(new_dispatch) = action {
-        if let Some(DispatchView::Auto(AutoDispatchView { dispatch, .. })) = &mut app.document.dispatch_view {
-            *dispatch = new_dispatch.map(|d| ManualDispatchView { dispatch_idx: d, time: 0.0, play: false });
-        }
-    }
-
-    None
-}
-
-
-pub fn edit_plan(app :&mut App, plan_idx :ListId) {
+pub fn edit_plan(config :&Config, analysis :&mut Analysis, 
+                 auto_dispatch :&mut AutoDispatchView) -> Option<AutoDispatchView> {
+    let plan_idx = auto_dispatch.plan_idx;
 
     let mut action = None;
     let mut hovered_visit = None;
+
     unsafe {
 
         let h1 = igGetFrameHeightWithSpacing();
@@ -89,12 +39,12 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
         }
 
         igSameLine(0.0,-1.0);
-        plan_dispatches(app, plan_idx);
+        plan_dispatches(analysis, auto_dispatch);
 
         widgets::sep();
 
         let mut positions :Vec<ImVec2> = Vec::new();
-        if let Some(plan) = app.document.viewmodel.model().plans.get(plan_idx) {
+        if let Some(plan) = analysis.model().plans.get(plan_idx) {
 
             let mut incoming_edges : Vec<(ListId, Vec<(bool, ListId, usize)>)> = Vec::new();
             for (train_id,(_,visits)) in plan.trains.iter() {
@@ -139,7 +89,7 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 widgets::show_text(&format!("Train {}: ", train_id));
                 igSameLine(0.0,-1.0);
                 igPushItemWidth(125.0);
-                if let Some(new_vehicle) = select_train_combo(app.document.viewmodel.model(), vehicle_ref) {
+                if let Some(new_vehicle) = select_train_combo(analysis.model(), vehicle_ref) {
                     action = Some(Action::TrainVehicle { train: *train_id, vehicle: new_vehicle });
                 }
                 igPopItemWidth();
@@ -195,8 +145,7 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                                  ImVec2 { x: 2.0*dummy_size.x, y: 0.5* dummy_size.y });
 
                 // Draw the visit here.
-                edit_visit(&app.config, &app.document.viewmodel, 
-                           &mut app.document.dispatch_view, 
+                edit_visit(config, analysis, auto_dispatch, 
                            vkey, visit, &mut hovered_visit, &mut action, first_visit);
                 igSameLine(0.0,-1.0);
 
@@ -224,11 +173,11 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
                 if let (Some(pos1),Some(pos2)) = (pos1.cloned(),pos2.cloned()) {
                     let elbow = ImVec2 { x: pos1.x, y: pos2.y };
                     ImDrawList_AddCircleFilled(draw_list, pos1, 8.0,
-                                       app.config.color_u32(RailUIColorName::GraphCommand), 8);
+                                       config.color_u32(RailUIColorName::GraphCommand), 8);
                     ImDrawList_AddCircleFilled(draw_list, pos2, 8.0,
-                                       app.config.color_u32(RailUIColorName::GraphCommand), 8);
+                                       config.color_u32(RailUIColorName::GraphCommand), 8);
                     ImDrawList_AddLine(draw_list, pos1, pos2, 
-                                       app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
+                                       config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
                     //ImDrawList_AddLine(draw_list, elbow, pos2, 
                                        //app.config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
                 }
@@ -236,30 +185,30 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
 
             igSetCursorScreenPos(end_pos);
 
-            if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, action, .. })) = &mut app.document.dispatch_view {
-                if let PlanViewAction::DragFrom(other_key, mouse_pos) = *action {
-                    if !igIsMouseDown(1) {
-                        *action = PlanViewAction::None;
-                        if let Some(visit_key) = hovered_visit {
-                            let plan_idx = *plan_idx;
-                            app.document.edit_model(|m| {
-                                m.plans.get_mut(plan_idx).unwrap().order.push(((other_key.train, other_key.visit), (visit_key.train, visit_key.visit), None));
-                                println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
-                                None
-                            });
-                        } else {
-                        }
+
+            if let PlanViewAction::DragFrom(other_key, mouse_pos) = auto_dispatch.action {
+                if !igIsMouseDown(1) {
+                    auto_dispatch.action = PlanViewAction::None;
+                    if let Some(visit_key) = hovered_visit {
+                        analysis.edit_model(|m| {
+                            m.plans.get_mut(plan_idx).unwrap().order.push(((other_key.train, other_key.visit), (visit_key.train, visit_key.visit), None));
+                            println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
+                            None
+                        });
                     } else {
-                        ImDrawList_AddLine(igGetForegroundDrawList(), igGetMousePos_nonUDT2().into(), mouse_pos, 
-                                          igGetColorU32(ImGuiCol__ImGuiCol_Text as _, 1.0), 4.0);
                     }
+                } else {
+                    ImDrawList_AddLine(igGetForegroundDrawList(), igGetMousePos_nonUDT2().into(), mouse_pos, 
+                                      igGetColorU32(ImGuiCol__ImGuiCol_Text as _, 1.0), 4.0);
                 }
             }
         } else {
 
             // The plan did not exist! 
             // Let's close the window then.
-            app.document.dispatch_view = None;
+
+            // app.document.dispatch_view = None;
+            // TODO by returning Err?
         }
 
     }
@@ -268,13 +217,13 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
 
     match action {
         Some(Action::NewTrain) => {
-            let default_train = app.document.model().vehicles.iter().next().map(|(id,_)| *id);
-            app.document.edit_model(|m| {
+            let default_train = analysis.model().vehicles.iter().next().map(|(id,_)| *id);
+            analysis.edit_model(|m| {
                 m.plans.get_mut(plan_idx).unwrap().trains.insert((default_train, ImShortGenList::new()));
                 None
             }); },
         Some(Action::TrainVehicle { train, vehicle }) => {
-            app.document.edit_model(|m| {
+            analysis.edit_model(|m| {
                 if let Some(t) = m.plans.get_mut(plan_idx).unwrap().trains.get_mut(train) {
                     t.0 = Some(vehicle);
                 }
@@ -283,18 +232,57 @@ pub fn edit_plan(app :&mut App, plan_idx :ListId) {
         },
         Some(Action::VisitMerge { source, target }) => {
             if !(source.train  == target.train && source.visit == target.visit ) {
-                app.document.edit_model(|m| { visit_merge(m, plan_idx, source, target); None });
+                analysis.edit_model(|m| { visit_merge(m, plan_idx, source, target); None });
             }
         },
         Some(Action::VisitMoveBefore { source, target }) => {
             if !(source.train  == target.train && source.visit == target.visit ) {
-                app.document.edit_model(|m| { visit_move(m, plan_idx, source, target.train, Some(target.visit)); None });
+                analysis.edit_model(|m| { visit_move(m, plan_idx, source, target.train, Some(target.visit)); None });
             }
         }
         Some(Action::VisitMoveToEnd { source, target }) => {
-            app.document.edit_model(|m| { visit_move(m, plan_idx, source, target, None); None });
+            analysis.edit_model(|m| { visit_move(m, plan_idx, source, target, None); None });
         }
         _ => {},
+    }
+
+    None // TODO wrong
+}
+
+fn plan_dispatches(analysis :&Analysis, adv :&mut AutoDispatchView)  {
+    unsafe {
+        let dispatch_idx = if let Some(ManualDispatchView { dispatch_idx, .. }) = &adv.dispatch {
+            Some(*dispatch_idx) } else { None };
+        let dispatch_name = if let Some(dispatch_idx) = dispatch_idx {
+            CString::new(format!("Dispatch {}", dispatch_idx)).unwrap()
+        } else { CString::new(format!("None")).unwrap() };
+
+        if igBeginCombo(const_cstr!("##chtr").as_ptr(), dispatch_name.as_ptr(), 0) {
+            if igSelectable(const_cstr!("None").as_ptr(), dispatch_idx.is_none(), 0 as _, ImVec2::zero()) {
+
+                adv.dispatch = None;
+            }
+
+            if let Some(dispatches) = analysis.data().plandispatches.get(&adv.plan_idx) {
+                for (di,d) in dispatches.iter().enumerate() {
+                    igPushIDInt(di as _);
+                    if let Some(d) = d {
+                        if igSelectable(const_cstr!("##asdf").as_ptr(), 
+                                     dispatch_idx == Some(di), 
+                                     0 as _ , ImVec2::zero()) {
+                            adv.dispatch = Some(ManualDispatchView { 
+                                dispatch_idx: di, time: 0.0, play: false });
+                        }
+
+                        igSameLine(0.0,-1.0);
+                        widgets::show_text(&format!("Dispatch {}", di));
+                    }
+                    igPopID();
+                }
+            }
+
+            igEndCombo();
+        }
     }
 }
 
@@ -384,9 +372,6 @@ pub fn select_train(model :&Model, current_id :&Option<usize>) -> Option<ListId>
     retval
 }
 
-fn get_toposort(app :&mut App, plan_idx :usize) -> Vec<Vec<(ListId,ListId)>> {
-    Vec::new()
-}
 
 fn yellow_button(name :*const i8) -> bool{
     unsafe {
@@ -407,34 +392,6 @@ fn yellow_button(name :*const i8) -> bool{
     }
 }
 
-fn red_button(name :*const i8) -> bool{
-    unsafe {
-        let c1 = ImVec4 { x: 1.0, y: 0.2,  z: 0.2, w: 0.4 };
-        let c2 = ImVec4 { x: 1.0, y: 0.22, z: 0.22, w: 0.4 };
-        let c3 = ImVec4 { x: 1.0, y: 0.24,  z: 0.24, w: 0.4 };
-        igPushStyleColor(ImGuiCol__ImGuiCol_Button as _, c1);
-        igPushStyleColor(ImGuiCol__ImGuiCol_ButtonHovered as _, c1);
-        igPushStyleColor(ImGuiCol__ImGuiCol_ButtonActive as _, c1);
-        let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
-        igPopStyleColor(3);
-        clicked
-    }
-}
-fn blue_button(name :*const i8) -> bool{
-    unsafe {
-        let c1 = ImVec4 { x: 0.22, y: 0.2,  z: 1.0, w: 0.4 };
-        let c2 = ImVec4 { x: 0.24, y: 0.22, z: 1.00, w: 0.4 };
-        let c3 = ImVec4 { x: 0.25, y: 0.24,  z: 1.00, w: 0.4 };
-        igPushStyleColor(ImGuiCol__ImGuiCol_Button as _, c1);
-        igPushStyleColor(ImGuiCol__ImGuiCol_ButtonHovered as _, c1);
-        igPushStyleColor(ImGuiCol__ImGuiCol_ButtonActive as _, c1);
-        let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
-        igPopStyleColor(3);
-        clicked
-    }
-}
-
-
 fn drop_visitkey(key :*const i8) -> Option<VisitKey> {
     unsafe {
     if igBeginDragDropTarget() {
@@ -450,7 +407,9 @@ fn drop_visitkey(key :*const i8) -> Option<VisitKey> {
 }
 
 
-fn edit_visit(config :&Config, vm :&Analysis, dispatch_view :&mut Option<DispatchView>, visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, action :&mut Option<Action>, first_visit :bool) {
+fn edit_visit(config :&Config, vm :&Analysis, auto_dispatch :&mut AutoDispatchView, 
+              visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, 
+              action :&mut Option<Action>, first_visit :bool) {
 unsafe {
     let key = const_cstr!("VISIT").as_ptr();
     igPushIDInt(visit_key.train as _); 
@@ -522,11 +481,8 @@ unsafe {
     igPopStyleColor(1);
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        // Maybe start drawing arrow
-        if let Some(DispatchView::Auto(AutoDispatchView { action, .. })) = dispatch_view {
-            if let PlanViewAction::None = action {
-                *action = PlanViewAction::DragFrom(visit_key, igGetMousePos_nonUDT2().into());
-            }
+        if let PlanViewAction::None = auto_dispatch.action {
+            auto_dispatch.action = PlanViewAction::DragFrom(visit_key, igGetMousePos_nonUDT2().into());
         }
     }
 

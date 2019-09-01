@@ -8,48 +8,53 @@ use nalgebra_glm as glm;
 
 use crate::util;
 use crate::app::App;
+use crate::config::*;
 use crate::document::*;
 use crate::document::infview::*;
 use crate::document::view::*;
 use crate::document::interlocking::*;
 use crate::document::model::*;
+use crate::document::analysis::*;
 use crate::document::objects::*;
 use crate::gui::widgets;
 use crate::gui::widgets::Draw;
 use crate::config::RailUIColorName;
 
 
-pub fn inf_view(app :&mut App) {
+pub fn inf_view(config :&Config, inf_view :&mut InfView, analysis :&mut Analysis) {
     unsafe {
     let pos_before : ImVec2 = igGetCursorPos_nonUDT2().into();
 
     let size = igGetContentRegionAvail_nonUDT2().into();
     widgets::canvas(size,
-                    app.config.color_u32(RailUIColorName::CanvasBackground),
+                    config.color_u32(RailUIColorName::CanvasBackground),
                     const_cstr!("railwaycanvas").as_ptr(),
-                    app.document.inf_view.view.clone(),
+                    inf_view.view.clone(),
                     |draw| {
-        scroll(&mut app.document.inf_view);
+        scroll(inf_view);
         let mut preview_route = None;
-        context_menu(&mut app.document, draw, &mut preview_route);
-        interact(app, draw);
-        draw_inf(app, draw, preview_route);
+        //context_menu(&mut app.document, draw, &mut preview_route);
+        //interact(app, draw);
+        draw_inf(config, analysis, inf_view, draw, preview_route);
         Some(())
     });
 
     let pos_after = igGetCursorPos_nonUDT2().into();
     let framespace = igGetFrameHeightWithSpacing() - igGetFrameHeight();
     igSetCursorPos(pos_before + ImVec2 { x: 2.0*framespace, y: 2.0*framespace });
-    inf_toolbar(app);
+    inf_toolbar(inf_view);
     igSetCursorPos(pos_after);
     }
 }
 
-fn draw_inf(app :&mut App, draw :&Draw, preview_route :Option<usize>) {
-    draw::base(app,draw);
-    if let Some(r) = preview_route { draw::route(app, draw, r); }
-    draw::state(app,draw);
-    draw::trains(app,draw);
+fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&InfView, 
+            draw :&Draw, preview_route :Option<usize>) {
+
+    draw::base(config, analysis, inf_view, draw);
+    if let Some(r) = preview_route { draw::route(config, analysis, draw, r); }
+
+    //draw::state(app,draw);
+    //draw::trains(app,draw);
 }
 
 fn scroll(inf_view :&mut InfView) { 
@@ -109,7 +114,7 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
             }
             NormalState::Default => {
                 if !(*io).KeyCtrl && igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
-                    if let Some((r,_)) = app.document.get_closest(draw.pointer) {
+                    if let Some((r,_)) = app.document.viewmodel.get_closest(draw.pointer) {
                         if !app.document.inf_view.selection.contains(&r) {
                             app.document.inf_view.selection = std::iter::once(r).collect();
                         }
@@ -127,7 +132,7 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
                 } else {
                     if igIsItemHovered(0) && igIsMouseReleased(0) {
                         if !(*io).KeyShift { app.document.inf_view.selection.clear(); }
-                        if let Some((r,_)) = app.document.get_closest(draw.pointer) {
+                        if let Some((r,_)) = app.document.viewmodel.get_closest(draw.pointer) {
                             app.document.inf_view.selection.insert(r);
                         }
                     }
@@ -139,14 +144,14 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
 }
 
 pub fn set_selection_window(doc :&mut Document, a :ImVec2, b :ImVec2) {
-    let s = doc.get_rect(doc.inf_view.view.screen_to_world_ptc(a),
+    let s = doc.viewmodel.get_rect(doc.inf_view.view.screen_to_world_ptc(a),
                          doc.inf_view.view.screen_to_world_ptc(b))
                 .into_iter().collect();
     doc.inf_view.selection = s;
 }
 
 pub fn move_selected_objects(doc :&mut Document, delta :PtC) {
-    let mut model = doc.model().clone();
+    let mut model = doc.viewmodel.model().clone();
     let mut changed_ptas = Vec::new();
     for id in doc.inf_view.selection.iter() {
         match id {
@@ -169,8 +174,8 @@ pub fn move_selected_objects(doc :&mut Document, delta :PtC) {
         doc.inf_view.selection.insert(Ref::Object(b));
     }
 
-    doc.set_model(model, Some(EditClass::MoveObjects(selection_before)));
-    doc.override_edit_class(EditClass::MoveObjects(doc.inf_view.selection.clone()));
+    doc.viewmodel.set_model(model, Some(EditClass::MoveObjects(selection_before)));
+    doc.viewmodel.override_edit_class(EditClass::MoveObjects(doc.inf_view.selection.clone()));
 }
 
 fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
@@ -185,7 +190,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
             }
 
             if !igIsMouseDown(0) {
-                let mut new_model = app.document.model().clone();
+                let mut new_model = app.document.viewmodel.model().clone();
                 let mut any_lines = false;
                 for (p1,p2) in util::route_line(pt,draw.pointer_grid) {
                     let unit = util::unit_step_diag_line(p1,p2);
@@ -194,7 +199,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
                         new_model.linesegs.insert(util::order_ivec(*pa,*pb));
                     }
                 }
-                if any_lines { app.document.set_model(new_model, None); }
+                if any_lines { app.document.viewmodel.set_model(new_model, None); }
                 app.document.inf_view.selection = std::iter::empty().collect();
                 app.document.inf_view.action = Action::DrawingLine(None);
             }
@@ -209,7 +214,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
 fn interact_insert(app :&mut App, draw :&Draw, obj :Option<Object>) {
     unsafe {
         if let Some(mut obj) = obj {
-            let moved = obj.move_to(app.document.model(),draw.pointer);
+            let moved = obj.move_to(app.document.viewmodel.model(),draw.pointer);
             obj.draw(draw.pos,&draw.view,draw.draw_list,
                      app.config.color_u32(RailUIColorName::CanvasSymbol),&[],&app.config);
 
@@ -221,7 +226,7 @@ fn interact_insert(app :&mut App, draw :&Draw, obj :Option<Object>) {
                                    0.0,0,4.0);
             } else  {
                 if igIsMouseReleased(0) {
-                    app.document.edit_model(|m| {
+                    app.document.viewmodel.edit_model(|m| {
                         m.objects.insert(round_coord(obj.loc), obj.clone());
                         None
                     });
@@ -231,21 +236,21 @@ fn interact_insert(app :&mut App, draw :&Draw, obj :Option<Object>) {
     }
 }
 
-fn inf_toolbar(app :&mut App) {
+fn inf_toolbar(inf_view :&mut InfView) {
     unsafe  {
     if toolbar_button(const_cstr!("select (A)").as_ptr(), 
-                      'A' as _,  matches!(app.document.inf_view.action, Action::Normal(_))) {
-        app.document.inf_view.action = Action::Normal(NormalState::Default);
+                      'A' as _,  matches!(inf_view.action, Action::Normal(_))) {
+        inf_view.action = Action::Normal(NormalState::Default);
     }
     igSameLine(0.0,-1.0);
     if toolbar_button(const_cstr!("insert (S)").as_ptr(), 
-                      'S' as _,  matches!(app.document.inf_view.action, Action::InsertObject(_))) {
-        app.document.inf_view.action = Action::InsertObject(None);
+                      'S' as _,  matches!(inf_view.action, Action::InsertObject(_))) {
+        inf_view.action = Action::InsertObject(None);
     }
     igSameLine(0.0,-1.0);
     if toolbar_button(const_cstr!("draw (D)").as_ptr(), 
-                      'A' as _,  matches!(app.document.inf_view.action, Action::DrawingLine(_))) {
-        app.document.inf_view.action = Action::DrawingLine(None);
+                      'A' as _,  matches!(inf_view.action, Action::DrawingLine(_))) {
+        inf_view.action = Action::DrawingLine(None);
     }
     }
 }
@@ -276,7 +281,7 @@ fn context_menu(doc :&mut Document, draw :&Draw, preview_route :&mut Option<usiz
     }
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        if let Some((r,_)) = doc.get_closest(draw.pointer) {
+        if let Some((r,_)) = doc.viewmodel.get_closest(draw.pointer) {
             if !doc.inf_view.selection.contains(&r) {
                 doc.inf_view.selection = std::iter::once(r).collect();
             }
@@ -330,15 +335,15 @@ fn context_menu_single(doc :&mut Document, thing :Ref, preview_route :&mut Optio
 
 
 fn delete_selection(doc :&mut Document) {
-    let mut new_model = doc.model().clone();
+    let mut new_model = doc.viewmodel.model().clone();
     for x in doc.inf_view.selection.drain() {
         new_model.delete(x);
     }
-    doc.set_model(new_model, None);
+    doc.viewmodel.set_model(new_model, None);
 }
 
 fn start_route(doc :&mut Document, cmd :Command) {
-    let mut model = doc.model().clone();
+    let mut model = doc.viewmodel.model().clone();
 
     let (dispatch_idx,time) = match &doc.dispatch_view {
         Some(DispatchView::Manual(m)) => (m.dispatch_idx, m.time),
@@ -354,5 +359,5 @@ fn start_route(doc :&mut Document, cmd :Command) {
 
     let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
     dispatch.insert(time as f64, cmd);
-    doc.set_model(model, None);
+    doc.viewmodel.set_model(model, None);
 }

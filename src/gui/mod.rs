@@ -30,29 +30,32 @@ pub fn main(app :&mut App) -> bool {
         // 1. Infrastructure only (diagram_view = None)
         // 2. Manual dispatch view (diagram_view = Some(DispatchView::Manual(...)))
         // 3. Auto-dispatch view (diagram_view = Some(DispatchView::Manual(...)))
-        match &app.document.dispatch_view {
+        let config = &app.config;
+        let inf_view = &mut app.document.inf_view;
+        let analysis = &mut app.document.viewmodel;
+        match &mut app.document.dispatch_view {
             None => { 
-                infrastructure::inf_view(app); 
+                infrastructure::inf_view(config, inf_view, analysis); 
                 unsafe {
                     use backend_glfw::imgui::*;
                     let pos = igGetCursorPos_nonUDT2().into();
                     let frameh = igGetFrameHeight();
                     let framespace = igGetFrameHeightWithSpacing() - frameh;
                     igSetCursorPos(pos + ImVec2 { x: 2.0*framespace, y : -frameh-3.0*framespace });
-                    dispatch::dispatch_select_bar(app);
+                    dispatch::dispatch_select_bar(&None, analysis);
                     igSetCursorPos(pos);
                 }
             },
-            Some(_) => {
+            Some(dv) => {
 
                 // TODO splitting size logic here?
                 if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(500.0); } 
 
                 widgets::Splitter::vertical(app.windows.diagram_split.as_mut().unwrap())
                     .left(const_cstr!("inf_canv").as_ptr(), || {
-                        infrastructure::inf_view(app); })
+                        infrastructure::inf_view(config, inf_view, analysis); })
                     .right(const_cstr!("dia_dptch").as_ptr(), || {
-                        dispatch::dispatch_view(app); });
+                        dispatch::dispatch_view(config, analysis, dv); });
             },
         }
     });

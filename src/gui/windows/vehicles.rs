@@ -6,9 +6,9 @@ use crate::gui::widgets;
 
 pub fn edit_vehicles(doc :&mut Document) {
     unsafe {
-    let mut new_model = doc.model().clone();
+    let mut new_model = doc.viewmodel.model().clone();
     let mut modified = None;
-    for (i,v) in doc.model().vehicles.iter() {
+    for (i,v) in doc.viewmodel.model().vehicles.iter() {
         igPushIDInt(*i as _);
 
         let mut name = v.name.clone().into_bytes();
@@ -65,15 +65,15 @@ pub fn edit_vehicles(doc :&mut Document) {
     }
 
     if modified.is_some() {
-        doc.set_model(new_model, modified);
+        doc.viewmodel.set_model(new_model, modified);
     }
 
-    if doc.model().vehicles.iter().next().is_none() {
+    if doc.viewmodel.model().vehicles.iter().next().is_none() {
         widgets::show_text("No vehicles defined.");
     }
 
     if igButton(const_cstr!("Add vehicle").as_ptr(), ImVec2 { x: 0.0, y: 0.0 }) {
-        doc.edit_model(|m| {
+        doc.viewmodel.edit_model(|m| {
             let id = m.vehicles.insert( Vehicle {
                 name: String::new(),
                 length: 100.0,
