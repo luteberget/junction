@@ -1,12 +1,13 @@
 # immuted TODOs
 
 ## cleanup
-* refactor modules (ui, model, analysis)
+* x refactor modules (ui, model, analysis)
 * code comments documentation
 * end user documentation (README.md)
 * web page
 * user test
 * rewrite viewport/canvas plotting (canvas object with wrapped addLine, etc., functions)
+* wrap all unsafe / imgui
 
 ## minor
 * x  rename to junction
@@ -65,7 +66,7 @@
  *   dwell time
  *   constraint maximum time diff
 
-* gui for dispatch/auto-dispatch
+* X gui for dispatch/auto-dispatch
 
 ## railml
 

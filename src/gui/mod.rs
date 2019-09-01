@@ -22,7 +22,6 @@ pub fn main(app :&mut App) -> bool {
 
     // Main window
     widgets::in_root_window(|| {
-
         // top menu bar
         mainmenu::main_menu(app);
 
@@ -47,8 +46,7 @@ pub fn main(app :&mut App) -> bool {
                 igSetCursorPos(pos);
             }
         } else {
-            // TODO splitting size logic here?
-            if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(500.0); } 
+            if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(0.5); } 
 
             widgets::Splitter::vertical(app.windows.diagram_split.as_mut().unwrap())
                 .left(const_cstr!("inf_canv").as_ptr(), || {

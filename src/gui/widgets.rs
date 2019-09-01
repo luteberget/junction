@@ -65,15 +65,22 @@ pub struct Splitter {
 }
 
 impl Splitter {
-    pub fn new(is_horizontal: bool, sz :&mut f32) -> Self {
+    pub fn new(is_horizontal: bool, rel_sz :&mut f32) -> Self {
         unsafe {
             let mut root = igGetContentRegionAvail_nonUDT2();
             root.y -= igGetFrameHeightWithSpacing() - igGetFrameHeight();
             let (same,other) = if is_horizontal { (root.x, root.y) } else { (root.y, root.x) };
-            if *sz + 100.0 > same { *sz = same - 100.0 ; }
-            let mut after_size = same - *sz;
-            igSplitter(is_horizontal, 4.0, sz, &mut after_size, 100.0, 100.0, -1.0);
-            Splitter { horiz: is_horizontal, before: *sz, after: after_size, size: other }
+
+            // TODO crashes when window gets too small (under 100px?)
+
+            let mut abs_sz = *rel_sz * same;
+            if abs_sz + 100.0 > same { abs_sz = same - 100.0 ; }
+            if abs_sz - 100.0 < 0.0 { abs_sz = 100.0 ; }
+            let mut after_size = same - abs_sz;
+            igSplitter(is_horizontal, 4.0, &mut abs_sz, &mut after_size, 100.0, 100.0, -1.0);
+
+            *rel_sz = abs_sz / same;
+            Splitter { horiz: is_horizontal, before: abs_sz, after: after_size, size: other }
         }
     }
 
