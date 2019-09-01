@@ -272,8 +272,7 @@ fn plan_dispatches(analysis :&Analysis, adv :&mut AutoDispatchView)  {
                         if igSelectable(const_cstr!("##asdf").as_ptr(), 
                                      dispatch_idx == Some(di), 
                                      0 as _ , ImVec2::zero()) {
-                            adv.dispatch = Some(ManualDispatchView { 
-                                dispatch_idx: di, time: 0.0, play: false });
+                            adv.dispatch = Some(ManualDispatchView::new(di));
                         }
 
                         igSameLine(0.0,-1.0);

@@ -110,12 +110,12 @@ impl Analysis {
 
             for (i,dispatch) in model.dispatches.iter() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
-                let history = history::get_history(&model.vehicles,
+                let (history,route_refs) = history::get_history(&model.vehicles,
                                                    &dgraph.rolling_inf,
                                                    &interlocking,
                                                    &(dispatch.0)).unwrap();
                 info!("Simulation successful {:?}", &dispatch.0);
-                let view = dispatch::DispatchOutput::from_history(&dgraph, history);
+                let view = dispatch::DispatchOutput::from_history(dispatch.clone(), &dgraph, history);
                 let send_ok = tx.send(SetData::Dispatch(*i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
@@ -128,12 +128,12 @@ impl Analysis {
                 info!("Planning successful. {:?}", dispatches);
 
                 for (dispatch_idx,d) in dispatches.into_iter().enumerate() {
-                    let history = history::get_history(&model.vehicles,
+                    let (history, route_refs) = history::get_history(&model.vehicles,
                                          &dgraph.rolling_inf,
                                          &interlocking,
                                          &d.0).unwrap(); // TODO UNWRAP?
                     info!("Planned simulation successful");
-                    let view = dispatch::DispatchOutput::from_history(&dgraph, history);
+                    let view = dispatch::DispatchOutput::from_history(d.clone(), &dgraph, history);
                     let send_ok = tx.send(SetData::PlanDispatch(*plan_idx, dispatch_idx, view));
                     if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}/{}", 
                                                    plan_idx, dispatch_idx); }

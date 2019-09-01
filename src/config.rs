@@ -44,6 +44,7 @@ lazy_static! {
                 RailUIColorName::GraphTrainFront => const_cstr!("Graph train front"),
                 RailUIColorName::GraphTrainRear => const_cstr!("Graph train rear"),
                 RailUIColorName::GraphCommand => const_cstr!("Graph command"),
+                RailUIColorName::GraphCommandBorder => const_cstr!("Graph command border"),
         }
     };
 }
@@ -214,6 +215,7 @@ pub fn default_colors() -> EnumMap<RailUIColorName, Color> {
         RailUIColorName::GraphTrainFront => c(named::TOMATO),
         RailUIColorName::GraphTrainRear => c(named::TOMATO),
         RailUIColorName::GraphCommand => c(named::LIMEGREEN),
+        RailUIColorName::GraphCommandBorder => c(named::BLACK),
     }
 }
 
@@ -250,6 +252,7 @@ pub enum RailUIColorName {
     GraphTrainFront,
     GraphTrainRear,
     GraphCommand,
+    GraphCommandBorder,
 }
 
 #[test]

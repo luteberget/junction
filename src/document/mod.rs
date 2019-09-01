@@ -70,6 +70,24 @@ pub struct ManualDispatchView {
     pub dispatch_idx :usize,
     pub time :f64,
     pub play :bool,
+    pub viewport :Option<DiagramViewport>,
+}
+
+impl ManualDispatchView {
+    pub fn new(idx :usize) -> ManualDispatchView {
+        ManualDispatchView {
+            dispatch_idx: idx,
+            time: 0.0,
+            play: false,
+            viewport: None,
+        }
+    }
+}
+
+#[derive(Clone,Copy)]
+pub struct DiagramViewport {
+    pub time :(f64,f64),
+    pub pos :(f64,f64),
 }
 
 #[derive(Clone,Copy)]

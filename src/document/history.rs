@@ -4,10 +4,11 @@ pub use rolling::output::history::History;
 use crate::document::model::*;
 use crate::document::interlocking::*;
 
+pub type RouteRefs = Vec<(f32,usize)>;
 pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>, 
                    inf :&rolling_inf::StaticInfrastructure, 
                    il :&Interlocking,
-                   commands :&[(f64, Command)]) -> Result<History, String> {
+                   commands :&[(f64, Command)]) -> Result<(History, RouteRefs) , String> {
 
     // infrastructure and routes are already prepared by the dgraph module
     // we only need to convert commands to the rolling dispatch structs
@@ -15,6 +16,7 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
 
     use rolling::input::dispatch::DispatchAction;
 
+    let mut route_refs = Vec::new();
     let mut dispatch = Vec::new();
     let mut t0 = 0.0;
     let mut train_no = 0;
@@ -28,6 +30,7 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
             Command::Route(routespec) => {
                 if let Some(route_idx) = il.find_route(routespec) {
                     dispatch.push(DispatchAction::Route(*route_idx));
+                    route_refs.push((*t as f32, *route_idx));
                 }
             }
             Command::Train(vehicle, routespec) => {
@@ -53,6 +56,7 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
                     train_no += 1;
 
                     dispatch.push(DispatchAction::Train(name, train_params, *route_idx));
+                    route_refs.push((*t as f32, *route_idx));
                 }
             },
         }
@@ -73,5 +77,5 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
     // TODO Convert back? Or just keep it like this
     //unimplemented!();
 
-    Ok(history)
+    Ok((history,route_refs))
 }

@@ -3,42 +3,36 @@ use backend_glfw::imgui::*;
 
 use crate::app::*;
 use crate::document::dispatch::*;
+use crate::document::analysis::*;
 use crate::gui::widgets;
 use crate::config::*;
 use crate::app::*;
 use crate::document::*;
 mod draw;
 
-pub fn diagram_view(app :&mut App, dv :&mut ManualDispatchView) {
+pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) {
     unsafe {
+        diagram_toolbar(dv);
+        let size = igGetContentRegionAvail_nonUDT2().into();
+        widgets::canvas(size,
+                    config.color_u32(RailUIColorName::GraphBackground),
+                    const_cstr!("diag").as_ptr(),
+                    |draw| {
 
-    // Diagram accesses the following data:
-    //  - app.document.dispatch_view 
-    //    - either manual: dispatch idx, time, play
-    //    - or auto:  optional dispatch idx, time, play
-    //  - and app.document.data().dispatch
-    //        ... or app.document.data().plandispatchdispatch
-    //    ... to acccess simulation history and prepared visual 
-    //        elements (tvd boxes and such).
-    //
-    // And then modifies the app by:
-    //  - 
+            if dv.viewport.is_none() { dv.viewport = Some(DiagramViewport {
+                    time: (graph.time_interval.0 as _, graph.time_interval.1 as _),
+                    pos: (graph.pos_interval.0 as _, graph.pos_interval.1 as _),
+                }); }
+            let viewport = dv.viewport.as_ref().unwrap();
 
-    diagram_toolbar(dv);
+            // Need to get a DispatchOutput from analysis.
+            draw::diagram(config, graph, draw, viewport);
+            draw::command_icons(config, analysis, graph, viewport, draw);
+            draw::time_slider(config, draw, viewport, dv.time);
 
-    let size = igGetContentRegionAvail_nonUDT2().into();
-    widgets::canvas(size,
-                app.config.color_u32(RailUIColorName::CanvasBackground),
-                const_cstr!("diag").as_ptr(),
-                app.document.inf_view.view.clone(),
-                |draw| {
-
-        draw::diagram(app, dv, draw);
-        draw::command_icons(app, dv, draw);
-        draw::time_slider(app, dv, draw);
-        Some(())
-    });
-}
+            Some(())
+        });
+    }
 }
 
 fn diagram_toolbar(dv :&mut ManualDispatchView) {

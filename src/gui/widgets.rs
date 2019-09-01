@@ -36,7 +36,7 @@ pub struct Draw {
     pub mouse :ImVec2,
 }
 
-pub fn canvas(mut size :ImVec2, color :u32, name :*const i8, view :View, f :impl FnOnce(&mut Draw) -> Option<()>) {
+pub fn canvas(mut size :ImVec2, color :u32, name :*const i8, f :impl FnOnce(&mut Draw) -> Option<()>) {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();

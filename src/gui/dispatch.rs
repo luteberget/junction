@@ -9,6 +9,7 @@ use crate::config::*;
 use crate::gui::widgets;
 use crate::gui::plan;
 use crate::gui::diagram::diagram_view;
+use crate::util::VecMap;
 
 pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut DispatchView) -> Option<Option<DispatchView>> {
     let mut new_dispatch :Option<Option<DispatchView>> = None;
@@ -17,10 +18,22 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
 
     match dv {
         DispatchView::Manual(manual) => {
+            let graph = analysis.data().dispatch.vecmap_get(manual.dispatch_idx);
+            if let Some(graph) = graph {
+                diagram_view(config, analysis, manual, graph);
+            }
         },
         DispatchView::Auto(auto) => {
             let new_auto = plan::edit_plan(config, analysis, auto);
             new_dispatch = new_auto.or(new_dispatch);
+
+            if let Some(manual) = &mut auto.dispatch {
+                let graph = analysis.data().plandispatches.get(&auto.plan_idx)
+                    .and_then(|p| p.vecmap_get(manual.dispatch_idx));
+                if let Some(graph) = graph {
+                    diagram_view(config, analysis, manual, graph);
+                }
+            }
         },
     }
 
@@ -63,11 +76,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
                 igPushIDInt(*id as _);
 
                 if igSelectable(const_cstr!("##smanu").as_ptr(), Some(id) == curr_manual, 0 as _, ImVec2::zero()) {
-                    retval = Some(Some(DispatchView::Manual(ManualDispatchView {
-                        dispatch_idx: *id,
-                        time: 0.0,
-                        play: false,
-                    })));
+                    retval = Some(Some(DispatchView::Manual(ManualDispatchView::new(*id)))); 
                 }
 
                 igSameLine(0.0,-1.0); widgets::show_text(&format!("Dispatch {}", id));
@@ -121,11 +130,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
             let id = model.dispatches.insert(Default::default());
             analysis.set_model(model, None);
 
-            retval = Some(Some(DispatchView::Manual(ManualDispatchView {
-                dispatch_idx: id,
-                time: 0.0,
-                play: false,
-            })));
+            retval = Some(Some(DispatchView::Manual(ManualDispatchView::new(id))));
         }
 
         if new_dispatch_auto == Some(true) {

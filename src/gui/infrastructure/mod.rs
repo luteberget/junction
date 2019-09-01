@@ -32,7 +32,6 @@ pub fn inf_view(config :&Config,
     widgets::canvas(size,
                     config.color_u32(RailUIColorName::CanvasBackground),
                     const_cstr!("railwaycanvas").as_ptr(),
-                    inf_view.view.clone(),
                     |draw| {
         scroll(inf_view);
         let mut preview_route = None;
@@ -378,9 +377,7 @@ fn start_route(analysis :&mut Analysis, dispatch_view :&mut Option<DispatchView>
         None | Some(DispatchView::Auto(_)) => {
             let dispatch_idx = model.dispatches.insert(Default::default());
             let time = 0.0;
-            *dispatch_view = Some(DispatchView::Manual(ManualDispatchView {
-                dispatch_idx: dispatch_idx, time: 0.0, play: true
-            }));
+            *dispatch_view = Some(DispatchView::Manual(ManualDispatchView::new(dispatch_idx)));
             (dispatch_idx,time)
         },
     };
