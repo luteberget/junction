@@ -7,6 +7,7 @@ use std::ffi::CString;
 use crate::app::App;
 use crate::document::*;
 use crate::document::model::*;
+use crate::document::analysis::*;
 use crate::document::objects::*;
 use crate::document::infview::*;
 use crate::document::view::*;
@@ -17,8 +18,8 @@ use crate::config::RailUIColorName;
 
 
 
-pub fn node_editor(doc :&mut Document, pt :Pt) -> Option<()> {
-    let (nd,_tangent) = doc.analysis.data().topology.as_ref()?.locations.get(&pt)?;
+pub fn node_editor(analysis :&mut Analysis, pt :Pt) -> Option<()> {
+    let (nd,_tangent) = analysis.data().topology.as_ref()?.locations.get(&pt)?;
     unsafe {
     match nd {
         NDType::OpenEnd | NDType::BufferStop => {
@@ -26,7 +27,7 @@ pub fn node_editor(doc :&mut Document, pt :Pt) -> Option<()> {
                 widgets::radio_select(&[(const_cstr!("Open end").as_ptr(), *nd == NDType::OpenEnd, NDType::OpenEnd),
                                    (const_cstr!("Buffer stop").as_ptr(), *nd == NDType::BufferStop, NDType::BufferStop)]) {
 
-                doc.analysis.edit_model(|m| {
+                analysis.edit_model(|m| {
                     m.node_data.insert(pt, *new_value);
                     None
                 });
@@ -48,7 +49,7 @@ pub fn node_editor(doc :&mut Document, pt :Pt) -> Option<()> {
                                    (const_cstr!("Single slip (below)").as_ptr(), *type_ == CrossingType::SingleSlip(Side::Right), CrossingType::SingleSlip(Side::Right)),
                                    (const_cstr!("Double slip").as_ptr(), *type_ == CrossingType::DoubleSlip, CrossingType::DoubleSlip)]) {
 
-                doc.analysis.edit_model(|m| {
+                analysis.edit_model(|m| {
                     m.node_data.insert(pt, NDType::Crossing(*new_value));
                     None
                 });
@@ -66,8 +67,8 @@ pub fn node_editor(doc :&mut Document, pt :Pt) -> Option<()> {
 }
 
 
-pub fn object_menu(doc :&mut Document, pta :PtA) -> Option<()> {
-    let obj = doc.analysis.model().objects.get(&pta)?;
+pub fn object_menu(analysis :&mut Analysis, pta :PtA) -> Option<()> {
+    let obj = analysis.model().objects.get(&pta)?;
 
     let mut set_distant = None;
     for f in obj.functions.iter() {
@@ -86,7 +87,7 @@ pub fn object_menu(doc :&mut Document, pta :PtA) -> Option<()> {
         }
     }
     if let Some(d) = set_distant {
-        doc.analysis.edit_model(|new| {
+        analysis.edit_model(|new| {
             new.objects.get_mut(&pta).unwrap().functions = vec![Function::MainSignal { has_distant: d }];
             None
         });
@@ -94,13 +95,14 @@ pub fn object_menu(doc :&mut Document, pta :PtA) -> Option<()> {
     Some(())
 }
 
-pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize>) -> Option<Command> {
-    let il = doc.analysis.data().interlocking.as_ref()?;
+pub fn route_selector(analysis :&mut Analysis, dispatch_view :&Option<DispatchView>, 
+                      thing :Ref, preview :&mut Option<usize>) -> Option<Command> {
+    let il = analysis.data().interlocking.as_ref()?;
     let routes = il.get_routes(thing)?;
 
     unsafe {
 
-        let have_dispatch = matches!(&doc.dispatch_view, Some(DispatchView::Manual(_)));
+        let have_dispatch = matches!(&dispatch_view, Some(DispatchView::Manual(_)));
         if have_dispatch {
             widgets::show_text("Add dispatch command:");
         } else {
@@ -119,7 +121,7 @@ pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize
 
             if is_boundary {
                 if igBeginMenu(text.as_ptr(), true) {
-                    if let Some(train_id) = plan::select_train(doc.analysis.model(), &None) {
+                    if let Some(train_id) = plan::select_train(analysis.model(), &None) {
                         action = Some(Command::Train(train_id, il.routes[*idx].id));
                     }
                     *preview = Some(*idx);
@@ -145,14 +147,16 @@ pub fn route_selector(doc :&mut Document, thing :Ref, preview :&mut Option<usize
 }
 
 
-pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
+// TODO: return dispatch_view instead of &mut?
+pub fn add_plan_visit(analysis :&mut Analysis, 
+                      dispatch_view :&mut Option<DispatchView>, thing :Ref) {
     let mut action = None;
 
     unsafe {
-        if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, .. })) = &doc.dispatch_view {
+        if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, .. })) = &dispatch_view {
             widgets::show_text("Add visit to plan");
 
-            if let Some(plan) = doc.analysis.model().plans.get(*plan_idx) {
+            if let Some(plan) = analysis.model().plans.get(*plan_idx) {
                 igIndent(14.0);
                 for (train_id, (_veh, visits)) in plan.trains.iter() {
                     igPushIDInt(*train_id as _);
@@ -174,7 +178,7 @@ pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
 
     if let Some(opt_train) = action {
         let mut set_plan = None;
-        doc.analysis.edit_model(|m| {
+        analysis.edit_model(|m| {
             let visit = Visit { locs: vec![Ok(thing)], dwell: None, };
             let visits = if let Some((plan_idx,  train_id)) = opt_train {
                 let (_,visits) = m.plans.get_mut(plan_idx).unwrap()
@@ -193,7 +197,7 @@ pub fn add_plan_visit(doc :&mut Document, thing :Ref) {
         });
 
         if let Some(plan_idx) = set_plan { 
-            doc.dispatch_view = Some(DispatchView::Auto(AutoDispatchView { 
+            *dispatch_view = Some(DispatchView::Auto(AutoDispatchView { 
                 plan_idx, dispatch: None, action: PlanViewAction::None, }));
         }
     }

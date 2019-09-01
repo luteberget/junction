@@ -31,32 +31,29 @@ pub fn main(app :&mut App) -> bool {
         // 2. Manual dispatch view (diagram_view = Some(DispatchView::Manual(...)))
         // 3. Auto-dispatch view (diagram_view = Some(DispatchView::Manual(...)))
         let config = &app.config;
-        let inf_view = &mut app.document.inf_view;
         let analysis = &mut app.document.analysis;
-        match &mut app.document.dispatch_view {
-            None => { 
-                infrastructure::inf_view(config, inf_view, analysis); 
-                unsafe {
-                    use backend_glfw::imgui::*;
-                    let pos = igGetCursorPos_nonUDT2().into();
-                    let frameh = igGetFrameHeight();
-                    let framespace = igGetFrameHeightWithSpacing() - frameh;
-                    igSetCursorPos(pos + ImVec2 { x: 2.0*framespace, y : -frameh-3.0*framespace });
-                    dispatch::dispatch_select_bar(&None, analysis);
-                    igSetCursorPos(pos);
-                }
-            },
-            Some(dv) => {
+        let inf_view = &mut app.document.inf_view;
+        let dispatch_view = &mut app.document.dispatch_view;
+        if dispatch_view.is_none() {
+            infrastructure::inf_view(config, analysis, inf_view, dispatch_view); 
+            unsafe {
+                use backend_glfw::imgui::*;
+                let pos = igGetCursorPos_nonUDT2().into();
+                let frameh = igGetFrameHeight();
+                let framespace = igGetFrameHeightWithSpacing() - frameh;
+                igSetCursorPos(pos + ImVec2 { x: 2.0*framespace, y : -frameh-3.0*framespace });
+                dispatch::dispatch_select_bar(&None, analysis);
+                igSetCursorPos(pos);
+            }
+        } else {
+            // TODO splitting size logic here?
+            if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(500.0); } 
 
-                // TODO splitting size logic here?
-                if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(500.0); } 
-
-                widgets::Splitter::vertical(app.windows.diagram_split.as_mut().unwrap())
-                    .left(const_cstr!("inf_canv").as_ptr(), || {
-                        infrastructure::inf_view(config, inf_view, analysis); })
-                    .right(const_cstr!("dia_dptch").as_ptr(), || {
-                        dispatch::dispatch_view(config, analysis, dv); });
-            },
+            widgets::Splitter::vertical(app.windows.diagram_split.as_mut().unwrap())
+                .left(const_cstr!("inf_canv").as_ptr(), || {
+                    infrastructure::inf_view(config, analysis, inf_view, dispatch_view); })
+                .right(const_cstr!("dia_dptch").as_ptr(), || {
+                    dispatch::dispatch_view(config, analysis, dispatch_view.as_mut().unwrap() ); });
         }
     });
 

@@ -21,7 +21,10 @@ use crate::gui::widgets::Draw;
 use crate::config::RailUIColorName;
 
 
-pub fn inf_view(config :&Config, inf_view :&mut InfView, analysis :&mut Analysis) {
+pub fn inf_view(config :&Config, 
+                analysis :&mut Analysis,
+                inf_view :&mut InfView,
+                dispatch_view :&mut Option<DispatchView>) {
     unsafe {
     let pos_before : ImVec2 = igGetCursorPos_nonUDT2().into();
 
@@ -33,8 +36,8 @@ pub fn inf_view(config :&Config, inf_view :&mut InfView, analysis :&mut Analysis
                     |draw| {
         scroll(inf_view);
         let mut preview_route = None;
-        //context_menu(&mut app.document, draw, &mut preview_route);
-        //interact(app, draw);
+        context_menu(analysis, inf_view, dispatch_view, draw, &mut preview_route);
+        interact(config, analysis, inf_view, draw);
         draw_inf(config, analysis, inf_view, draw, preview_route);
         Some(())
     });
@@ -73,15 +76,19 @@ fn scroll(inf_view :&mut InfView) {
 }
 
 
-fn interact(app :&mut App, draw :&Draw) {
-    match &app.document.inf_view.action {
-        Action::Normal(normal) => { interact_normal(app, draw, *normal); },
-        Action::DrawingLine(from) => { interact_drawing(app, draw, *from); },
-        Action::InsertObject(obj) => { interact_insert(app,draw,obj.clone()); },
+fn interact(config :&Config, analysis :&mut Analysis, inf_view :&mut InfView, draw :&Draw) {
+    match &inf_view.action {
+        Action::Normal(normal) => { interact_normal(config, analysis, inf_view, draw, *normal); },
+        Action::DrawingLine(from) => { interact_drawing(config, analysis, inf_view, draw, *from); },
+        Action::InsertObject(obj) => { interact_insert(config,analysis,draw,obj.clone()); },
     }
 }
 
-fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
+fn interact_normal(config :&Config, analysis :&mut Analysis, 
+                   inf_view :&mut InfView, draw :&Draw, state :NormalState) {
+    // config
+    // inf_view
+    // analysis
     unsafe {
         let io = igGetIO();
         match state {
@@ -89,11 +96,11 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
                 let b = a + igGetMouseDragDelta_nonUDT2(0,-1.0).into();
                 if igIsMouseDragging(0,-1.0) {
                     ImDrawList_AddRect(draw.draw_list, draw.pos + a, draw.pos + b,
-                                       app.config.color_u32(RailUIColorName::CanvasSelectionWindow),
+                                       config.color_u32(RailUIColorName::CanvasSelectionWindow),
                                        0.0, 0, 1.0);
                 } else {
-                    set_selection_window(&mut app.document, a,b);
-                    app.document.inf_view.action = Action::Normal(NormalState::Default);
+                    set_selection_window(inf_view, analysis, a,b);
+                    inf_view.action = Action::Normal(NormalState::Default);
                 }
             },
             NormalState::DragMove(typ) => {
@@ -102,38 +109,38 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
                                 draw.view.screen_to_world_ptc(ImVec2 { x:0.0, y: 0.0 });
                     match typ {
                         MoveType::Continuous => { if delta.x != 0.0 || delta.y != 0.0 {
-                            move_selected_objects(&mut app.document, delta); }},
+                            move_selected_objects(analysis, inf_view, delta); }},
                         MoveType::Grid(p) => {
-                            app.document.inf_view.action = 
+                            inf_view.action = 
                                 Action::Normal(NormalState::DragMove(MoveType::Grid(p + delta)));
                         },
                     }
                 } else {
-                    app.document.inf_view.action = Action::Normal(NormalState::Default);
+                    inf_view.action = Action::Normal(NormalState::Default);
                 }
             }
             NormalState::Default => {
                 if !(*io).KeyCtrl && igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
-                    if let Some((r,_)) = app.document.analysis.get_closest(draw.pointer) {
-                        if !app.document.inf_view.selection.contains(&r) {
-                            app.document.inf_view.selection = std::iter::once(r).collect();
+                    if let Some((r,_)) = analysis.get_closest(draw.pointer) {
+                        if !inf_view.selection.contains(&r) {
+                            inf_view.selection = std::iter::once(r).collect();
                         }
-                        if app.document.inf_view.selection.iter().any(|x| matches!(x, Ref::Node(_)) || matches!(x, Ref::LineSeg(_,_))) {
-                            app.document.inf_view.action = Action::Normal(NormalState::DragMove(
+                        if inf_view.selection.iter().any(|x| matches!(x, Ref::Node(_)) || matches!(x, Ref::LineSeg(_,_))) {
+                            inf_view.action = Action::Normal(NormalState::DragMove(
                                     MoveType::Grid(glm::zero())));
                         } else {
-                            app.document.inf_view.action = Action::Normal(NormalState::DragMove(MoveType::Continuous));
+                            inf_view.action = Action::Normal(NormalState::DragMove(MoveType::Continuous));
                         }
                     } else {
                         let a = (*io).MouseClickedPos[0] - draw.pos;
                         //let b = a + igGetMouseDragDelta_nonUDT2(0,-1.0).into();
-                        app.document.inf_view.action = Action::Normal(NormalState::SelectWindow(a));
+                        inf_view.action = Action::Normal(NormalState::SelectWindow(a));
                     }
                 } else {
                     if igIsItemHovered(0) && igIsMouseReleased(0) {
-                        if !(*io).KeyShift { app.document.inf_view.selection.clear(); }
-                        if let Some((r,_)) = app.document.analysis.get_closest(draw.pointer) {
-                            app.document.inf_view.selection.insert(r);
+                        if !(*io).KeyShift { inf_view.selection.clear(); }
+                        if let Some((r,_)) = analysis.get_closest(draw.pointer) {
+                            inf_view.selection.insert(r);
                         }
                     }
                 }
@@ -143,17 +150,17 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
 
 }
 
-pub fn set_selection_window(doc :&mut Document, a :ImVec2, b :ImVec2) {
-    let s = doc.analysis.get_rect(doc.inf_view.view.screen_to_world_ptc(a),
-                         doc.inf_view.view.screen_to_world_ptc(b))
+pub fn set_selection_window(inf_view :&mut InfView, analysis :&Analysis, a :ImVec2, b :ImVec2) {
+    let s = analysis.get_rect(inf_view.view.screen_to_world_ptc(a),
+                         inf_view.view.screen_to_world_ptc(b))
                 .into_iter().collect();
-    doc.inf_view.selection = s;
+    inf_view.selection = s;
 }
 
-pub fn move_selected_objects(doc :&mut Document, delta :PtC) {
-    let mut model = doc.analysis.model().clone();
+pub fn move_selected_objects(analysis :&mut Analysis, inf_view :&mut InfView, delta :PtC) {
+    let mut model = analysis.model().clone();
     let mut changed_ptas = Vec::new();
-    for id in doc.inf_view.selection.iter() {
+    for id in inf_view.selection.iter() {
         match id {
             Ref::Object(pta) => {
                 let mut obj = model.objects.get_mut(pta).unwrap().clone();
@@ -167,20 +174,21 @@ pub fn move_selected_objects(doc :&mut Document, delta :PtC) {
         }
     }
 
-    let selection_before = doc.inf_view.selection.clone();
+    let selection_before = inf_view.selection.clone();
 
     for (a,b) in changed_ptas {
-        doc.inf_view.selection.remove(&Ref::Object(a));
-        doc.inf_view.selection.insert(Ref::Object(b));
+        inf_view.selection.remove(&Ref::Object(a));
+        inf_view.selection.insert(Ref::Object(b));
     }
 
-    doc.analysis.set_model(model, Some(EditClass::MoveObjects(selection_before)));
-    doc.analysis.override_edit_class(EditClass::MoveObjects(doc.inf_view.selection.clone()));
+    analysis.set_model(model, Some(EditClass::MoveObjects(selection_before)));
+    analysis.override_edit_class(EditClass::MoveObjects(inf_view.selection.clone()));
 }
 
-fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
+fn interact_drawing(config :&Config, analysis :&mut Analysis, inf_view :&mut InfView, 
+                    draw :&Draw, from :Option<Pt>) {
     unsafe {
-        let color = app.config.color_u32(RailUIColorName::CanvasTrackDrawing);
+        let color = config.color_u32(RailUIColorName::CanvasTrackDrawing);
         // Draw preview
         if let Some(pt) = from {
             for (p1,p2) in util::route_line(pt, draw.pointer_grid) {
@@ -190,7 +198,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
             }
 
             if !igIsMouseDown(0) {
-                let mut new_model = app.document.analysis.model().clone();
+                let mut new_model = analysis.model().clone();
                 let mut any_lines = false;
                 for (p1,p2) in util::route_line(pt,draw.pointer_grid) {
                     let unit = util::unit_step_diag_line(p1,p2);
@@ -199,34 +207,35 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
                         new_model.linesegs.insert(util::order_ivec(*pa,*pb));
                     }
                 }
-                if any_lines { app.document.analysis.set_model(new_model, None); }
-                app.document.inf_view.selection = std::iter::empty().collect();
-                app.document.inf_view.action = Action::DrawingLine(None);
+                if any_lines { analysis.set_model(new_model, None); }
+                inf_view.selection = std::iter::empty().collect();
+                inf_view.action = Action::DrawingLine(None);
             }
         } else {
             if igIsItemHovered(0) && igIsMouseDown(0) {
-                app.document.inf_view.action = Action::DrawingLine(Some(draw.pointer_grid));
+                inf_view.action = Action::DrawingLine(Some(draw.pointer_grid));
             }
         }
     }
 }
 
-fn interact_insert(app :&mut App, draw :&Draw, obj :Option<Object>) {
+fn interact_insert(config :&Config, analysis :&mut Analysis, 
+                   draw :&Draw, obj :Option<Object>) {
     unsafe {
         if let Some(mut obj) = obj {
-            let moved = obj.move_to(app.document.analysis.model(),draw.pointer);
+            let moved = obj.move_to(analysis.model(),draw.pointer);
             obj.draw(draw.pos,&draw.view,draw.draw_list,
-                     app.config.color_u32(RailUIColorName::CanvasSymbol),&[],&app.config);
+                     config.color_u32(RailUIColorName::CanvasSymbol),&[],&config);
 
             if let Some(err) = moved {
                 let p = draw.pos + draw.view.world_ptc_to_screen(obj.loc);
                 let window = ImVec2 { x: 4.0, y: 4.0 };
                 ImDrawList_AddRect(draw.draw_list, p - window, p + window,
-                                   app.config.color_u32(RailUIColorName::CanvasSymbolLocError),
+                                   config.color_u32(RailUIColorName::CanvasSymbolLocError),
                                    0.0,0,4.0);
             } else  {
                 if igIsMouseReleased(0) {
-                    app.document.analysis.edit_model(|m| {
+                    analysis.edit_model(|m| {
                         m.objects.insert(round_coord(obj.loc), obj.clone());
                         None
                     });
@@ -273,17 +282,20 @@ fn toolbar_button(name :*const i8, char :i8, selected :bool) -> bool {
     }
 }
 
-fn context_menu(doc :&mut Document, draw :&Draw, preview_route :&mut Option<usize>) {
+fn context_menu(analysis :&mut Analysis, 
+                inf_view :&mut InfView,
+                dispatch_view :&mut Option<DispatchView>,
+                draw :&Draw, preview_route :&mut Option<usize>) {
     unsafe {
     if igBeginPopup(const_cstr!("ctx").as_ptr(), 0 as _) {
-        context_menu_contents(doc, preview_route);
+        context_menu_contents(analysis, inf_view, dispatch_view, preview_route);
         igEndPopup();
     }
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        if let Some((r,_)) = doc.analysis.get_closest(draw.pointer) {
-            if !doc.inf_view.selection.contains(&r) {
-                doc.inf_view.selection = std::iter::once(r).collect();
+        if let Some((r,_)) = analysis.get_closest(draw.pointer) {
+            if !inf_view.selection.contains(&r) {
+                inf_view.selection = std::iter::once(r).collect();
             }
         }
         igOpenPopup(const_cstr!("ctx").as_ptr());
@@ -291,66 +303,70 @@ fn context_menu(doc :&mut Document, draw :&Draw, preview_route :&mut Option<usiz
     }
 }
 
-fn context_menu_contents(doc :&mut Document, preview_route :&mut Option<usize>) {
+fn context_menu_contents(analysis :&mut Analysis, inf_view :&mut InfView,
+                         dispatch_view :&mut Option<DispatchView>,
+                         preview_route :&mut Option<usize>) {
     unsafe {
-    widgets::show_text(&format!("selection: {:?}", doc.inf_view.selection));
+    widgets::show_text(&format!("selection: {:?}", inf_view.selection));
     widgets::sep();
-    if !doc.inf_view.selection.is_empty() {
+    if !inf_view.selection.is_empty() {
         if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
-            delete_selection(doc);
+            delete_selection(analysis, inf_view);
         }
     }
     widgets::sep();
-    if doc.inf_view.selection.len() == 1 {
-        let thing = doc.inf_view.selection.iter().nth(0).cloned().unwrap();
-        context_menu_single(doc,thing,preview_route);
+    if inf_view.selection.len() == 1 {
+        let thing = inf_view.selection.iter().nth(0).cloned().unwrap();
+        context_menu_single(analysis, dispatch_view ,thing,preview_route);
     }
     }
 }
 
-fn context_menu_single(doc :&mut Document, thing :Ref, preview_route :&mut Option<usize>) {
+fn context_menu_single(analysis :&mut Analysis, 
+                       dispatch_view :&mut Option<DispatchView>,
+                       thing :Ref, preview_route :&mut Option<usize>) {
 
     // Node editor
     if let Ref::Node(pt) = thing { 
-        menus::node_editor(doc, pt);
+        menus::node_editor(analysis, pt);
         widgets::sep();
     }
 
     // Object editor
     if let Ref::Object(pta) = thing { 
-        menus::object_menu(doc, pta);
+        menus::object_menu(analysis, pta);
         widgets::sep();
     }
 
     // Manual dispatch from boundaries and signals
-    let action = menus::route_selector(doc, thing, preview_route);
+    let action = menus::route_selector(analysis, dispatch_view, thing, preview_route);
     if let Some(routespec) = action {
-        start_route(doc, routespec);
+        start_route(analysis, dispatch_view, routespec);
     }
     widgets::sep();
 
     // Add visits to auto dispatch
-    menus::add_plan_visit(doc, thing);
+    menus::add_plan_visit(analysis, dispatch_view, thing);
 }
 
 
-fn delete_selection(doc :&mut Document) {
-    let mut new_model = doc.analysis.model().clone();
-    for x in doc.inf_view.selection.drain() {
+fn delete_selection(analysis :&mut Analysis, inf_view :&mut InfView) {
+    let mut new_model = analysis.model().clone();
+    for x in inf_view.selection.drain() {
         new_model.delete(x);
     }
-    doc.analysis.set_model(new_model, None);
+    analysis.set_model(new_model, None);
 }
 
-fn start_route(doc :&mut Document, cmd :Command) {
-    let mut model = doc.analysis.model().clone();
+fn start_route(analysis :&mut Analysis, dispatch_view :&mut Option<DispatchView>, cmd :Command) {
+    let mut model = analysis.model().clone();
 
-    let (dispatch_idx,time) = match &doc.dispatch_view {
+    let (dispatch_idx,time) = match &dispatch_view {
         Some(DispatchView::Manual(m)) => (m.dispatch_idx, m.time),
         None | Some(DispatchView::Auto(_)) => {
             let dispatch_idx = model.dispatches.insert(Default::default());
             let time = 0.0;
-            doc.dispatch_view = Some(DispatchView::Manual(ManualDispatchView {
+            *dispatch_view = Some(DispatchView::Manual(ManualDispatchView {
                 dispatch_idx: dispatch_idx, time: 0.0, play: true
             }));
             (dispatch_idx,time)
@@ -359,5 +375,5 @@ fn start_route(doc :&mut Document, cmd :Command) {
 
     let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
     dispatch.insert(time as f64, cmd);
-    doc.analysis.set_model(model, None);
+    analysis.set_model(model, None);
 }
