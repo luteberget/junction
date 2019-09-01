@@ -30,7 +30,7 @@ use nalgebra_glm as glm;
 use backend_glfw::imgui::ImVec2;
 
 pub struct Document {
-    pub viewmodel : analysis::Analysis,
+    pub analysis: analysis::Analysis,
     pub fileinfo :file::FileInfo,
     pub inf_view :InfView,
     pub dispatch_view :Option<DispatchView>,
@@ -38,7 +38,7 @@ pub struct Document {
 
 impl BackgroundUpdates for Document {
     fn check(&mut self) {
-        self.viewmodel.check();
+        self.analysis.check();
     }
 }
 
@@ -49,7 +49,7 @@ impl Document {
 
     pub fn from_model(model :model::Model, bg: BackgroundJobs) -> Self {
         Document {
-            viewmodel: analysis::Analysis::from_model(model, bg),
+            analysis: analysis::Analysis::from_model(model, bg),
             fileinfo: file::FileInfo::empty(),
             inf_view: InfView::default(),
             dispatch_view: None,

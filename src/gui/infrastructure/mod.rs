@@ -114,7 +114,7 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
             }
             NormalState::Default => {
                 if !(*io).KeyCtrl && igIsItemHovered(0) && igIsMouseDragging(0,-1.0) {
-                    if let Some((r,_)) = app.document.viewmodel.get_closest(draw.pointer) {
+                    if let Some((r,_)) = app.document.analysis.get_closest(draw.pointer) {
                         if !app.document.inf_view.selection.contains(&r) {
                             app.document.inf_view.selection = std::iter::once(r).collect();
                         }
@@ -132,7 +132,7 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
                 } else {
                     if igIsItemHovered(0) && igIsMouseReleased(0) {
                         if !(*io).KeyShift { app.document.inf_view.selection.clear(); }
-                        if let Some((r,_)) = app.document.viewmodel.get_closest(draw.pointer) {
+                        if let Some((r,_)) = app.document.analysis.get_closest(draw.pointer) {
                             app.document.inf_view.selection.insert(r);
                         }
                     }
@@ -144,14 +144,14 @@ fn interact_normal(app :&mut App, draw :&Draw, state :NormalState) {
 }
 
 pub fn set_selection_window(doc :&mut Document, a :ImVec2, b :ImVec2) {
-    let s = doc.viewmodel.get_rect(doc.inf_view.view.screen_to_world_ptc(a),
+    let s = doc.analysis.get_rect(doc.inf_view.view.screen_to_world_ptc(a),
                          doc.inf_view.view.screen_to_world_ptc(b))
                 .into_iter().collect();
     doc.inf_view.selection = s;
 }
 
 pub fn move_selected_objects(doc :&mut Document, delta :PtC) {
-    let mut model = doc.viewmodel.model().clone();
+    let mut model = doc.analysis.model().clone();
     let mut changed_ptas = Vec::new();
     for id in doc.inf_view.selection.iter() {
         match id {
@@ -174,8 +174,8 @@ pub fn move_selected_objects(doc :&mut Document, delta :PtC) {
         doc.inf_view.selection.insert(Ref::Object(b));
     }
 
-    doc.viewmodel.set_model(model, Some(EditClass::MoveObjects(selection_before)));
-    doc.viewmodel.override_edit_class(EditClass::MoveObjects(doc.inf_view.selection.clone()));
+    doc.analysis.set_model(model, Some(EditClass::MoveObjects(selection_before)));
+    doc.analysis.override_edit_class(EditClass::MoveObjects(doc.inf_view.selection.clone()));
 }
 
 fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
@@ -190,7 +190,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
             }
 
             if !igIsMouseDown(0) {
-                let mut new_model = app.document.viewmodel.model().clone();
+                let mut new_model = app.document.analysis.model().clone();
                 let mut any_lines = false;
                 for (p1,p2) in util::route_line(pt,draw.pointer_grid) {
                     let unit = util::unit_step_diag_line(p1,p2);
@@ -199,7 +199,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
                         new_model.linesegs.insert(util::order_ivec(*pa,*pb));
                     }
                 }
-                if any_lines { app.document.viewmodel.set_model(new_model, None); }
+                if any_lines { app.document.analysis.set_model(new_model, None); }
                 app.document.inf_view.selection = std::iter::empty().collect();
                 app.document.inf_view.action = Action::DrawingLine(None);
             }
@@ -214,7 +214,7 @@ fn interact_drawing(app :&mut App, draw :&Draw, from :Option<Pt>) {
 fn interact_insert(app :&mut App, draw :&Draw, obj :Option<Object>) {
     unsafe {
         if let Some(mut obj) = obj {
-            let moved = obj.move_to(app.document.viewmodel.model(),draw.pointer);
+            let moved = obj.move_to(app.document.analysis.model(),draw.pointer);
             obj.draw(draw.pos,&draw.view,draw.draw_list,
                      app.config.color_u32(RailUIColorName::CanvasSymbol),&[],&app.config);
 
@@ -226,7 +226,7 @@ fn interact_insert(app :&mut App, draw :&Draw, obj :Option<Object>) {
                                    0.0,0,4.0);
             } else  {
                 if igIsMouseReleased(0) {
-                    app.document.viewmodel.edit_model(|m| {
+                    app.document.analysis.edit_model(|m| {
                         m.objects.insert(round_coord(obj.loc), obj.clone());
                         None
                     });
@@ -281,7 +281,7 @@ fn context_menu(doc :&mut Document, draw :&Draw, preview_route :&mut Option<usiz
     }
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        if let Some((r,_)) = doc.viewmodel.get_closest(draw.pointer) {
+        if let Some((r,_)) = doc.analysis.get_closest(draw.pointer) {
             if !doc.inf_view.selection.contains(&r) {
                 doc.inf_view.selection = std::iter::once(r).collect();
             }
@@ -335,15 +335,15 @@ fn context_menu_single(doc :&mut Document, thing :Ref, preview_route :&mut Optio
 
 
 fn delete_selection(doc :&mut Document) {
-    let mut new_model = doc.viewmodel.model().clone();
+    let mut new_model = doc.analysis.model().clone();
     for x in doc.inf_view.selection.drain() {
         new_model.delete(x);
     }
-    doc.viewmodel.set_model(new_model, None);
+    doc.analysis.set_model(new_model, None);
 }
 
 fn start_route(doc :&mut Document, cmd :Command) {
-    let mut model = doc.viewmodel.model().clone();
+    let mut model = doc.analysis.model().clone();
 
     let (dispatch_idx,time) = match &doc.dispatch_view {
         Some(DispatchView::Manual(m)) => (m.dispatch_idx, m.time),
@@ -359,5 +359,5 @@ fn start_route(doc :&mut Document, cmd :Command) {
 
     let dispatch = model.dispatches.get_mut(dispatch_idx).unwrap();
     dispatch.insert(time as f64, cmd);
-    doc.viewmodel.set_model(model, None);
+    doc.analysis.set_model(model, None);
 }

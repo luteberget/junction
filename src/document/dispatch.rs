@@ -83,8 +83,8 @@ impl InstantCache {
     }
     
     fn update(&mut self, doc :&Document, idx:usize, time :f32) -> Option<()> {
-        let dgraph = doc.viewmodel.data().dgraph.as_ref()?;
-        let dispatch = doc.viewmodel.data().dispatch.get(idx)?.as_ref()?;
+        let dgraph = doc.analysis.data().dgraph.as_ref()?;
+        let dispatch = doc.analysis.data().dispatch.get(idx)?.as_ref()?;
         self.data.vecmap_insert(idx, Instant::from(time, &dispatch.history, dgraph));
         Some(())
     }

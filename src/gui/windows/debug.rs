@@ -31,7 +31,7 @@ pub fn debug_window(mut popen :bool, app :&app::App) -> bool {
         // TODO threads 
         //ui::show_text(&allstate.viewmodel.get_undoable().info());
 
-        let model = app.document.viewmodel.model();
+        let model = app.document.analysis.model();
 
         if igTreeNodeStr(const_cstr!("Line segments").as_ptr()) {
             widgets::show_text(&format!("{:#?}", model.linesegs));
@@ -61,7 +61,7 @@ pub fn debug_window(mut popen :bool, app :&app::App) -> bool {
     }
 
     if igTreeNodeStr(const_cstr!("Derived data / view model").as_ptr()) {
-        let derived = app.document.viewmodel.data();
+        let derived = app.document.analysis.data();
         if igTreeNodeStr(const_cstr!("Topology").as_ptr()) {
             widgets::show_text(&format!("{:#?}", derived.topology));
             igTreePop();

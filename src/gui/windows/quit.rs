@@ -17,7 +17,7 @@ pub fn quit_window(doc :&mut Document, show_windows :&mut Windows) -> bool {
         let no = const_cstr!("No").as_ptr();
         let cancel = const_cstr!("Cancel").as_ptr();
         if igButton(yes, ImVec2{ x: 80.0, y: 0.0 }) {
-            let model = doc.viewmodel.model().clone();
+            let model = doc.analysis.model().clone();
             match file::save_interactive(model) {
                 Ok(Some(_)) => { quit = true; },
                 Ok(None) => { show_windows.quit = false; },

@@ -38,7 +38,7 @@ pub fn main_menu(app :&mut App) {
                     Some(filename) => {
                         if igMenuItemBool(const_cstr!("Save").as_ptr(), 
                                           std::ptr::null(), false, true) {
-                            match file::save(filename, app.document.viewmodel.model().clone()) {
+                            match file::save(filename, app.document.analysis.model().clone()) {
                                 Err(e) => { error!("Error saving file: {}", e); },
                                 Ok(()) => { app.document.fileinfo.set_saved(); },
                             };
@@ -47,7 +47,7 @@ pub fn main_menu(app :&mut App) {
                     None => {
                         if igMenuItemBool(const_cstr!("Save...").as_ptr(), 
                                           std::ptr::null(), false, true) {
-                            match file::save_interactive(app.document.viewmodel.model().clone()) {
+                            match file::save_interactive(app.document.analysis.model().clone()) {
                                 Err(e) => { error!("Error saving file: {}", e); },
                                 Ok(Some(filename)) => { app.document.fileinfo.set_saved_file(filename); },
                                 _ => {}, // cancelled
@@ -57,7 +57,7 @@ pub fn main_menu(app :&mut App) {
                 }
 
                 if igMenuItemBool(const_cstr!("Save as...").as_ptr(), std::ptr::null(), false, true) {
-                    match file::save_interactive(app.document.viewmodel.model().clone()) {
+                    match file::save_interactive(app.document.analysis.model().clone()) {
                         Err(e) => { error!("Error saving file: {}", e); },
                         _ => {},
                     }

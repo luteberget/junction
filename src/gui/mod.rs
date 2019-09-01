@@ -32,7 +32,7 @@ pub fn main(app :&mut App) -> bool {
         // 3. Auto-dispatch view (diagram_view = Some(DispatchView::Manual(...)))
         let config = &app.config;
         let inf_view = &mut app.document.inf_view;
-        let analysis = &mut app.document.viewmodel;
+        let analysis = &mut app.document.analysis;
         match &mut app.document.dispatch_view {
             None => { 
                 infrastructure::inf_view(config, inf_view, analysis); 

@@ -10,13 +10,13 @@ pub fn keys(app :&mut App) {
     unsafe {
         let io = igGetIO();
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Z' as _, false) {
-            app.document.viewmodel.undo();
+            app.document.analysis.undo();
         }
         if (*io).KeyCtrl && (*io).KeyShift && igIsKeyPressed('Z' as _, false) {
-            app.document.viewmodel.redo();
+            app.document.analysis.redo();
         }
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('Y' as _, false) {
-            app.document.viewmodel.redo();
+            app.document.analysis.redo();
         }
 
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('S' as _, false) {
