@@ -13,7 +13,7 @@ use rolling_inf::{ObjectId};
 use nalgebra_glm as glm;
 
 #[derive(Debug)]
-pub struct DispatchView {
+pub struct DispatchOutput {
     pub history :History,
     pub time_interval :(f32,f32),
     pub max_t :f32,
@@ -39,15 +39,15 @@ fn pos_range(diagram :&Diagram) -> (f32,f32) {
     (pmin,pmax)
 }
 
-impl DispatchView {
-    pub fn from_history(dgraph :&DGraph, history :History) -> DispatchView {
+impl DispatchOutput {
+    pub fn from_history(dgraph :&DGraph, history :History) -> DispatchOutput {
         let t = max_time(&history) as f32;
         let instant = Instant::from(0.0, &history, dgraph);
         let diagram = Diagram::from(&history, dgraph);
         let (pos1,pos2) = pos_range(&diagram);
         let pos_diff = pos2 - pos1;
         //println!("Pos range {:?}", (pos1,pos2));
-        DispatchView {
+        DispatchOutput {
             history: history,
             time_interval: (-0.1*t, 1.1*t),
             max_t: t,

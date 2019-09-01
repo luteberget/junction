@@ -10,25 +10,23 @@ use crate::gui::diagram::diagram_view;
 
 pub fn dispatch_view(app :&mut App) {
     dispatch_select_bar(app);
-    match &app.document.dispatch_view {
+    match &mut app.document.dispatch_view {
         Some(DispatchView::Manual(m)) => {
+            let mut m = m.clone();
             if let Some(Some(dv)) = app.document.data().dispatch.get(m.dispatch_idx) {
-                diagram_view(app, dv);
+                diagram_view(app, &mut m);
             }
         },
         Some(DispatchView::Auto(a)) => {
             plan::plan_view(app);
             if let Some(DispatchView::Auto(AutoDispatchView { 
                 plan_idx, 
-                dispatch: Some(ManualDispatchView { dispatch_idx , .. }),
+                dispatch: Some(m),
                 ..
-            })) = &app.document.dispatch_view {
+            })) = &mut app.document.dispatch_view {
 
-                if let Some(Some(Some(dv))) = app.document.data()
-                    .plandispatches.get(plan_idx).map(|vs| vs.get(*dispatch_idx)) {
-
-                    diagram_view(app, dv);
-                }
+                let mut m = m.clone();
+                diagram_view(app, &mut m);
             }
         },
         None => {}, // should not happen

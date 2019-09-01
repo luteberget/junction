@@ -6,7 +6,7 @@ use std::ffi::CString;
 use crate::app::*;
 use crate::document::model::*;
 use crate::document::*;
-use crate::document::viewmodel::ViewModel;
+use crate::document::viewmodel::Analysis;
 use crate::gui::widgets;
 use crate::config::*;
 
@@ -450,7 +450,7 @@ fn drop_visitkey(key :*const i8) -> Option<VisitKey> {
 }
 
 
-fn edit_visit(config :&Config, vm :&ViewModel, dispatch_view :&mut Option<DispatchView>, visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, action :&mut Option<Action>, first_visit :bool) {
+fn edit_visit(config :&Config, vm :&Analysis, dispatch_view :&mut Option<DispatchView>, visit_key :VisitKey, visit :&Visit, hovered_visit :&mut Option<VisitKey>, action :&mut Option<Action>, first_visit :bool) {
 unsafe {
     let key = const_cstr!("VISIT").as_ptr();
     igPushIDInt(visit_key.train as _); 
@@ -544,7 +544,7 @@ unsafe {
 }
 }
 
-fn location_marker(config :&Config, vm :&ViewModel, loc :&PlanLoc, first_visit :bool, action :&mut Option<Action>) -> Option<()> {
+fn location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_visit :bool, action :&mut Option<Action>) -> Option<()> {
     unsafe {
     if good_location_marker(config, vm, loc, first_visit, action).is_err() {
         //Somethign wrong with looking up data for location marker, draw a gray '?' 
@@ -554,7 +554,7 @@ fn location_marker(config :&Config, vm :&ViewModel, loc :&PlanLoc, first_visit :
     }
 }
 
-fn good_location_marker(config :&Config, vm :&ViewModel, loc :&PlanLoc, first_visit :bool, action :&mut Option<Action>) -> Result<(),()> {
+fn good_location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_visit :bool, action :&mut Option<Action>) -> Result<(),()> {
     unsafe {
     let name;
     let col;

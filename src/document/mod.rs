@@ -30,7 +30,7 @@ use nalgebra_glm as glm;
 use backend_glfw::imgui::ImVec2;
 
 pub struct Document {
-    pub viewmodel :viewmodel::ViewModel,
+    pub viewmodel :viewmodel::Analysis,
     pub fileinfo :file::FileInfo,
     pub inf_view :InfView,
     pub dispatch_view :Option<DispatchView>,
@@ -49,7 +49,7 @@ impl Document {
 
     pub fn from_model(model :model::Model, bg: BackgroundJobs) -> Self {
         Document {
-            viewmodel: viewmodel::ViewModel::from_model(model, bg),
+            viewmodel: viewmodel::Analysis::from_model(model, bg),
             fileinfo: file::FileInfo::empty(),
             inf_view: InfView::default(),
             dispatch_view: None,
@@ -60,8 +60,8 @@ impl Document {
         self.viewmodel.model.get()
     }
 
-    pub fn data(&self) -> &viewmodel::Derived {
-        &self.viewmodel.derived
+    pub fn data(&self) -> &viewmodel::AnalysisOutput {
+        &self.viewmodel.output
     }
 
     pub fn edit_model(&mut self, mut f :impl FnMut(&mut Model) -> Option<EditClass>) {
@@ -155,6 +155,7 @@ pub enum DispatchView {
     Auto(AutoDispatchView),
 }
 
+#[derive(Clone,Copy)]
 pub struct ManualDispatchView {
     pub dispatch_idx :usize,
     pub time :f64,

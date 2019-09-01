@@ -61,7 +61,7 @@
  *   rename trains, dispatches, plans
  *   disallow bad constraints, drop non-working constraints when rearranging visits
  *   highlight visits location in infrastructure
- *   visit types: boundary vs. middle
+ * X visit types: boundary vs. middle
  *   dwell time
  *   constraint maximum time diff
 

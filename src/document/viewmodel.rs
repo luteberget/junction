@@ -18,18 +18,18 @@ use std::sync::Arc;
 use nalgebra_glm as glm;
 
 #[derive(Default)]
-pub struct Derived {
+pub struct AnalysisOutput {
     pub dgraph :Option<Arc<DGraph>>,
     pub interlocking :Option<Arc<interlocking::Interlocking>>,
     pub topology: Option<Arc<topology::Topology>>,
-    pub dispatch :Vec<Option<dispatch::DispatchView>>,
-    pub plandispatches :HashMap<usize, Vec<Option<dispatch::DispatchView>>>,
+    pub dispatch :Vec<Option<dispatch::DispatchOutput>>,
+    pub plandispatches :HashMap<usize, Vec<Option<dispatch::DispatchOutput>>>,
 }
 
-pub struct ViewModel {
-    pub(super) model: Undoable<Model, EditClass>,
-    pub(super) derived :Derived,
-    get_data :Option<Receiver<SetData>>,
+pub struct Analysis {
+    pub model: Undoable<Model, EditClass>,
+    pub output: AnalysisOutput,
+    chan :Option<Receiver<SetData>>,
     bg :app::BackgroundJobs,
 }
 
@@ -37,22 +37,22 @@ pub struct ViewModel {
 pub enum SetData {
     DGraph(Arc<DGraph>),
     Interlocking(Arc<interlocking::Interlocking>),
-    Dispatch(usize,dispatch::DispatchView),
-    PlanDispatch(usize,usize,dispatch::DispatchView),
+    Dispatch(usize,dispatch::DispatchOutput),
+    PlanDispatch(usize,usize,dispatch::DispatchOutput),
 }
 
-impl app::BackgroundUpdates for ViewModel {
+impl app::BackgroundUpdates for Analysis {
     fn check(&mut self) {
-        while let Some(Ok(data)) = self.get_data.as_mut().map(|r| r.try_recv()) {
+        while let Some(Ok(data)) = self.chan.as_mut().map(|r| r.try_recv()) {
             match data {
-                SetData::DGraph(dgraph) => { self.derived.dgraph = Some(dgraph); },
-                SetData::Interlocking(il) => { self.derived.interlocking = Some(il); },
+                SetData::DGraph(dgraph) => { self.output.dgraph = Some(dgraph); },
+                SetData::Interlocking(il) => { self.output.interlocking = Some(il); },
                 SetData::Dispatch(idx,h) => { 
-                    self.derived.dispatch.vecmap_insert(idx,h);
+                    self.output.dispatch.vecmap_insert(idx, h);
                     //cache.clear_dispatch(idx);
                 },
                 SetData::PlanDispatch(plan_idx,dispatch_idx,h) => {
-                    self.derived.plandispatches.entry(plan_idx)
+                    self.output.plandispatches.entry(plan_idx)
                         .or_insert(Vec::new())
                         .vecmap_insert(dispatch_idx, h);
                 },
@@ -61,14 +61,14 @@ impl app::BackgroundUpdates for ViewModel {
     }
 }
 
-impl ViewModel {
+impl Analysis {
     pub fn model(&self) -> &Model { &self.model.get() }
-    pub fn data(&self) -> &Derived { &self.derived }
+    pub fn data(&self) -> &AnalysisOutput { &self.output }
     pub fn from_model(model :Model, bg: app::BackgroundJobs) -> Self {
-        ViewModel {
+        Analysis {
             model: Undoable::from(model),
-            derived: Default::default(),
-            get_data: None,
+            output: Default::default(),
+            chan: None,
             bg: bg,
         }
     }
@@ -76,10 +76,10 @@ impl ViewModel {
     pub(super) fn update(&mut self) {
         let model = self.model.get().clone(); // persistent structs
         let topology = Arc::new(topology::convert(&model, 50.0).unwrap());
-        self.derived.topology = Some(topology.clone());
+        self.output.topology = Some(topology.clone());
 
         let (tx,rx) = channel();
-        self.get_data = Some(rx);
+        self.chan = Some(rx);
         self.bg.execute(move || {
             info!("Background thread starting");
             let model = model;  // move model into thread
@@ -114,7 +114,7 @@ impl ViewModel {
                                                    &interlocking,
                                                    &(dispatch.0)).unwrap();
                 info!("Simulation successful {:?}", &dispatch.0);
-                let view = dispatch::DispatchView::from_history(&dgraph, history);
+                let view = dispatch::DispatchOutput::from_history(&dgraph, history);
                 let send_ok = tx.send(SetData::Dispatch(*i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
@@ -124,7 +124,7 @@ impl ViewModel {
                                              &model.vehicles,
                                              plan).unwrap();
 
-                info!("Planninc successful. {:?}", dispatches);
+                info!("Planning successful. {:?}", dispatches);
 
                 for (dispatch_idx,d) in dispatches.into_iter().enumerate() {
                     let history = history::get_history(&model.vehicles,
@@ -132,7 +132,7 @@ impl ViewModel {
                                          &interlocking,
                                          &d.0).unwrap(); // TODO UNWRAP?
                     info!("Planned simulation successful");
-                    let view = dispatch::DispatchView::from_history(&dgraph, history);
+                    let view = dispatch::DispatchOutput::from_history(&dgraph, history);
                     let send_ok = tx.send(SetData::PlanDispatch(*plan_idx, dispatch_idx, view));
                     if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}/{}", 
                                                    plan_idx, dispatch_idx); }

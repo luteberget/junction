@@ -28,8 +28,8 @@ pub fn main(app :&mut App) -> bool {
 
         // Three main window arrangements:
         // 1. Infrastructure only (diagram_view = None)
-        // 2. Manual dispatch view (diagram_view = Some(DiagramView::Manual(...)))
-        // 3. Auto-dispatch view (diagram_view = Some(DiagramView::Manual(...)))
+        // 2. Manual dispatch view (diagram_view = Some(DispatchView::Manual(...)))
+        // 3. Auto-dispatch view (diagram_view = Some(DispatchView::Manual(...)))
         match &app.document.dispatch_view {
             None => { 
                 infrastructure::inf_view(app); 
