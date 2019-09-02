@@ -113,14 +113,36 @@ pub enum Command {
 
 #[derive(Serialize,Deserialize)]
 #[derive(Debug, Default, Clone)]
-pub struct Dispatch(pub Vec<(f64,Command)>);
+pub struct Dispatch {
+    generation :usize,
+    pub commands :Vec<(usize,(f64,Command))>,
+}
 
 impl Dispatch {
-    pub fn insert(&mut self, t :f64, cmd :Command) {
-        let idx = match self.0.binary_search_by_key(&OrderedFloat(t), 
-                    |(t,_)| OrderedFloat(*t)) { Ok(i) | Err(i) => i };
-        self.0.insert(idx, (t, cmd));
+    pub fn new() -> Dispatch {
+        Dispatch {
+            generation :0,
+            commands :Vec::new(),
+        }
     }
+
+    pub fn from_vec(x :Vec<(f64,Command)>) -> Dispatch {
+        let l = x.len();
+        Dispatch {
+            generation: l,
+            commands: x.into_iter().enumerate().collect(),
+        }
+    }
+
+    pub fn insert(&mut self, t :f64, cmd :Command) -> usize {
+        let id = self.generation;
+        self.generation += 1;
+        let idx = match self.commands.binary_search_by_key(&OrderedFloat(t),
+                |(_,(t,_))| OrderedFloat(*t)) { Ok(i) | Err(i) => i };
+        self.commands.insert(idx, (id,(t,cmd)));
+        id 
+    }
+
 }
 
 #[derive(Clone, Debug, Default)]

@@ -8,7 +8,7 @@ pub type RouteRefs = Vec<(f32,usize)>;
 pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>, 
                    inf :&rolling_inf::StaticInfrastructure, 
                    il :&Interlocking,
-                   commands :&[(f64, Command)]) -> Result<(History, RouteRefs) , String> {
+                   commands :&[(usize, (f64, Command))]) -> Result<(History, RouteRefs) , String> {
 
     // infrastructure and routes are already prepared by the dgraph module
     // we only need to convert commands to the rolling dispatch structs
@@ -20,7 +20,7 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
     let mut dispatch = Vec::new();
     let mut t0 = 0.0;
     let mut train_no = 0;
-    for (t,c) in commands {
+    for (cmd_id,(t,c)) in commands {
         if *t > t0 {
             dispatch.push(DispatchAction::Wait(Some((t-t0) as _ )));
             t0 = *t;

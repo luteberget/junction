@@ -113,8 +113,8 @@ impl Analysis {
                 let (history,route_refs) = history::get_history(&model.vehicles,
                                                    &dgraph.rolling_inf,
                                                    &interlocking,
-                                                   &(dispatch.0)).unwrap();
-                info!("Simulation successful {:?}", &dispatch.0);
+                                                   &(dispatch.commands)).unwrap();
+                info!("Simulation successful {:?}", &dispatch.commands);
                 let view = dispatch::DispatchOutput::from_history(dispatch.clone(), &dgraph, history);
                 let send_ok = tx.send(SetData::Dispatch(*i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
@@ -131,7 +131,7 @@ impl Analysis {
                     let (history, route_refs) = history::get_history(&model.vehicles,
                                          &dgraph.rolling_inf,
                                          &interlocking,
-                                         &d.0).unwrap(); // TODO UNWRAP?
+                                         &d.commands).unwrap(); // TODO UNWRAP?
                     info!("Planned simulation successful");
                     let view = dispatch::DispatchOutput::from_history(d.clone(), &dgraph, history);
                     let send_ok = tx.send(SetData::PlanDispatch(*plan_idx, dispatch_idx, view));

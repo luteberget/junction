@@ -70,7 +70,9 @@ pub struct ManualDispatchView {
     pub dispatch_idx :usize,
     pub time :f64,
     pub play :bool,
+    pub action :ManualDispatchViewAction,
     pub viewport :Option<DiagramViewport>,
+    pub selected_command :Option<usize>,
 }
 
 impl ManualDispatchView {
@@ -80,7 +82,18 @@ impl ManualDispatchView {
             time: 0.0,
             play: false,
             viewport: None,
+            action: ManualDispatchViewAction::None,
+            selected_command: None,
         }
+    }
+}
+
+#[derive(Clone,Copy)]
+pub enum ManualDispatchViewAction {
+    None,
+    DragCommandTime {
+        idx :usize,
+        id :usize,
     }
 }
 

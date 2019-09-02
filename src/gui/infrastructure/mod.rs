@@ -22,6 +22,12 @@ use crate::gui::widgets::Draw;
 use crate::config::RailUIColorName;
 
 
+#[derive(Copy,Clone,Debug)]
+pub enum Highlight {
+    Ref(Ref),
+    Tvd(usize),
+}
+
 pub fn inf_view(config :&Config, 
                 analysis :&mut Analysis,
                 inf_view :&mut InfView,
@@ -68,15 +74,10 @@ fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&mut InfView,
         draw::trains(config, instant, inf_view, draw);
         draw::state(config, instant, inf_view, draw);
     }
-
-    //draw::state(config, analysis, inf_view, draw);
-    //draw::state(app,draw);
-    //draw::trains(app,draw);
 }
 
 fn scroll(inf_view :&mut InfView) { 
     unsafe {
-        //if !igIsWindowFocused(0 as _) { return; }
         if !igIsItemHovered(0){ return; }
         let io = igGetIO();
         let wheel = (*io).MouseWheel;
@@ -224,22 +225,67 @@ fn interact_drawing(config :&Config, analysis :&mut Analysis, inf_view :&mut Inf
             }
 
             if !igIsMouseDown(0) {
-                let mut new_model = analysis.model().clone();
-                let mut any_lines = false;
-                for (p1,p2) in util::route_line(pt,pt_end) {
-                    let unit = util::unit_step_diag_line(p1,p2);
-                    for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
-                        any_lines = true;
-                        new_model.linesegs.insert(util::order_ivec(*pa,*pb));
+                if pt != pt_end {
+                    let mut new_model = analysis.model().clone();
+                    if let Some((p1,p2)) = is_boundary_extension(analysis, pt, pt_end) {
+                        model_rename_node(&mut new_model, p1, p2);
                     }
+                    for (p1,p2) in util::route_line(pt,pt_end) {
+                        let unit = util::unit_step_diag_line(p1,p2);
+                        for (pa,pb) in unit.iter().zip(unit.iter().skip(1)) {
+                            new_model.linesegs.insert(util::order_ivec(*pa,*pb));
+                        }
+                    }
+                    analysis.set_model(new_model, None);
+                    inf_view.selection = std::iter::empty().collect();
                 }
-                if any_lines { analysis.set_model(new_model, None); }
-                inf_view.selection = std::iter::empty().collect();
                 inf_view.action = Action::DrawingLine(None);
             }
         } else {
             if igIsItemHovered(0) && igIsMouseDown(0) {
                 inf_view.action = Action::DrawingLine(Some(pt_end));
+            }
+        }
+    }
+}
+
+fn is_boundary_extension(analysis :&Analysis, p1 :Pt, p2 :Pt) -> Option<(Pt,Pt)> {
+    let locs = &analysis.data().topology.as_ref()?.locations;
+    match (locs.get(&p1), locs.get(&p2)) {
+        (Some((NDType::OpenEnd, _)), None) => { return Some((p1,p2)); }
+        _ => {},
+    }
+    match (locs.get(&p2), locs.get(&p1)) {
+        (Some((NDType::OpenEnd, _)), None) => { return Some((p2,p1)); }
+        _ => {},
+    }
+    None
+}
+
+fn model_rename_node(model :&mut Model, a :Pt, b :Pt) {
+    for (_,dispatch) in model.dispatches.iter_mut() {
+        for (_,(_,command)) in dispatch.commands.iter_mut() {
+            match command {
+                Command::Train(_,r) | Command::Route(r) => {
+                    if r.from == Ref::Node(a) {
+                        r.from = Ref::Node(b);
+                    }
+                    if r.to == Ref::Node(a) {
+                        r.to = Ref::Node(b);
+                    }
+                }
+            };
+        }
+    }
+
+    for (_,p) in model.plans.iter_mut() {
+        for (_,(_veh, visits)) in p.trains.iter_mut() {
+            for (_,v) in visits.iter_mut() {
+                for l in v.locs.iter_mut() {
+                    if l == &Ok(Ref::Node(a)) {
+                        *l = Ok(Ref::Node(b));
+                    }
+                }
             }
         }
     }

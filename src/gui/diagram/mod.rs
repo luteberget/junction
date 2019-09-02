@@ -13,7 +13,14 @@ use crate::gui::widgets::Draw;
 
 mod draw;
 
-pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) {
+#[derive(Copy,Clone)]
+pub enum DiagramViewAction {
+    DeleteCommand { id :usize },
+    MoveCommand { idx :usize, id :usize, t :f64 },
+}
+
+pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) -> Option<DiagramViewAction> {
+    let mut action = None;
     unsafe {
         diagram_toolbar(dv);
         let size = igGetContentRegionAvail_nonUDT2().into();
@@ -26,17 +33,37 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
                     time: (graph.time_interval.0 as _, graph.time_interval.1 as _),
                     pos: (graph.pos_interval.0 as _, graph.pos_interval.1 as _),
                 }); }
-            let viewport = dv.viewport.as_mut().unwrap();
 
-            scroll(draw, viewport);
 
             // Need to get a DispatchOutput from analysis.
-            draw::diagram(config, graph, draw, viewport);
-            draw::command_icons(config, analysis, graph, viewport, draw);
-            draw::time_slider(config, draw, viewport, dv.time);
+            draw::diagram(config, graph, draw, dv.viewport.as_ref().unwrap());
+            action = draw::command_icons(config, analysis, graph, draw, dv).or(action);
+            draw::time_slider(config, draw, dv.viewport.as_ref().unwrap(), dv.time);
+
+            let viewport = dv.viewport.as_mut().unwrap();
+            scroll(draw, viewport);
 
             let mouse_time = glm::lerp_scalar(viewport.time.0 as f32, viewport.time.1 as f32,
                                               draw.mouse.y/draw.size.y);
+
+            match dv.action {
+                ManualDispatchViewAction::None => {},
+                ManualDispatchViewAction::DragCommandTime { idx, id } => {
+                    action = Some(DiagramViewAction::MoveCommand { idx, id, t: mouse_time as f64 });
+                    if !igIsMouseDown(0) {
+                        dv.action = ManualDispatchViewAction::None;
+                    }
+                },
+            }
+
+            if igBeginPopup(const_cstr!("cmded").as_ptr(), 0 as _) {
+                if let Some(selection) = dv.selected_command {
+                    if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                        action = Some(DiagramViewAction::DeleteCommand { id: selection });
+                    }
+                }
+                igEndPopup();
+            }
 
             if igIsItemHovered(0) && igIsMouseDown(0) {
                 dv.time = mouse_time as f64;
@@ -45,6 +72,7 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
             Some(())
         });
     }
+    action
 }
 
 fn scroll(draw :&Draw, viewport :&mut DiagramViewport) {

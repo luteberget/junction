@@ -35,6 +35,9 @@
 * specify signal sight distance, warn if not attainable because of facing switches
 * gradient (radius?)
 
+* X rename node references in model when "extending" boundary node
+*   rename object references in model when moving objects.
+
 ## interlocking
 * inspectable interlocking
 * configurable interlocking

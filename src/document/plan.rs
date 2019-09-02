@@ -91,7 +91,7 @@ fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan,
         last_active_routes = active_routes;
     }
 
-    Ok(Dispatch(commands))
+    Ok(Dispatch::from_vec(commands))
 }
 
 

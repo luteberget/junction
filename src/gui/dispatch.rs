@@ -1,3 +1,4 @@
+use ordered_float::OrderedFloat;
 use backend_glfw::imgui::*;
 use const_cstr::*;
 use std::ffi::CString;
@@ -10,6 +11,7 @@ use crate::gui::widgets;
 use crate::gui::plan;
 use crate::gui::diagram::diagram_view;
 use crate::util::VecMap;
+use crate::gui::diagram::*;
 
 pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut DispatchView) -> Option<Option<DispatchView>> {
     let mut new_dispatch :Option<Option<DispatchView>> = None;
@@ -20,7 +22,23 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
         DispatchView::Manual(manual) => {
             let graph = analysis.data().dispatch.vecmap_get(manual.dispatch_idx);
             if let Some(graph) = graph {
-                diagram_view(config, analysis, manual, graph);
+                if let Some(action) = diagram_view(config, analysis, manual, graph) {
+                    analysis.edit_model(|m| {
+                        match action {
+                            DiagramViewAction::DeleteCommand { id } => {
+                                m.dispatches.get_mut(manual.dispatch_idx)?.commands.retain(|(x,_)| *x != id);
+                            },
+                            DiagramViewAction::MoveCommand { idx, id, t } => {
+                                let commands = &mut m.dispatches.get_mut(manual.dispatch_idx)?.commands;
+                                for (c_id,(c_t,_)) in commands.iter_mut() {
+                                    if *c_id == id { *c_t = t; }
+                                }
+                                commands.sort_by_key(|(_,(t,_))| OrderedFloat(*t));
+                            }
+                        };
+                        None
+                    });
+                }
             }
         },
         DispatchView::Auto(auto) => {

@@ -35,6 +35,12 @@ pub struct RouteInfo {
     pub path :Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>,
 }
 
+impl RouteInfo {
+    pub fn start_mileage(&self, dgraph :&DGraph) -> Option<f64> {
+        self.path.get(0).and_then(|(n,_)| dgraph.mileage.get(n)).cloned()
+    }
+}
+
 
 pub fn calc(dgraph :&DGraph) -> Interlocking {
     let (routes,route_issues) = 
