@@ -46,8 +46,8 @@
 * flank protection
 
 ## dispatch
-* better dispatch representation
-* edit dispatch
+* X better dispatch representation
+* X edit dispatch
 
 * auto-dispatch/movements/constraints-based-train
  * X plan datastructure
@@ -58,8 +58,8 @@
  * X add constraints
  * X topo sort view by constraints
  * X draw constraints
- *   bug: VisitKey invalidated by moving visit from one train to another
- *   delete constraints
+ * X bug: VisitKey invalidated by moving visit from one train to another
+ * X delete constraints
  *   delete trains
  *   delete plans and dispatches
  *   rename trains, dispatches, plans

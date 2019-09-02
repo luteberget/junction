@@ -47,6 +47,15 @@ pub fn diagram(config :&Config, graphics :&DispatchOutput, draw :&Draw, view :&D
                 to_screen(draw, view, block.reserved.0, block.pos.0),
                 to_screen(draw, view, block.reserved.1, block.pos.1),
                 col_box, 0.0, 0, 1.0);
+
+            let ra = to_screen(draw,view,block.reserved.0, block.pos.0) - draw.pos;
+            let rb = to_screen(draw,view,block.reserved.1, block.pos.1) - draw.pos;
+            if ra.x <= draw.mouse.x && draw.mouse.x <= rb.x && ra.y <= draw.mouse.y && draw.mouse.y <= rb.y {
+                igBeginTooltip();
+                widgets::show_text(&format!("TVD section reserved t={:.1} -> t={:.1}", 
+                                            block.reserved.0, block.reserved.1));
+                igEndTooltip();
+            }
         }
     }
 
@@ -148,32 +157,53 @@ pub fn command_icons(config :&Config, analysis :&Analysis,
 
     let mut action = None;
 
-    let col1 = config.color_u32(RailUIColorName::GraphCommand);
-    let col2 = config.color_u32(RailUIColorName::GraphCommandBorder);
+    let border_col = config.color_u32(RailUIColorName::GraphCommandBorder);
     let il = analysis.data().interlocking.as_ref()?;
     let dgraph = analysis.data().dgraph.as_ref()?;
     let dispatch = &graphics.dispatch;
 
+    let mut prev_y = -std::f32::INFINITY;
     for (cmd_idx,(cmd_id,(cmd_t,cmd))) in dispatch.commands.iter().enumerate() {
-        let km = match cmd { Command::Route(routespec) | Command::Train(_,routespec) => {
-            il.find_route(routespec).and_then(|r_id| il.routes[*r_id].start_mileage(dgraph))
-        }}.unwrap_or(0.0);
+        let route_idx = match cmd { Command::Route(routespec) | Command::Train(_,routespec) => {
+            il.find_route(routespec) }};
+
+        let fill_color = match (cmd,route_idx) {
+            (_,None) =>                 config.color_u32(RailUIColorName::GraphCommandError),
+            (Command::Route(_),_) =>    config.color_u32(RailUIColorName::GraphCommandRoute),
+            (Command::Train(_,_),_) =>  config.color_u32(RailUIColorName::GraphCommandTrain),
+        };
+
+        let km = route_idx.and_then(|r| il.routes[*r].start_mileage(dgraph)).unwrap_or(0.0);
+
         unsafe {
             let half_icon_size = ImVec2 { x: 4.0, y: 4.0 };
-            let p = to_screen(draw, dv.viewport.as_ref().unwrap(), *cmd_t, km);
+            let mut p = to_screen(draw, dv.viewport.as_ref().unwrap(), *cmd_t, km);
+            //p.y = p.y.max(prev_y + 2.0*half_icon_size.y);
             ImDrawList_AddRectFilled(draw.draw_list, 
                                      p - half_icon_size, 
-                                     p + half_icon_size, col1, 0.0, 0);
+                                     p + half_icon_size, fill_color, 0.0, 0);
             ImDrawList_AddRect(draw.draw_list, 
                                p - half_icon_size, 
-                               p + half_icon_size, col2, 0.0, 0, 1.0);
+                               p + half_icon_size, border_col, 0.0, 0, 1.0);
 
             if igIsItemHovered(0) && (p-draw.pos-draw.mouse).length_sq() < 5.0*5.0 {
                 igBeginTooltip();
-                widgets::show_text("command");
+                match (cmd, route_idx) {
+                    (_,None) => {
+                        widgets::show_text(&format!("Invalid route start/end points."));
+                    }
+                    (Command::Route(_),_) => {
+                        widgets::show_text(&format!("Route request t={:.1}", cmd_t));
+                    },
+                    (Command::Train(v,_),_) => {
+                        let v = analysis.model().vehicles.get(*v).map(|v| v.name.as_str())
+                            .unwrap_or("Unknown vehicle");
+                        widgets::show_text(&format!("{} entering t={:.1}", v, cmd_t));
+                    },
+                }
                 igEndTooltip();
 
-                if igIsMouseDown(0) && matches!(dv.action, ManualDispatchViewAction::None) {
+                if igIsMouseClicked(0,false) && matches!(dv.action, ManualDispatchViewAction::None) {
                     dv.action = ManualDispatchViewAction::DragCommandTime { idx: cmd_idx, id :*cmd_id };
                 }
 
@@ -182,6 +212,7 @@ pub fn command_icons(config :&Config, analysis :&Analysis,
                     igOpenPopup(const_cstr!("cmded").as_ptr());
                 }
             }
+            prev_y = p.y;
         }
     }
     action

@@ -11,9 +11,11 @@ use crate::gui::widgets;
 use crate::config::*;
 
 enum Action { 
+    VisitDelete { key :VisitKey },
     VisitMerge { source: VisitKey, target :VisitKey },
     VisitMoveBefore { source: VisitKey, target :VisitKey },
     VisitMoveToEnd { source: VisitKey, target: usize }, // Train id
+    OrderDeleteAt { key :VisitKey },
     TrainVehicle { train: usize, vehicle: usize },
     NewTrain,
 }
@@ -32,6 +34,7 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
         let h2 = igGetFrameHeight();
         let row_height = h2 + 4.0*(h1-h2);
         let dummy_size = ImVec2 { x: 20.0, y: row_height };
+
 
 
         igSameLine(0.0,-1.0);
@@ -174,9 +177,9 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
                 if let (Some(pos1),Some(pos2)) = (pos1.cloned(),pos2.cloned()) {
                     let elbow = ImVec2 { x: pos1.x, y: pos2.y };
                     ImDrawList_AddCircleFilled(draw_list, pos1, 8.0,
-                                       config.color_u32(RailUIColorName::GraphCommand), 8);
+                                       config.color_u32(RailUIColorName::GraphCommandRoute), 8);
                     ImDrawList_AddCircleFilled(draw_list, pos2, 8.0,
-                                       config.color_u32(RailUIColorName::GraphCommand), 8);
+                                       config.color_u32(RailUIColorName::GraphCommandRoute), 8);
                     ImDrawList_AddLine(draw_list, pos1, pos2, 
                                        config.color_u32(RailUIColorName::GraphTrainFront), 4.0);
                     //ImDrawList_AddLine(draw_list, elbow, pos2, 
@@ -188,14 +191,18 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
 
 
             if let PlanViewAction::DragFrom(other_key, mouse_pos) = auto_dispatch.action {
-                if !igIsMouseDown(1) {
+                if igIsMouseClicked(0, false) || igIsMouseClicked(1, false) {
                     auto_dispatch.action = PlanViewAction::None;
                     if let Some(visit_key) = hovered_visit {
-                        analysis.edit_model(|m| {
-                            m.plans.get_mut(plan_idx).unwrap().order.push(((other_key.train, other_key.visit), (visit_key.train, visit_key.visit), None));
-                            println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
-                            None
-                        });
+                        if !(other_key.train == visit_key.train && other_key.visit == visit_key.visit) {
+                            analysis.edit_model(|m| {
+                                m.plans.get_mut(plan_idx).unwrap().order
+                                    .push(((other_key.train, other_key.visit), 
+                                           (visit_key.train, visit_key.visit), None));
+                                println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
+                                None
+                            });
+                        }
                     } else {
                     }
                 } else {
@@ -245,6 +252,32 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
         Some(Action::VisitMoveToEnd { source, target }) => {
             analysis.edit_model(|m| { visit_move(m, plan_idx, source, target, None); None });
         }
+        Some(Action::OrderDeleteAt { key }) => {
+            analysis.edit_model(|m| {
+                let plan = m.plans.get_mut(plan_idx)?;
+                remove_ordering_at(plan, key.train, key.visit);
+                None
+            });
+        },
+        Some(Action::VisitDelete { key }) => {
+            analysis.edit_model(|m| {
+                let plan = m.plans.get_mut(plan_idx)?;
+                let (_,train) = plan.trains.get_mut(key.train)?;
+                let visit = train.get_mut(key.visit)?;
+                let deleted_visit = if let Some(loc_idx) = key.location {
+                    visit.locs.remove(loc_idx);
+                    if visit.locs.len() == 0 { train.remove(key.visit); true } else { false }
+                } else {
+                    train.remove(key.visit)?; true
+                };
+
+                if deleted_visit {
+                    remove_ordering_at(plan, key.train, key.visit);
+                }
+
+                None
+            });
+        }
         _ => {},
     }
 
@@ -291,38 +324,67 @@ fn visit_move(m: &mut Model, plan :usize, source :VisitKey, t_train_idx: usize, 
     let plan = m.plans.get_mut(plan)?;
     let s_train = plan.trains.get_mut(source.train)?;
     let s_visit = s_train.1.get_mut(source.visit)?;
-    let new_visit = if let Some(loc_idx) = source.location {
+    let (new_visit,deleted_visit) = if let Some(loc_idx) = source.location {
         let data = s_visit.locs.remove(loc_idx);
-        if s_visit.locs.len() == 0 { s_train.1.remove(source.visit); }
-        Visit { locs: vec![data], dwell: None }
+        let deleted = if s_visit.locs.len() == 0 { s_train.1.remove(source.visit); true } else { false };
+        (Visit { locs: vec![data], dwell: None },deleted)
     } else {
-        s_train.1.remove(source.visit)?
+        (s_train.1.remove(source.visit)?, true)
     };
     let t_train = plan.trains.get_mut(t_train_idx)?;
-    if let Some(idx) = idx {
-        t_train.1.insert_before(idx, new_visit);
+    let new_idx = if let Some(idx) = idx {
+        t_train.1.insert_before(idx, new_visit)
     } else {
-        t_train.1.insert(new_visit);
+        t_train.1.insert(new_visit)
+    };
+    if deleted_visit {
+        rename_train_visit(plan, source.train, source.visit, t_train_idx, new_idx);
     }
     Some(())
+}
+
+fn rename_train_visit(plan :&mut PlanSpec, train :usize, visit :usize, new_train :usize, new_visit :usize) {
+    for (a,b,_) in plan.order.iter_mut() {
+        if a.0 == train && a.1 == visit {
+            a.0 = new_train;
+            a.1 = new_visit;
+        }
+        if b.0 == train && b.1 == visit {
+            b.0 = new_train;
+            b.1 = new_visit;
+        }
+    }
+}
+
+fn remove_ordering_at(plan :&mut PlanSpec, train :usize, visit :usize) {
+    plan.order.retain(|(a,b,_)| {
+        let a = a.0 == train && a.1 == visit;
+        let b = b.0 == train && b.1 == visit;
+        !a && !b
+    });
 }
 
 fn visit_merge(m :&mut Model, plan :usize, source :VisitKey, target :VisitKey) -> Option<()> {
     let plan = m.plans.get_mut(plan)?;
     let s_train = plan.trains.get_mut(source.train)?;
     let s_visit = s_train.1.get_mut(source.visit)?;
-    if let Some(loc_idx) = source.location {
+    let deleted_visit = if let Some(loc_idx) = source.location {
         let data = s_visit.locs.remove(loc_idx);
         // no more data left, remove the visit
-        if s_visit.locs.len() == 0 { s_train.1.remove(source.visit); }
+        let delete = if s_visit.locs.len() == 0 { s_train.1.remove(source.visit); true } else { false };
         let t_train = plan.trains.get_mut(target.train)?;
         let t_visit = t_train.1.get_mut(target.visit)?;
         t_visit.locs.push(data);
+        delete
     } else {
         let data = s_train.1.remove(source.visit)?.locs;
         let t_train = plan.trains.get_mut(target.train)?;
         let t_visit = t_train.1.get_mut(target.visit)?;
         t_visit.locs.extend(data);
+        true
+    };
+    if deleted_visit {
+        remove_ordering_at(plan, source.train, source.visit);
     }
     Some(())
 }
@@ -433,6 +495,7 @@ unsafe {
                                 if visit.dwell.is_some() { 1.0 } else { 0.0 });
     igPushStyleColorU32(ImGuiCol__ImGuiCol_ChildBg as _,
                           igGetColorU32(ImGuiCol__ImGuiCol_Button as _, 1.0));
+    let mut hovered_location = None;
     if igBeginChild(const_cstr!("##vfrm").as_ptr(), ImVec2 { x: visit_width, y: row_height}, true, 0 as _) {
         if igBeginDragDropSource(0 as _) {
 
@@ -472,6 +535,7 @@ unsafe {
                 igBeginTooltip();
                 widgets::show_text(&format!("Visit {} {:?}", visit_key.visit, visit));
                 igEndTooltip();
+                hovered_location = Some(loc_id);
             }
 
             igPopID();
@@ -482,9 +546,35 @@ unsafe {
     igPopStyleColor(1);
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        if let PlanViewAction::None = auto_dispatch.action {
-            auto_dispatch.action = PlanViewAction::DragFrom(visit_key, igGetMousePos_nonUDT2().into());
+        println!("open menu");
+        auto_dispatch.action = PlanViewAction::Menu(VisitKey { location: hovered_location, .. visit_key }, 
+                                                    igGetMousePos_nonUDT2().into());
+        igOpenPopup(const_cstr!("pctx").as_ptr());
+    }
+
+    if igBeginPopup(const_cstr!("pctx").as_ptr(), 0 as _) {
+        match auto_dispatch.action {
+            PlanViewAction::Menu(key, pos) => {
+                if key.location.is_some() {
+                    if igSelectable(const_cstr!("Remove location").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                        *action = Some(Action::VisitDelete { key });
+                    }
+                }
+                if igSelectable(const_cstr!("Remove visit").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    *action = Some(Action::VisitDelete { key: VisitKey { location: None, .. key } } );
+                }
+                if igSelectable(const_cstr!("Add ordering constraint...").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    auto_dispatch.action = PlanViewAction::DragFrom(key,pos);
+                }
+                if igSelectable(const_cstr!("Remove ordering constraints").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    *action = Some(Action::OrderDeleteAt { key });
+                }
+            },
+            _ => {
+                widgets::show_text("No visit selected.");
+            }
         }
+        igEndPopup();
     }
 
     if igIsItemHovered(0) {
@@ -540,7 +630,7 @@ fn good_location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_vis
                 },
                 NDType::Sw(_)  => {
                     name = const_cstr!("Sw");
-                    col = config.color_u32(RailUIColorName::GraphCommand);
+                    col = config.color_u32(RailUIColorName::GraphCommandRoute);
                 },
                 NDType::Cont => { 
                     name = const_cstr!("C ");

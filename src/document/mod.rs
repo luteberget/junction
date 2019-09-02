@@ -111,6 +111,7 @@ pub struct AutoDispatchView {
 }
 
 
+
 #[derive(Debug, Copy, Clone)]
 #[derive(PartialEq, Eq, Hash)]
 pub struct VisitKey { 
@@ -123,6 +124,7 @@ pub struct VisitKey {
 pub enum PlanViewAction {
     None,
     DragFrom(VisitKey, ImVec2),
+    Menu(VisitKey, ImVec2),
 }
 
 impl UpdateTime for DispatchView {

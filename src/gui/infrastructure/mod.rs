@@ -203,6 +203,7 @@ pub fn move_selected_objects(analysis :&mut Analysis, inf_view :&mut InfView, de
     let selection_before = inf_view.selection.clone();
 
     for (a,b) in changed_ptas {
+        model_rename_object(&mut model,a,b);
         inf_view.selection.remove(&Ref::Object(a));
         inf_view.selection.insert(Ref::Object(b));
     }
@@ -290,6 +291,36 @@ fn model_rename_node(model :&mut Model, a :Pt, b :Pt) {
         }
     }
 }
+
+fn model_rename_object(model :&mut Model, a :PtA, b :PtA) {
+    for (_,dispatch) in model.dispatches.iter_mut() {
+        for (_,(_,command)) in dispatch.commands.iter_mut() {
+            match command {
+                Command::Train(_,r) | Command::Route(r) => {
+                    if r.from == Ref::Object(a) {
+                        r.from = Ref::Object(b);
+                    }
+                    if r.to == Ref::Object(a) {
+                        r.to = Ref::Object(b);
+                    }
+                }
+            };
+        }
+    }
+
+    for (_,p) in model.plans.iter_mut() {
+        for (_,(_veh, visits)) in p.trains.iter_mut() {
+            for (_,v) in visits.iter_mut() {
+                for l in v.locs.iter_mut() {
+                    if l == &Ok(Ref::Object(a)) {
+                        *l = Ok(Ref::Object(b));
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 fn interact_insert(config :&Config, analysis :&mut Analysis, 
                    inf_view :&InfView, draw :&Draw, obj :Option<Object>) {

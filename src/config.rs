@@ -43,7 +43,9 @@ lazy_static! {
                 RailUIColorName::GraphBlockOccupied => const_cstr!("Graph block occupied"),
                 RailUIColorName::GraphTrainFront => const_cstr!("Graph train front"),
                 RailUIColorName::GraphTrainRear => const_cstr!("Graph train rear"),
-                RailUIColorName::GraphCommand => const_cstr!("Graph command"),
+                RailUIColorName::GraphCommandRoute => const_cstr!("Graph command route"),
+                RailUIColorName::GraphCommandTrain => const_cstr!("Graph command train"),
+                RailUIColorName::GraphCommandError => const_cstr!("Graph command error"),
                 RailUIColorName::GraphCommandBorder => const_cstr!("Graph command border"),
         }
     };
@@ -214,7 +216,9 @@ pub fn default_colors() -> EnumMap<RailUIColorName, Color> {
         RailUIColorName::GraphBlockOccupied => c(named::LIGHTPINK),
         RailUIColorName::GraphTrainFront => c(named::TOMATO),
         RailUIColorName::GraphTrainRear => c(named::TOMATO),
-        RailUIColorName::GraphCommand => c(named::LIMEGREEN),
+        RailUIColorName::GraphCommandRoute => c(named::LIMEGREEN),
+        RailUIColorName::GraphCommandTrain => c(named::AZURE),
+        RailUIColorName::GraphCommandError => c(named::RED),
         RailUIColorName::GraphCommandBorder => c(named::BLACK),
     }
 }
@@ -251,7 +255,9 @@ pub enum RailUIColorName {
     GraphBlockOccupied,
     GraphTrainFront,
     GraphTrainRear,
-    GraphCommand,
+    GraphCommandRoute,
+    GraphCommandTrain,
+    GraphCommandError,
     GraphCommandBorder,
 }
 
