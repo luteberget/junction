@@ -68,12 +68,13 @@ fn draw_inf(config :&Config, analysis :&Analysis, inf_view :&mut InfView,
     };
 
     draw::base(config, analysis, inf_view, instant, dispatch_view, draw);
-    if let Some(r) = preview_route { draw::route(config, analysis, inf_view, draw, r); }
 
     if let Some(instant) = instant {
-        draw::trains(config, instant, inf_view, draw);
         draw::state(config, instant, inf_view, draw);
+        draw::trains(config, instant, inf_view, draw);
     }
+
+    if let Some(r) = preview_route { draw::route(config, analysis, inf_view, draw, r); }
 }
 
 fn scroll(inf_view :&mut InfView) { 

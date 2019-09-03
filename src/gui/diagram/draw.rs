@@ -50,11 +50,13 @@ pub fn diagram(config :&Config, graphics :&DispatchOutput, draw :&Draw, view :&D
 
             let ra = to_screen(draw,view,block.reserved.0, block.pos.0) - draw.pos;
             let rb = to_screen(draw,view,block.reserved.1, block.pos.1) - draw.pos;
-            if ra.x <= draw.mouse.x && draw.mouse.x <= rb.x && ra.y <= draw.mouse.y && draw.mouse.y <= rb.y {
-                igBeginTooltip();
-                widgets::show_text(&format!("TVD section reserved t={:.1} -> t={:.1}", 
-                                            block.reserved.0, block.reserved.1));
-                igEndTooltip();
+            if igIsItemHovered(0) {
+                if ra.x <= draw.mouse.x && draw.mouse.x <= rb.x && ra.y <= draw.mouse.y && draw.mouse.y <= rb.y {
+                    igBeginTooltip();
+                    widgets::show_text(&format!("TVD section reserved t={:.1} -> t={:.1}", 
+                                                block.reserved.0, block.reserved.1));
+                    igEndTooltip();
+                }
             }
         }
     }

@@ -11,6 +11,50 @@ use serde::{Serialize, Deserialize};
 
 type Color = palette::rgb::Rgba;
 
+
+// Named color choices
+// based on Vicos 
+// https://orv.banenor.no/orv/lib/exe/fetch.php?media=brukerveiledninger:symbolkatalog_vicos_-_iup-00-s-20385_00e_001.pdf
+//
+//
+//  platform: turquoise
+//
+//  train routes
+//    free tvd: gray
+//    occupied tvd: red
+//    reserved tvd: green
+//    overlap tvd: orange
+//  (add blink when releasing, if release has any delay (currently not modelled))
+//
+//  Shunting route:
+//    reserved tvd: yellow
+//    occupied tvd: turquoise
+//  (add blink when releasing, if release has any delay (currently not modelled))
+//
+//  Operator has blocked route: two red cross-bars over track
+//
+//  switch:
+//    remove track part which is not connected 
+//        ---         /--
+//     ------   vs. -/   ---- 
+//    operator blocked switch: red box
+//    switch locked/blocked (by route?): small yellow track section
+//    providing flank protection: blue dot in fouling point
+//
+//  main signals
+//    not used: gray triangle outline
+//    part of train route: red triangle outline
+//    proceed: green triangle outline
+//    blocked by operator(?): red filled triangle
+//    other: automatic etc...
+//
+//  shunting signal:
+//    arrow instead of triangle
+//
+//
+//
+
+
 lazy_static! {
     pub static ref COLORNAMES :EnumMap<RailUIColorName, const_cstr::ConstCStr> = {
         enum_map! {
@@ -61,7 +105,7 @@ pub struct Config {
 #[derive(Serialize,Deserialize)]
 #[derive(Debug)]
 pub struct ConfigString {
-    pub colors :HashMap<String,String>,  // name -> hex color
+    pub colors :Vec<(String,String)>,  // name -> hex color
 }
 
 fn to_hex(c :Color) -> String {
@@ -108,12 +152,19 @@ impl Config {
         config
     }
 
+    pub fn save(&self) {
+        if let Err(e) = confy::store(env!("CARGO_PKG_NAME"), self.to_config_string()) {
+            error!("Could not save config file: {}", e);
+        }
+    }
+
 
     pub fn to_config_string(&self) ->  ConfigString {
-        let mut colors = HashMap::new();
+        let mut colors = Vec::new();
         unsafe {
             for (c,val) in self.colors.iter() {
-                colors.insert(std::str::from_utf8_unchecked(COLORNAMES[c].as_cstr().to_bytes()).to_string(), to_hex(*val));
+                colors.push((std::str::from_utf8_unchecked(COLORNAMES[c].as_cstr().to_bytes()).to_string(), 
+                             to_hex(*val)));
             }
         }
 

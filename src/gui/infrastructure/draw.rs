@@ -175,7 +175,7 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
                             ImDrawList_AddLine(draw.draw_list,
                                                draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
                                                draw.pos + inf_view.view.world_ptc_to_screen(*pt_b),
-                                               color_section, 3.5);
+                                               color_section, 7.0);
                         }
                     }
                 }
@@ -188,7 +188,7 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
                     ImDrawList_AddLine(draw.draw_list,
                                        draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
                                        draw.pos + inf_view.view.world_ptc_to_screen(*pt_b),
-                                       color_path, 6.0);
+                                       color_path, 10.0);
                 }
             }
         }
@@ -207,7 +207,7 @@ pub fn trains(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Dra
             ImDrawList_AddLine(draw.draw_list,
                                draw.pos + inf_view.view.world_ptc_to_screen(*p1),
                                draw.pos + inf_view.view.world_ptc_to_screen(*p2),
-                               color, 7.0);
+                               color, 10.0);
             }
         }
 
@@ -217,7 +217,7 @@ pub fn trains(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Dra
                 ImDrawList_AddLine(draw.draw_list,
                                    draw.pos + inf_view.view.world_ptc_to_screen(front),
                                    draw.pos + inf_view.view.world_ptc_to_screen(unround_coord(*pta)),
-                                   sight_color, 1.0);
+                                   sight_color, 2.0);
                 }
             }
         }
