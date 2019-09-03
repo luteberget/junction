@@ -34,6 +34,7 @@ pub struct Document {
     pub fileinfo :file::FileInfo,
     pub inf_view :InfView,
     pub dispatch_view :Option<DispatchView>,
+    pub time_multiplier :f64,
 }
 
 impl BackgroundUpdates for Document {
@@ -53,6 +54,7 @@ impl Document {
             fileinfo: file::FileInfo::empty(),
             inf_view: InfView::default(),
             dispatch_view: None,
+            time_multiplier: 15.0
         }
     }
 
@@ -128,6 +130,13 @@ pub enum PlanViewAction {
 }
 
 impl UpdateTime for DispatchView {
-    fn advance(&mut self, dt :f64) {}
+    fn advance(&mut self, dt :f64) {
+        match self {
+            DispatchView::Manual(m) |
+            DispatchView::Auto(AutoDispatchView { dispatch: Some(m), .. }) 
+                => { if m.play { m.time += dt; } },
+            _ => {},
+        }
+    }
 }
 
