@@ -252,7 +252,7 @@ fn interact_drawing(config :&Config, analysis :&mut Analysis, inf_view :&mut Inf
 }
 
 fn is_boundary_extension(analysis :&Analysis, p1 :Pt, p2 :Pt) -> Option<(Pt,Pt)> {
-    let locs = &analysis.data().topology.as_ref()?.locations;
+    let locs = &analysis.data().topology.as_ref()?.1.locations;
     match (locs.get(&p1), locs.get(&p2)) {
         (Some((NDType::OpenEnd, _)), None) => { return Some((p1,p2)); }
         _ => {},
@@ -470,7 +470,10 @@ fn start_route(analysis :&mut Analysis, dispatch_view :&mut Option<DispatchView>
         None | Some(DispatchView::Auto(_)) => {
             let dispatch_idx = model.dispatches.insert(Default::default());
             let time = 0.0;
-            *dispatch_view = Some(DispatchView::Manual(ManualDispatchView::new(dispatch_idx)));
+
+            let mut m = ManualDispatchView::new(dispatch_idx);
+            let autoplay = true; if autoplay { m.play = true; }
+            *dispatch_view = Some(DispatchView::Manual(m));
             (dispatch_idx,time)
         },
     };

@@ -160,8 +160,8 @@ pub fn command_icons(config :&Config, analysis :&Analysis,
     let mut action = None;
 
     let border_col = config.color_u32(RailUIColorName::GraphCommandBorder);
-    let il = analysis.data().interlocking.as_ref()?;
-    let dgraph = analysis.data().dgraph.as_ref()?;
+    let il = &analysis.data().interlocking.as_ref()?.1;
+    let dgraph = &analysis.data().dgraph.as_ref()?.1;
     let dispatch = &graphics.dispatch;
 
     let mut prev_y = -std::f32::INFINITY;

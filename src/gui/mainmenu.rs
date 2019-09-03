@@ -66,8 +66,7 @@ pub fn main_menu(app :&mut App) {
                 widgets::sep();
 
                 if igMenuItemBool(const_cstr!("Import from railML...").as_ptr(), std::ptr::null(), false, true) {
-                    //show.import.open();
-                    // TODO
+                    app.windows.import_window.open = true;
                 }
 
                 if igMenuItemBool(const_cstr!("Export to railML...").as_ptr(), std::ptr::null(), false, true) {

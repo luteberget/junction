@@ -19,7 +19,7 @@ use crate::config::RailUIColorName;
 
 
 pub fn node_editor(analysis :&mut Analysis, pt :Pt) -> Option<()> {
-    let (nd,_tangent) = analysis.data().topology.as_ref()?.locations.get(&pt)?;
+    let (nd,_tangent) = analysis.data().topology.as_ref()?.1.locations.get(&pt)?;
     unsafe {
     match nd {
         NDType::OpenEnd | NDType::BufferStop => {
@@ -97,7 +97,7 @@ pub fn object_menu(analysis :&mut Analysis, pta :PtA) -> Option<()> {
 
 pub fn route_selector(analysis :&mut Analysis, dispatch_view :&Option<DispatchView>, 
                       thing :Ref, preview :&mut Option<usize>) -> Option<Command> {
-    let il = analysis.data().interlocking.as_ref()?;
+    let il = &analysis.data().interlocking.as_ref()?.1;
     let routes = il.get_routes(thing)?;
 
     unsafe {

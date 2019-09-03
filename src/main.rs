@@ -4,6 +4,7 @@ pub mod document;
 pub mod file;
 pub mod gui;
 pub mod util;
+pub mod import;
 
 use log::*;
 use crate::app::*;
@@ -22,7 +23,7 @@ fn main() {
     let document = document::Document::empty(background_jobs.clone());
 
     // Additional windows are closed.
-    let windows = app::Windows::closed();
+    let windows = app::Windows::closed(background_jobs.clone());
 
     let mut app = app::App {
         document: document,
@@ -46,7 +47,7 @@ fn main() {
 
         // Check background threads for updates
         app.document.check();
-        // TODO app.windows.import.check();
+        app.windows.import_window.update();
         // TODO app.windows.synthesis.check()
 
         // Advance time in animations

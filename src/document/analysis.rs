@@ -17,17 +17,20 @@ use crate::document::plan;
 use std::sync::Arc;
 use nalgebra_glm as glm;
 
+pub type Generation = usize;
+
 #[derive(Default)]
 pub struct AnalysisOutput {
-    pub dgraph :Option<Arc<DGraph>>,
-    pub interlocking :Option<Arc<interlocking::Interlocking>>,
-    pub topology: Option<Arc<topology::Topology>>,
-    pub dispatch :Vec<Option<dispatch::DispatchOutput>>,
-    pub plandispatches :HashMap<usize, Vec<Option<dispatch::DispatchOutput>>>,
+    pub topology: Option<(Generation, Arc<topology::Topology>)>,
+    pub dgraph :Option<(Generation, Arc<DGraph>)>,
+    pub interlocking :Option<(Generation, Arc<interlocking::Interlocking>)>,
+    pub dispatch :Vec<Option<(Generation, dispatch::DispatchOutput)>>,
+    pub plandispatches :HashMap<usize, Vec<Option<(Generation, dispatch::DispatchOutput)>>>,
 }
 
 pub struct Analysis {
     pub model: Undoable<Model, EditClass>,
+    model_generation: Generation,
     pub output: AnalysisOutput,
     chan :Option<Receiver<SetData>>,
     bg :app::BackgroundJobs,
@@ -35,26 +38,26 @@ pub struct Analysis {
 
 #[derive(Debug)]
 pub enum SetData {
-    DGraph(Arc<DGraph>),
-    Interlocking(Arc<interlocking::Interlocking>),
-    Dispatch(usize,dispatch::DispatchOutput),
-    PlanDispatch(usize,usize,dispatch::DispatchOutput),
+    DGraph(Generation, Arc<DGraph>),
+    Interlocking(Generation, Arc<interlocking::Interlocking>),
+    Dispatch(Generation, usize,dispatch::DispatchOutput),
+    PlanDispatch(Generation, usize,usize,dispatch::DispatchOutput),
 }
 
 impl app::BackgroundUpdates for Analysis {
     fn check(&mut self) {
         while let Some(Ok(data)) = self.chan.as_mut().map(|r| r.try_recv()) {
             match data {
-                SetData::DGraph(dgraph) => { self.output.dgraph = Some(dgraph); },
-                SetData::Interlocking(il) => { self.output.interlocking = Some(il); },
-                SetData::Dispatch(idx,h) => { 
-                    self.output.dispatch.vecmap_insert(idx, h);
+                SetData::DGraph(g, dgraph) => { self.output.dgraph = Some((g, dgraph)); },
+                SetData::Interlocking(g, il) => { self.output.interlocking = Some((g, il)); },
+                SetData::Dispatch(g, idx,h) => { 
+                    self.output.dispatch.vecmap_insert(idx, (g, h));
                     //cache.clear_dispatch(idx);
                 },
-                SetData::PlanDispatch(plan_idx,dispatch_idx,h) => {
+                SetData::PlanDispatch(g, plan_idx,dispatch_idx,h) => {
                     self.output.plandispatches.entry(plan_idx)
                         .or_insert(Vec::new())
-                        .vecmap_insert(dispatch_idx, h);
+                        .vecmap_insert(dispatch_idx, (g, h));
                 },
             }
         }
@@ -68,19 +71,23 @@ impl Analysis {
     pub fn from_model(model :Model, bg: app::BackgroundJobs) -> Self {
         Analysis {
             model: Undoable::from(model),
+            model_generation: 0,
             output: Default::default(),
             chan: None,
             bg: bg,
         }
     }
 
-    pub(super) fn update(&mut self) {
+    fn update(&mut self) {
         let model = self.model.get().clone(); // persistent structs
+        let gen = self.model_generation;
+
         let topology = Arc::new(topology::convert(&model, 50.0).unwrap());
-        self.output.topology = Some(topology.clone());
+        self.output.topology = Some((gen,topology.clone()));
 
         let (tx,rx) = channel();
         self.chan = Some(rx);
+
         self.bg.execute(move || {
             info!("Background thread starting");
             let model = model;  // move model into thread
@@ -92,7 +99,7 @@ impl Analysis {
 
             info!("Dgraph successful with {:?} nodes", dgraph.rolling_inf.nodes.len());
 
-            let send_ok = tx.send(SetData::DGraph(dgraph.clone()));
+            let send_ok = tx.send(SetData::DGraph(gen, dgraph.clone()));
             if !send_ok.is_ok() { println!("job canceled after dgraph"); return; }
             // if tx fails (channel is closed), we don't need 
             // to proceed to next step. Also, there is no harm
@@ -104,7 +111,7 @@ impl Analysis {
             let interlocking = interlocking::calc(&dgraph); 
             let interlocking = Arc::new(interlocking);
                 // calc interlocking from dgraph
-            let send_ok = tx.send(SetData::Interlocking(interlocking.clone()));
+            let send_ok = tx.send(SetData::Interlocking(gen, interlocking.clone()));
             if !send_ok.is_ok() { println!("job canceled after interlocking"); return; }
             info!("Interlocking successful with {:?} routes", interlocking.routes.len());
 
@@ -116,7 +123,7 @@ impl Analysis {
                                                    &(dispatch.commands)).unwrap();
                 info!("Simulation successful {:?}", &dispatch.commands);
                 let view = dispatch::DispatchOutput::from_history(dispatch.clone(), &dgraph, history);
-                let send_ok = tx.send(SetData::Dispatch(*i, view));
+                let send_ok = tx.send(SetData::Dispatch(gen, *i, view));
                 if !send_ok.is_ok() { println!("job canceled after dispatch"); return; }
             }
 
@@ -134,7 +141,7 @@ impl Analysis {
                                          &d.commands).unwrap(); // TODO UNWRAP?
                     info!("Planned simulation successful");
                     let view = dispatch::DispatchOutput::from_history(d.clone(), &dgraph, history);
-                    let send_ok = tx.send(SetData::PlanDispatch(*plan_idx, dispatch_idx, view));
+                    let send_ok = tx.send(SetData::PlanDispatch(gen, *plan_idx, dispatch_idx, view));
                     if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}/{}", 
                                                    plan_idx, dispatch_idx); }
                 }
@@ -166,6 +173,7 @@ impl Analysis {
     fn on_changed(&mut self) {
         // TODO 
         // kself.fileinfo.set_unsaved();
+        self.model_generation += 1;
         self.update();
     }
 
@@ -175,7 +183,7 @@ impl Analysis {
         for (a,b) in self.model().get_linesegs_in_rect(a,b) {
             r.push(Ref::LineSeg(a,b));
         }
-        if let Some(topo) = self.data().topology.as_ref() {
+        if let Some((_,topo)) = self.data().topology.as_ref() {
             for (pt,_) in topo.locations.iter() {
                 if util::in_rect(glm::vec2(pt.x as f32,pt.y as f32), a,b) {
                     r.push(Ref::Node(*pt));
@@ -217,7 +225,7 @@ impl Analysis {
     pub fn get_closest_node(&self, pt :PtC) -> Option<(Pt,f32)> {
         let (mut thing, mut dist_sqr) = (None, std::f32::INFINITY);
         for p in corners(pt) {
-            for (px,_) in self.data().topology.as_ref()?.locations.iter() {
+            for (px,_) in self.data().topology.as_ref()?.1.locations.iter() {
                 if &p == px {
                     let d = glm::length2(&(pt-glm::vec2(p.x as f32,p.y as f32)));
                     if d < dist_sqr {

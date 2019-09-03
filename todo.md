@@ -12,8 +12,8 @@
 ## minor
 * x  rename to junction
 * x  hotkeys (save,load)
-* save/load config / colors
-* better color defaults
+* x save/load config / colors
+* x better color defaults
 * change fonts+size
 * save/load with extension .junc
 
@@ -25,18 +25,18 @@
          or only rep.balise
   * ertms?
   * train starting velocity for concrete dispatch
+  * velocity signs / restrictions
 
 * mileage reversed detection / fix
 * X undo classification (avoid excessive undos)
 * track lengths
-* velocity signs / restrictions
 * mileages on nodes / objects
 * pos on objects
 * specify signal sight distance, warn if not attainable because of facing switches
 * gradient (radius?)
 
 * X rename node references in model when "extending" boundary node
-*   rename object references in model when moving objects.
+* X rename object references in model when moving objects.
 
 ## interlocking
 * inspectable interlocking

@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use log::*;
 use matches::*;
 use const_cstr::const_cstr;
-use crate::model;
-use crate::model::Model;
-use crate::model::Pt;
-use crate::viewmodel::ViewModel;
+use crate::document::model::*;
+use crate::document::model;
+use crate::document::analysis::*;
 use crate::file;
-use crate::ui;
+use crate::app::*;
+use crate::gui::widgets;
 use std::sync::mpsc;
 
 pub enum ImportError {
@@ -18,11 +18,11 @@ pub struct ImportWindow {
     pub open :bool,
     state :ImportState,
     thread :Option<mpsc::Receiver<ImportState>>,
-    thread_pool :threadpool::ThreadPool,
+    thread_pool :BackgroundJobs,
 }
 
 impl ImportWindow {
-    pub fn new(thread_pool :threadpool::ThreadPool) -> Self {
+    pub fn new(thread_pool :BackgroundJobs) -> Self {
         ImportWindow {
             open: false,
             state: ImportState::ChooseFile,
@@ -52,7 +52,8 @@ impl ImportWindow {
         }
     }
 
-    pub fn draw(&mut self, doc :&mut ViewModel) {
+    pub fn draw(&mut self, doc :&mut Analysis) {
+        if !self.open { return; }
         use backend_glfw::imgui::*;
         unsafe {
         igBegin(const_cstr!("Import from railML file").as_ptr(), &mut self.open as _, 0 as _);
@@ -70,16 +71,12 @@ impl ImportWindow {
 
             ImportState::Available(model) => {
                 if igButton(const_cstr!("Import").as_ptr(), ImVec2 { x: 80.0, y: 0.0 }) {
-                    *doc = ViewModel::new(
-                        model::Undoable::from(model.clone()), 
-                        file::FileInfo::empty(), 
-                        self.thread_pool.clone()
-                    );  
-                    doc.fileinfo.set_unsaved();
+                    *doc = Analysis::from_model( model.clone(), self.thread_pool.clone());  
+                    //doc.fileinfo.set_unsaved();
                     self.close();
                 }
             },
-            _ => { ui::show_text("Running solver"); }, // TODO
+            _ => { widgets::show_text("Running solver"); }, // TODO
         }
 
         igEnd();

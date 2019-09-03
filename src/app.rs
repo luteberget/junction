@@ -1,6 +1,7 @@
 use crate::document::Document;
 use crate::config::Config;
 use crate::gui::windows::logview::LogStore;
+use crate::import;
 
 pub struct App {
     pub document :Document,
@@ -32,10 +33,11 @@ pub struct Windows {
     pub quit: bool,
     pub vehicles: bool,
     pub diagram_split :Option<f32>,
+    pub import_window :import::ImportWindow,
 }
 
 impl Windows {
-    pub fn closed() -> Self {
+    pub fn closed(bg :BackgroundJobs) -> Self {
         Windows {
             config :false,
             debug: false,
@@ -43,6 +45,7 @@ impl Windows {
             quit: false,
             vehicles: false,
             diagram_split: None,
+            import_window: import::ImportWindow::new(bg),
         }
     }
 }

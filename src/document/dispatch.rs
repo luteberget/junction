@@ -64,27 +64,30 @@ impl DispatchOutput {
 pub type DispatchRef = (Result<usize, (usize,usize)>, f32);
 #[derive(Debug)]
 pub struct InstantCache {
-    cached : Option<(DispatchRef, Instant)>,
+    cached : Option<(Generation, DispatchRef, Instant)>,
 }
 
 impl InstantCache {
     pub fn new() -> Self { InstantCache { cached: None } }
     
     pub fn update(&mut self, analysis :&Analysis, r:DispatchRef) -> Option<()> {
-        if self.cached.as_ref().map(|x| &x.0) == Some(&r) { return Some(()); }
+        let (dgraph_gen,dgraph) = analysis.data().dgraph.as_ref()?;
         let (d,time) = r;
-        let dgraph = analysis.data().dgraph.as_ref()?;
-        let dispatch = match d {
+        let (dispatch_gen, dispatch) = match d {
             Ok(d) => analysis.data().dispatch.get(d)?.as_ref()?,
             Err((p,d)) => analysis.data().plandispatches.get(&p)?.get(d)?.as_ref()?,
         };
-        self.cached = Some(((d, time), Instant::from(time, &dispatch.history, dgraph)));
+        let cached_gen = self.cached.as_ref().map(|x| &x.0);
+        let cached_ref = self.cached.as_ref().map(|x| &x.1);
+        if Some(dgraph_gen) != cached_gen || Some(dispatch_gen) != cached_gen || Some(&r) != cached_ref {
+            self.cached = Some((*dispatch_gen, (d, time), Instant::from(time, &dispatch.history, dgraph)));
+        }
         Some(())
     }
 
     pub fn get<'a>(&'a self, q :DispatchRef) -> Option<&'a Instant> {
         match &self.cached {
-            Some((d,v)) if d == &q => Some(&v),
+            Some((_g, d,v)) if d == &q => Some(&v),
             _ => None,
         }
     }

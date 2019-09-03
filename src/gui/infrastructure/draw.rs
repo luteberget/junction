@@ -54,7 +54,7 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
 
         let color_node = config.color_u32(RailUIColorName::CanvasNode);
         let color_node_selected = config.color_u32(RailUIColorName::CanvasNodeSelected);
-        if let Some(topo) = d.topology.as_ref() {
+        if let Some((_gen,topo)) = d.topology.as_ref() {
             use nalgebra_glm::{vec2, rotate_vec2, radians, vec1, normalize};
             for (pt0,(t,vc)) in &topo.locations {
                 let selected = inf_view.selection.contains(&Ref::Node(*pt0));
@@ -161,8 +161,8 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
 
 pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Draw, route_idx :usize) -> Option<()> { 
     unsafe {
-        let il = analysis.data().interlocking.as_ref()?;
-        let dgraph = analysis.data().dgraph.as_ref()?;
+        let il = &analysis.data().interlocking.as_ref()?.1;
+        let dgraph = &analysis.data().dgraph.as_ref()?.1;
         let RouteInfo { route, path, ..} = &il.routes[route_idx];
         let color_path = config.color_u32(RailUIColorName::CanvasRoutePath);
         let color_section = config.color_u32(RailUIColorName::CanvasRouteSection);

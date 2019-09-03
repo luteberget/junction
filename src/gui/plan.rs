@@ -608,7 +608,7 @@ fn good_location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_vis
     match loc {
         Ok(Ref::Node(pt))  => {
             // assume a node here.
-            let (nctype,vc) = vm.data().topology.as_ref().ok_or(())?
+            let (nctype,vc) = vm.data().topology.as_ref().ok_or(())?.1
                 .locations.get(pt).ok_or(())?;
 
             match nctype {

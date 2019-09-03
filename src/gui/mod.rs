@@ -1,4 +1,4 @@
-mod widgets;
+pub mod widgets;
 mod mainmenu;
 mod keys;
 pub mod windows;
@@ -64,6 +64,8 @@ pub fn main(app :&mut App) -> bool {
     app.windows.debug = windows::debug::debug_window(app.windows.debug, &app);
     windows::vehicles::edit_vehicles_window(&mut app.windows.vehicles, &mut app.document);
     windows::config::edit_config_window(&mut app.windows.config, &mut app.config);
+
+    app.windows.import_window.draw(&mut app.document.analysis);
 
     // Quit dialog
     let really_quit = if app.windows.quit {

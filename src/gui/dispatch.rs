@@ -21,7 +21,7 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
     match dv {
         DispatchView::Manual(manual) => {
             let graph = analysis.data().dispatch.vecmap_get(manual.dispatch_idx);
-            if let Some(graph) = graph {
+            if let Some((_gen,graph)) = graph {
                 if let Some(action) = diagram_view(config, analysis, manual, graph) {
                     analysis.edit_model(|m| {
                         match action {
@@ -48,7 +48,7 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
             if let Some(manual) = &mut auto.dispatch {
                 let graph = analysis.data().plandispatches.get(&auto.plan_idx)
                     .and_then(|p| p.vecmap_get(manual.dispatch_idx));
-                if let Some(graph) = graph {
+                if let Some((_gen,graph)) = graph {
                     diagram_view(config, analysis, manual, graph);
                 }
             }
