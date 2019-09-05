@@ -12,6 +12,7 @@ mod optimize;
 mod reduce;
 mod add;
 
+#[derive(Debug)]
 pub enum FullSynMsg {
     S(String),
     TryingSignalSet(),
@@ -19,12 +20,14 @@ pub enum FullSynMsg {
 }
 
 pub struct SynthesisBackground<'a> {
-    topo :&'a Topology,
-    plans :&'a [PlanSpec],
-    vehicles :&'a [Vehicle],
+    pub topo :&'a Topology,
+    pub plans :&'a [PlanSpec],
+    pub vehicles :&'a [(usize,Vehicle)],
 }
 
+#[derive(Debug)]
 pub enum SynErr { Aborted }
+
 pub type Design = Vec<Object>;
 pub type Object = (usize,f64,Function,Option<AB>);
 

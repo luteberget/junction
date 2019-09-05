@@ -4,6 +4,7 @@ use log::*;
 
 use crate::app::*;
 use crate::document::Document;
+use crate::gui;
 use crate::file;
 use crate::gui::widgets;
 
@@ -85,6 +86,16 @@ pub fn main_menu(app :&mut App) {
                 if igMenuItemBool(const_cstr!("Edit vehicles").as_ptr(), 
                                   std::ptr::null(), app.windows.vehicles, true) {
                     app.windows.vehicles = !app.windows.vehicles;
+                }
+                if igMenuItemBool(const_cstr!("Signal designer").as_ptr(), 
+                                  std::ptr::null(), app.windows.synthesis_window.is_some(), true) {
+                    if app.windows.synthesis_window.is_none() {
+                        let model = app.document.analysis.model().clone();
+                        let bg = app.background_jobs.clone();
+                        app.windows.synthesis_window = 
+                            Some(gui::windows::synthesis::SynthesisWindow::new(model, bg));
+
+                    }
                 }
                 igEndMenu();
             }

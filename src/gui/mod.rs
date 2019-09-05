@@ -66,6 +66,8 @@ pub fn main(app :&mut App) -> bool {
     windows::config::edit_config_window(&mut app.windows.config, &mut app.config);
 
     app.windows.import_window.draw(&mut app.document.analysis);
+    if let Some(win) = &mut app.windows.synthesis_window { if !win.draw(&mut app.document.analysis) {
+        app.windows.synthesis_window = None; }}
 
     // Quit dialog
     let really_quit = if app.windows.quit {

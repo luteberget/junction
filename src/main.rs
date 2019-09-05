@@ -50,7 +50,7 @@ fn main() {
         // Check background threads for updates
         app.document.check();
         app.windows.import_window.update();
-        // TODO app.windows.synthesis.check()
+        if let Some(win) = &mut app.windows.synthesis_window { win.check(); }
 
         // Advance time in animations
 		let dt = unsafe { (*backend_glfw::imgui::igGetIO()).DeltaTime } as f64;

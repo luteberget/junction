@@ -2,6 +2,7 @@ use crate::document::Document;
 use crate::config::Config;
 use crate::gui::windows::logview::LogStore;
 use crate::import;
+use crate::gui;
 
 pub struct App {
     pub document :Document,
@@ -34,6 +35,7 @@ pub struct Windows {
     pub vehicles: bool,
     pub diagram_split :Option<f32>,
     pub import_window :import::ImportWindow,
+    pub synthesis_window :Option<gui::windows::synthesis::SynthesisWindow>,
 }
 
 impl Windows {
@@ -44,8 +46,11 @@ impl Windows {
             log: false,
             quit: false,
             vehicles: false,
+
             diagram_split: None,
+
             import_window: import::ImportWindow::new(bg),
+            synthesis_window: None,
         }
     }
 }
