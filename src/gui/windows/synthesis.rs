@@ -1,3 +1,4 @@
+use ordered_float::OrderedFloat;
 use const_cstr::*;
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -16,8 +17,30 @@ pub struct SynthesisWindow {
 }
 
 fn add_objects(analysis :&mut Analysis, objs :&Design) {
+    use crate::document::topology;
+    let mut model = analysis.model().clone();
+    let topo = topology::convert(&model, 50.0).unwrap();
     for (track_idx, pos, func, dir) in objs.iter() {
+        let sideways = match dir {
+            None => 0.0,
+            Some(AB::A) => 0.01,
+            Some(AB::B) => -0.01,
+        };
+
+        let (pt,normal) = loc_on_track(&topo.interval_lines, *track_idx, *pos);
+
+        let obj = unimplemented!(); // Object { };
+
+        //obj.move_to(pt + sideways*tangent);
+
+
     }
+
+    analysis.set_model(model, None);
+}
+
+fn loc_on_track(interval_lines :&Vec<Vec<(OrderedFloat<f64>, PtC)>>, track_idx :usize, l :f64) -> (PtC, Pt) {
+  unimplemented!()
 }
 
 impl SynthesisWindow {
