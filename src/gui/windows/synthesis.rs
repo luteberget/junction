@@ -1,3 +1,4 @@
+use nalgebra_glm as glm;
 use ordered_float::OrderedFloat;
 use const_cstr::*;
 use std::sync::mpsc;
@@ -6,6 +7,8 @@ use std::sync::Arc;
 use crate::gui::widgets;
 use crate::document::model::*;
 use crate::document::analysis::*;
+use crate::document::objects;
+use crate::document::infview::round_coord;
 use crate::synthesis::*;
 use crate::app::*;
 
@@ -27,20 +30,30 @@ fn add_objects(analysis :&mut Analysis, objs :&Design) {
             Some(AB::B) => -0.01,
         };
 
-        let (pt,normal) = loc_on_track(&topo.interval_lines, *track_idx, *pos);
-
-        let obj = unimplemented!(); // Object { };
-
-        //obj.move_to(pt + sideways*tangent);
-
-
+        let (pt,tangent) = loc_on_track(&topo.interval_lines, *track_idx, *pos);
+        let normal = glm::vec2(tangent.y, -tangent.x);
+        let mut obj = objects::Object {
+            loc: pt, 
+            tangent: glm::vec2(tangent.x.round() as _, tangent.y.round() as _),
+            functions: vec![*func],
+        };
+        obj.move_to(&model, pt + sideways*glm::vec2(normal.x as f32, normal.y as f32));
+        model.objects.insert(round_coord(obj.loc), obj);
     }
 
     analysis.set_model(model, None);
 }
 
-fn loc_on_track(interval_lines :&Vec<Vec<(OrderedFloat<f64>, PtC)>>, track_idx :usize, l :f64) -> (PtC, Pt) {
-  unimplemented!()
+fn loc_on_track(interval_lines :&Vec<Vec<(OrderedFloat<f64>, PtC)>>, track_idx :usize, l :f64) -> (PtC, PtC) {
+    let lines = &interval_lines[track_idx];
+    for ((OrderedFloat(l_a),p_a),(OrderedFloat(l_b),p_b)) in lines.iter().zip(lines.iter().skip(1)) {
+        if *l_a <= l && l <= *l_b {
+            let pt = glm::lerp(p_a,p_b,((l - l_a)/(l_b - l_a)) as f32);
+            let tangent = p_b - p_a;
+            return (pt,tangent);
+        }
+    }
+    panic!()
 }
 
 impl SynthesisWindow {

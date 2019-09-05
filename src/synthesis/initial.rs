@@ -8,7 +8,7 @@ use crate::synthesis::*;
 pub fn initial_design(topo :&Topology) -> Design {
 
     let stock_length = 23.0;
-    let fouling_length = 50.0;
+    let fouling_length = 51.0;
     let overlap_lengths = vec![0.0, 150.0];
 
     let mut objects = Vec::new();
@@ -27,9 +27,11 @@ pub fn initial_design(topo :&Topology) -> Design {
                 Port::Trunk => { // set a detector at the stock
                     try_add(pos_fn(stock_length), Function::Detector, None); }, //
                 Port::Left | Port::Right => { // set a signal and detector at each overlap length
-                    try_add(pos_fn(fouling_length), Function::Detector, None); 
-                    let sig = Function::MainSignal { has_distant: true };
-                    try_add(pos_fn(fouling_length), sig, Some(*dir)); 
+                    for overlap_length in &overlap_lengths {
+                        try_add(pos_fn(fouling_length + overlap_length), Function::Detector, None); 
+                        let sig = Function::MainSignal { has_distant: true };
+                        try_add(pos_fn(fouling_length + overlap_length), sig, Some(*dir)); 
+                    }
                 },
 
                 _ => {}, // TODO crossings
