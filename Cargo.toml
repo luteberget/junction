@@ -17,6 +17,7 @@ num-derive = "0.2"
 num-traits = "0.2"
 palette = { version = "0.4", features = ["serde"] }
 enum-map = { version = "0.6", features = ["serde"] }
+boolinator = "2.4"
 
 im = { version = "13.0", features = ["serde"] }
 nalgebra = { version = "0.18", features = ["serde-serialize"] }
@@ -38,4 +39,5 @@ lsqr = { path = "../lsqr-rs" }
 
 railplotlib = { path = "../railplot/lib/railplotlib" }
 railmlio = { path = "lib/railmlio" }
+numerical_optimization = { path = "lib/numerical_optimization" }
 

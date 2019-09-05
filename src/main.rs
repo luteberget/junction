@@ -1,10 +1,12 @@
-pub mod app;
-pub mod config;
-pub mod document;
-pub mod file;
-pub mod gui;
-pub mod util;
-pub mod import;
+mod app;
+mod config;
+mod document;
+mod file;
+mod gui;
+mod util;
+mod import;
+
+mod synthesis;
 
 use log::*;
 use crate::app::*;
