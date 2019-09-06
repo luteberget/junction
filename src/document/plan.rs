@@ -11,7 +11,7 @@ pub enum ConvertPlanErr {
 
 
 pub fn get_dispatches(il :&Interlocking, 
-                      vehicles :&ImShortGenList<Vehicle>,
+                      vehicles :&[(usize,Vehicle)],
                       plan :&PlanSpec,
                       ) -> Result<Vec<Dispatch>, String> {
 
@@ -95,7 +95,7 @@ fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan,
 }
 
 
-fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infrastructure {
+pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infrastructure {
 
     let mut partial_routes = HashMap::new();
     let mut elementary_routes = Vec::new();
@@ -194,13 +194,14 @@ fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infrastru
 }
 
 
-fn convert_plan(il :&Interlocking, 
-                    vehicles :&ImShortGenList<Vehicle>, 
+pub fn convert_plan(il :&Interlocking, 
+                    vehicles :&[(usize,Vehicle)], 
                     plan :&PlanSpec) -> Result<planner::input::Usage, ConvertPlanErr> {
 
     let mut trains = HashMap::new();
     for (t_id,(vehicle_id,visits)) in plan.trains.iter() {
-        let vehicle = vehicles.get(vehicle_id.ok_or(ConvertPlanErr::VehicleRefMissing)?)
+        let vehicle_id = vehicle_id.ok_or(ConvertPlanErr::VehicleRefMissing)?;
+        let vehicle = vehicles.iter().find(|(i,v)| *i == vehicle_id).map(|(i,v)| v)
             .ok_or(ConvertPlanErr::VehicleMissing)?;
         let mut planner_visits :Vec<HashSet<usize>> = Vec::new();
         for (visit_i, (visit_id, Visit { locs, dwell})) in visits.iter().enumerate() {

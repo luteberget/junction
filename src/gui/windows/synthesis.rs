@@ -118,7 +118,7 @@ impl SynthesisWindow {
             let plans = model.plans.iter().map(|(_id,p)| p).cloned().collect::<Vec<_>>();
             let vehicles = model.vehicles.iter().cloned().collect::<Vec<_>>();
 
-            full_synthesis(&SynthesisBackground { topo: &topo, plans: &plans, vehicles: &vehicles }, 
+            full_synthesis(&SynthesisBackground { topology: &topo, plans: &plans, vehicles: &vehicles }, 
                            |msg| tx.send(msg).is_ok()).unwrap(); // TODO unwrap?
         });
     }

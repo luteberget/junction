@@ -94,7 +94,7 @@ impl Analysis {
             let tx = tx;        // move sender into thread
 
             //let dgraph = dgraph::calc(&model); // calc dgraph from model.
-            let dgraph = DGraphBuilder::convert(&model,&topology).expect("dgraph conversion failed");
+            let dgraph = DGraphBuilder::convert(&topology).expect("dgraph conversion failed");
             let dgraph = Arc::new(dgraph);
 
             info!("Dgraph successful with {:?} nodes", dgraph.rolling_inf.nodes.len());
@@ -117,7 +117,7 @@ impl Analysis {
 
             for (i,dispatch) in model.dispatches.iter() {
                 //let history = dispatch::run(&dgraph, &interlocking, &dispatch);
-                let (history,route_refs) = history::get_history(&model.vehicles,
+                let (history,route_refs) = history::get_history(model.vehicles.data(),
                                                    &dgraph.rolling_inf,
                                                    &interlocking,
                                                    &(dispatch.commands)).unwrap();
@@ -129,13 +129,13 @@ impl Analysis {
 
             for (plan_idx,plan) in model.plans.iter() {
                 let dispatches = plan::get_dispatches(&interlocking,
-                                             &model.vehicles,
+                                             model.vehicles.data(),
                                              plan).unwrap();
 
                 info!("Planning successful. {:?}", dispatches);
 
                 for (dispatch_idx,d) in dispatches.into_iter().enumerate() {
-                    let (history, route_refs) = history::get_history(&model.vehicles,
+                    let (history, route_refs) = history::get_history(model.vehicles.data(),
                                          &dgraph.rolling_inf,
                                          &interlocking,
                                          &d.commands).unwrap(); // TODO UNWRAP?

@@ -4,8 +4,17 @@ pub use rolling::output::history::History;
 use crate::document::model::*;
 use crate::document::interlocking::*;
 
+pub fn convert_vehicle(vehicle :&Vehicle) -> rolling::railway::dynamics::TrainParams {
+    rolling::railway::dynamics::TrainParams {
+        length: vehicle.length as _,
+        max_acc: vehicle.max_acc as _,
+        max_brk: vehicle.max_brk as _,
+        max_vel: vehicle.max_vel as _,
+    }
+}
+
 pub type RouteRefs = Vec<(f32,usize)>;
-pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>, 
+pub fn get_history<'a>(vehicles :&[(usize,Vehicle)], 
                    inf :&rolling_inf::StaticInfrastructure, 
                    il :&Interlocking,
                    commands :&[(usize, (f64, Command))]) -> Result<(History, RouteRefs) , String> {
@@ -36,7 +45,7 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
             Command::Train(vehicle, routespec) => {
                 if let Some(route_idx) = il.find_route(routespec) {
                     // get train params
-                    let vehicle = vehicles.get(*vehicle).cloned().unwrap_or(Vehicle {
+                    let vehicle = vehicles.iter().find(|(i,v)| i == vehicle).map(|(i,v)| v).cloned().unwrap_or(Vehicle {
                         name :format!("Default train"),
                         length: 210.0,
                         max_acc: 0.95,
@@ -44,12 +53,7 @@ pub fn get_history<'a>(vehicles :&ImShortGenList<Vehicle>,
                         max_vel: 180.0 / 3.6, // 180 km/h in m/s
                     });
 
-                    let train_params = rolling::railway::dynamics::TrainParams {
-                        length: vehicle.length as _,
-                        max_acc: vehicle.max_acc as _,
-                        max_brk: vehicle.max_brk as _,
-                        max_vel: vehicle.max_vel as _,
-                    };
+                    let train_params = convert_vehicle(&vehicle);
 
                     // just make some name for now
                     let name = format!("train{}", train_no+1);

@@ -56,33 +56,33 @@ pub fn calc(dgraph :&DGraph) -> Interlocking {
         let from = match route.entry {
             rolling_inf::RouteEntryExit::Boundary(Some(boundary)) => {
                 // Boundary is a NodeId, which should be tied to a Pt in the Dgraph
-                if let Some(pt) = dgraph.node_ids.get(&boundary) {
+                if let Some(pt) = dgraph.node_ids.get_by_left(&boundary) {
                     boundary_routes.entry(*pt).or_insert(Vec::new()).push(route_idx);
                 }
 
-                Ref::Node(dgraph.node_ids[&boundary])
+                Ref::Node(*dgraph.node_ids.get_by_left(&boundary).unwrap())
             },
             rolling_inf::RouteEntryExit::Signal(signal) |
             rolling_inf::RouteEntryExit::SignalTrigger { signal , .. } => {
-                if let Some(pta) = dgraph.object_ids.get(&signal) {
+                if let Some(pta) = dgraph.object_ids.get_by_left(&signal) {
                     signal_routes.entry(*pta).or_insert(Vec::new()).push(route_idx);
                 }
 
-                Ref::Object(dgraph.object_ids[&signal])
+                Ref::Object(*dgraph.object_ids.get_by_left(&signal).unwrap())
             },
             _ => panic!(), // TODO is Boundary(None)  relevant?
         };
 
         let to = match route.exit {
             rolling_inf::RouteEntryExit::Boundary(Some(boundary)) => {
-                if let Some(pt) = dgraph.node_ids.get(&boundary) {
+                if let Some(pt) = dgraph.node_ids.get_by_left(&boundary) {
                     boundary_out_routes.entry(*pt).or_insert(Vec::new()).push(route_idx);
                 }
-                Ref::Node(dgraph.node_ids[&boundary])
+                Ref::Node(*dgraph.node_ids.get_by_left(&boundary).unwrap())
             },
             rolling_inf::RouteEntryExit::Signal(signal) |
             rolling_inf::RouteEntryExit::SignalTrigger { signal , .. } => {
-                Ref::Object(dgraph.object_ids[&signal])
+                Ref::Object(*dgraph.object_ids.get_by_left(&signal).unwrap())
             },
             _ => panic!(), // TODO is Boundary(None)  relevant?
         };

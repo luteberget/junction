@@ -81,6 +81,22 @@ pub enum NDType { OpenEnd, BufferStop, Cont, Sw(Side), Crossing(CrossingType), E
 pub enum Port { End, ContA, ContB, Left, Right, Trunk, Err, Cross(AB,usize) }
 // Crossing has AB as different sides of opposing ports, and usize as the different pairs of edges
 
+impl Port {
+    pub fn is_opposite(&self, other: &Port) -> bool {
+        match (self,other) {
+            (Port::ContA, Port::ContB) => true,
+            (Port::ContB, Port::ContA) => true,
+            (Port::Left, Port::Trunk) => true,
+            (Port::Right, Port::Trunk) => true,
+            (Port::Trunk, Port::Left) => true,
+            (Port::Trunk, Port::Right) => true,
+            (Port::Cross(a,n),(Port::Cross(b,m))) => n == m && a != b,
+            _ => false,
+        }
+    }
+}
+
+
 #[derive(Debug,Copy,Clone,PartialEq,Eq,Hash)]
 pub enum AB { A, B }
 
@@ -89,6 +105,13 @@ impl AB {
         match self {
             AB::A => AB::B,
             AB::B => AB::A,
+        }
+    }
+
+    pub fn factor(&self) -> f64 {
+        match self {
+            AB::A =>  1.0,
+            AB::B => -1.0,
         }
     }
 }
@@ -182,6 +205,10 @@ pub struct ShortGenList<T> {
 pub struct ImShortGenList<T>(Arc<ShortGenList<T>>);
 
 impl<T :Clone> ImShortGenList<T> {
+    pub fn data(&self) -> &[(usize,T)] {
+        &self.0.list
+    }
+
     pub fn insert(&mut self, t :T) -> ListId {
         let pos = self.0.list.len();
         self.insert_at(pos, t)

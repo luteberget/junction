@@ -2,6 +2,7 @@ use nalgebra::DVector;
 use log::*;
 use crate::brent::*;
 
+#[derive(Debug)]
 pub enum PowellErr {
     InvalidInitialPoint,
 }
@@ -37,7 +38,8 @@ fn unit_box_parameter_bounds(point :&DVector<f64>, vector :&DVector<f64>) -> (f6
 }
 
 pub fn powell_optimize_unit(initial_point :DVector<f64>,
-                            mut point_cost :impl FnMut(&DVector<f64>) -> f64) -> Result<DVector<f64>,PowellErr> {
+                            mut point_cost :impl FnMut(&DVector<f64>) -> f64) 
+    -> Result<(f64, DVector<f64>),PowellErr> {
     trace!("Powell optimize unit start");
 
     let cost_improvement_threshold = 0.1;
@@ -95,7 +97,7 @@ pub fn powell_optimize_unit(initial_point :DVector<f64>,
         }
     }
 
-    Ok(powell_point)
+    Ok((powell_cost, powell_point))
 }
 
 

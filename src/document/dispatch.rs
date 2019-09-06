@@ -388,7 +388,7 @@ pub fn draw_infrastructure(time :f64, history :&History, dgraph :&DGraph) -> Inf
         match infevent {
             InfrastructureLogEvent::Wait(dt) => { t += dt; if t > time { break; } },
             InfrastructureLogEvent::Authority(sig_d,(main,dist)) => {
-                if let Some(pta) = dgraph.object_ids.get(sig_d) {
+                if let Some(pta) = dgraph.object_ids.get_by_left(sig_d) {
                     let state = vec![
                         if main.is_some() { ObjectState::SignalProceed } else { ObjectState::SignalStop },
                         if dist.is_some() { ObjectState::DistantProceed } else { ObjectState::DistantStop },
@@ -467,7 +467,7 @@ pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<TrainIns
                 },
                 TrainLogEvent::Wait(dt) => { t += dt; },
                 TrainLogEvent::Sight(id, value) => {
-                    let pta = dgraph.object_ids[id];
+                    let pta = *dgraph.object_ids.get_by_left(id).unwrap();
                     if *value { sighted.insert(pta); } else { sighted.remove(&pta); }
                 },
                 _ => {},

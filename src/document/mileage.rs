@@ -1,3 +1,4 @@
+use bimap::BiMap;
 use std::collections::{HashMap, HashSet};
 use matches::matches;
 use rolling::input::staticinfrastructure::*;
@@ -5,14 +6,14 @@ use petgraph::unionfind::UnionFind;
 use crate::document::model::Pt;
 
 
-fn take_boundary(node_ids :&HashMap<NodeId, Pt>, boundaries :&mut HashSet<NodeId>) -> Option<NodeId> {
-    if let Some(id) = boundaries.iter().min_by_key(|n| { node_ids.get(n).map(|pt| (pt.x,-pt.y)).unwrap_or((10000,0)) }) {
+fn take_boundary(node_ids :&BiMap<NodeId, Pt>, boundaries :&mut HashSet<NodeId>) -> Option<NodeId> {
+    if let Some(id) = boundaries.iter().min_by_key(|n| { node_ids.get_by_left(n).map(|pt| (pt.x,-pt.y)).unwrap_or((10000,0)) }) {
         let id = *id;
         boundaries.take(&id)
     } else { None }
 }
 
-pub fn auto(node_ids :&HashMap<NodeId,Pt>, inf :&StaticInfrastructure) -> HashMap<NodeId, f64> {
+pub fn auto(node_ids :&BiMap<NodeId,Pt>, inf :&StaticInfrastructure) -> HashMap<NodeId, f64> {
     let mut boundaries : HashSet<NodeId> = inf.nodes.iter().enumerate().filter_map(|(i,n)| {
         if matches!(n.edges, Edges::ModelBoundary) { Some(i) } else { None } }).collect();
     // TODO select leftmost boundaries first

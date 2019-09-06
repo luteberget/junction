@@ -7,11 +7,13 @@ use crate::document::objects::*;
 use crate::util::*;
 use ordered_float::OrderedFloat;
 
+
+#[derive(Clone)]
 #[derive(Debug)]
 pub struct Topology {
     pub tracks : Vec<(f64,(Pt,Port),(Pt,Port))>,
     pub locations : HashMap<Pt,(NDType,Vc)>,
-    pub trackobjects : HashMap<usize,Vec<(f64,PtA, Function,Option<AB>)>>,
+    pub trackobjects : Vec<Vec<(f64,PtA, Function,Option<AB>)>>,
     pub interval_lines :Vec<Vec<(OrderedFloat<f64>,PtC)>>,
 }
 
@@ -67,7 +69,7 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
     }
 
     let mut piece_map : HashMap<((i32,i32),(i32,i32)), (usize, f64, f64)> = HashMap::new();
-    let mut trackobjects = HashMap::new();
+    let mut trackobjects = Vec::new();
     while let Some((p1,p2)) = pieces.remove_any() {
         let mut list = VecDeque::new();
         list.push_back((p1,p2));
@@ -118,7 +120,7 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
         let last_pt = list[list.len()-1].1;
         interval_map.push((OrderedFloat(l),glm::vec2(last_pt.0 as f32, last_pt.1 as f32)));
         interval_lines.push(interval_map);
-        trackobjects.insert(tracks.len()-1, Vec::new());
+        trackobjects.push(Vec::new());
     }
 
     fn get_dir_from_side((a,b) :&(Pt,Pt), pt :PtC) -> AB {
@@ -148,7 +150,7 @@ pub fn convert(model :&Model, def_len :f64) -> Result<Topology, ()>{
                 let pos = glm::lerp_scalar(pos_a, pos_b, param as f64);
                 let pt = if dir > 0 { pt } else { (pt.1,pt.0) }; // reverse line if track direction is not
                 // the default left-to-right.
-                let track_objs = trackobjects.entry(track_idx).or_insert(Vec::new());
+                let track_objs = &mut trackobjects[track_idx];
 
                 for f in functions.iter() {
                     match f {

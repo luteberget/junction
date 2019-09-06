@@ -1,3 +1,4 @@
+use bimap::BiMap;
 use rolling::input::staticinfrastructure as rolling_inf;
 use std::collections::{HashMap, HashSet};
 use ordered_float::OrderedFloat;
@@ -14,8 +15,8 @@ pub type ModelObjectId = PtA;
 #[derive(Debug)]
 pub struct DGraph {
     pub rolling_inf :rolling_inf::StaticInfrastructure, 
-    pub node_ids :HashMap<rolling_inf::NodeId, Pt>,
-    pub object_ids :HashMap<rolling_inf::ObjectId, PtA>,
+    pub node_ids :BiMap<rolling_inf::NodeId, Pt>,
+    pub object_ids :BiMap<rolling_inf::ObjectId, PtA>,
     pub tvd_edges :HashMap<rolling_inf::ObjectId, 
         Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
     pub tvd_entry_nodes :HashMap<rolling_inf::ObjectId, Vec<rolling_inf::NodeId>>,
@@ -58,7 +59,7 @@ pub struct Interval {
 }
 
 impl DGraphBuilder {
-    pub fn convert(model :&Model, topology :&Topology) -> Result<DGraph, ()> {
+    pub fn convert(topology :&Topology) -> Result<DGraph, ()> {
         let mut m = DGraphBuilder::new();
 
         let tracks = &topology.tracks;
@@ -70,12 +71,12 @@ impl DGraphBuilder {
         let mut static_signals :HashMap<PtA, rolling_inf::ObjectId> = HashMap::new();
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
-        let mut object_ids = HashMap::new();
+        let mut object_ids = BiMap::new();
         let (node_ids, crossing_edges) = m.create_network(
             tracks, &locs, 
             |track_idx,mut cursor,dg| {
                 let mut last_pos = 0.0;
-                let mut objs :Vec<(f64,PtA,Function,Option<AB>)> = trackobjects[&track_idx].clone();
+                let mut objs :Vec<(f64,PtA,Function,Option<AB>)> = trackobjects[track_idx].clone();
                 objs.sort_by_key(|(pos,_,_,_)| OrderedFloat(*pos));
                 for (pos, id, func, dir) in objs {
                     cursor = cursor.advance_single(&dg.dgraph, pos - last_pos).unwrap();
@@ -240,10 +241,10 @@ impl DGraphBuilder {
         tracks: &[(f64, (Pt, Port), (Pt, Port))], // track length and line pieces
         nodes: &HashMap<Pt,(NDType, Vc)>,
         mut each_track: impl FnMut(usize,Cursor,&mut Self)) -> 
-        (HashMap<rolling_inf::NodeId, Pt>,
+        (BiMap<rolling_inf::NodeId, Pt>,
          HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)>) {
 
-        let mut node_ids = HashMap::new();
+        let mut node_ids = BiMap::new();
         let mut crossing_edges = HashSet::new();
         let mut ports :HashMap<(Pt,Port), rolling_inf::NodeId>  = HashMap::new();
         for (i,(len,a,b)) in tracks.iter().enumerate() {
