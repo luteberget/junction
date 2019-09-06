@@ -8,6 +8,22 @@ use crate::gui;
 use crate::file;
 use crate::gui::widgets;
 
+pub fn load(app :&mut App) {
+    match file::load_interactive() {
+        Ok(Some((m, filename))) => {
+            info!("Loading model from file succeeded.");
+            app.document = Document::from_model(m, app.background_jobs.clone());
+            app.document.fileinfo.set_saved_file(filename);
+        },
+        Ok(None) => {
+            info!("Load file cancelled by user.");
+        },
+        Err(e) => {
+            error!("Error loading file: {}", e);
+        },
+    };
+}
+
 pub fn main_menu(app :&mut App) {
     unsafe {
         if igBeginMenuBar() {
@@ -20,19 +36,8 @@ pub fn main_menu(app :&mut App) {
                 }
 
                 if igMenuItemBool(const_cstr!("Load file...").as_ptr(), std::ptr::null(), false, true) {
-                    match file::load_interactive() {
-                        Ok(Some((m, filename))) => {
-                            info!("Loading model from file succeeded.");
-                            app.document = Document::from_model(m, app.background_jobs.clone());
-                            app.document.fileinfo.set_saved_file(filename);
-                        },
-                        Ok(None) => {
-                            info!("Load file cancelled by user.");
-                        },
-                        Err(e) => {
-                            error!("Error loading file: {}", e);
-                        },
-                    };
+
+                    load(app);
                 }
 
                 match &app.document.fileinfo.filename  {

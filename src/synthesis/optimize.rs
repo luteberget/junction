@@ -10,19 +10,23 @@ pub fn optimize_locations(bg :&SynthesisBackground, adispatch :&MultiPlan, desig
     info!("optimize_locations: starting");
     let order = permutation::sort_by_key(&design[..], 
                  |(tr,pos,_,_)| (*tr, OrderedFloat(*pos)));
+    println!("baseline measure");
     let (baseline_value, baseline_travel) = cost::measure(bg, adispatch, design);
+    println!("baseline measure ok");
     let mut n = 0;
     let (cost, best_pt) = powell_optimize_unit(design_encode(bg, design, &order), |new_pt| {
+        println!("powell measure step");
         let (cost,travel) = cost::measure(bg, adispatch, &design_decode(bg, new_pt, design, &order));
         n += 1;
         cost
     }).unwrap();
-    info!("optimize_locations: {} iterations", n);
+    println!("optimize_locations: {} iterations", n);
     (cost, design_decode(bg, &best_pt, design, &order))
 }
 
 fn design_encode(bg :&SynthesisBackground, design :&Design, order :&Permutation) 
     -> DVector<f64> {
+    println!("encode");
 
     DVector::from_iterator(design.len(), 
        (0..(design.len())).map(|i| &design[order.apply_inv_idx(i)])
@@ -36,7 +40,8 @@ fn design_encode(bg :&SynthesisBackground, design :&Design, order :&Permutation)
 }
 
 fn design_decode(bg :&SynthesisBackground, pt: &DVector<f64>, design :&Design, order :&Permutation) -> Design {
-    pt.iter().enumerate().map(|(i,ipos)| (&design[order.apply_inv_idx(i)], ipos))
+    println!("decode");
+    let out = pt.iter().enumerate().map(|(i,ipos)| (&design[order.apply_inv_idx(i)], ipos))
         .group_by(|((tr,_,_,_),_)| tr).into_iter().flat_map(|(tr,group)| {
             let track_length = bg.topology.tracks[*tr].0;
             // we have [0,1], and we want to map it to [last_pos,track_length]
@@ -44,8 +49,9 @@ fn design_decode(bg :&SynthesisBackground, pt: &DVector<f64>, design :&Design, o
                 let pos = glm::lerp_scalar(*prev, track_length, *ipos);
                 *prev = pos; Some((*tr,pos,*func,*dir))
             })
-        }).collect::<Vec<_>>()
-    
+        }).collect::<Vec<_>>();
+    println!("decode ok");
+    out
 }
 
 fn linearstep(lo :f64, hi :f64, val :f64) -> f64 {

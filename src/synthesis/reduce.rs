@@ -40,10 +40,10 @@ impl<'a> Iterator for Iter<'a> {
         let dgraph = &self.dgraph;
         let il = &self.il;
         opt.next_signal_set().map(|mut s| {
-            let design = convert_signals(topo, dgraph, s.get_signals());
+            let (design, id_map) = convert_signals(topo, dgraph, s.get_signals());
             let dispatches = s.get_dispatches().into_iter().enumerate()
                 .map(|(planspec_idx,routeplans)| routeplans.into_iter()
-                     .map(|routeplan| abstract_dispatches(dgraph, il, &routeplan))
+                     .map(|routeplan| abstract_dispatches(dgraph, il, &id_map, &routeplan))
                      .collect()).collect();
             (design, dispatches)
         })
@@ -52,8 +52,13 @@ impl<'a> Iterator for Iter<'a> {
 
 
 fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph, 
-                   signals :&HashMap<planner::input::SignalId, bool>) -> Design {
+                   signals :&HashMap<planner::input::SignalId, bool>) 
+    -> (Design,HashMap<PtA,PtA>) {
+
     let mut design = Vec::new();
+    // maximal_design_object_id --> minimal_design_object_id 
+    let mut id_map = HashMap::new();
+
     let pt_id = dgraph.object_ids.iter().map(|(a,b)| (*b,*a))
         .collect::<HashMap<PtA, rolling_inf::ObjectId>>();
 
@@ -62,9 +67,10 @@ fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph,
             let active = pt_id.get(id).map(|o| planner::input::SignalId::ExternalId(*o))
                                 .and_then( |o| signals.get(&o)).unwrap_or(&false);
             if *active {
+                id_map.insert(glm::vec2(id.x as _, 0) , glm::vec2(design.len() as _, 0));
                 design.push((track_idx,*pos,*func,*dir));
             }
         }
     }
-    design
+    (design,id_map)
 }

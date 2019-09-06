@@ -22,6 +22,7 @@ pub struct AbstractCommand {
 pub fn abstract_dispatches(
     dgraph :&DGraph,
     il :&Interlocking,
+    id_map :&HashMap<PtA,PtA>,
     routeplan :&planner::input::RoutePlan
     ) -> Vec<AbstractCommand> {
 
@@ -53,14 +54,14 @@ pub fn abstract_dispatches(
                 entries.remove(&ignore_trigger(route.exit));
                 exits.remove(&ignore_trigger(route.entry));
                 for (sw,side) in route.resources.switch_positions.iter() {
-                    switches.insert((*dgraph.object_ids.get_by_left(sw).unwrap(), *side));
+                    switches.insert((*dgraph.switch_ids.get_by_left(sw).unwrap(), *side));
                 }
             }
             assert_eq!(entries.len(), 1); assert_eq!(exits.len(), 1); 
 
             output.push(AbstractCommand { 
-                from: convert_routeentryexit(dgraph, *entries.iter().nth(0).unwrap()),
-                to: convert_routeentryexit(dgraph, *exits.iter().nth(0).unwrap()),
+                from: convert_routeentryexit(dgraph, Some(id_map), *entries.iter().nth(0).unwrap()),
+                to: convert_routeentryexit(dgraph, Some(id_map), *exits.iter().nth(0).unwrap()),
                 switches: switches,
                 train: train_id,
             });
@@ -86,13 +87,13 @@ pub fn concrete_dispatch(dgraph :&DGraph, il :&Interlocking, ad :&AbstractComman
         'rs: for route_idx in route_idxs {
             let route = &il.routes[*route_idx].route;
             let switches = route.resources.switch_positions.iter()
-                .map(|(sw,side)| (*dgraph.object_ids.get_by_left(sw).unwrap(), *side))
+                .map(|(sw,side)| (*dgraph.switch_ids.get_by_left(sw).unwrap(), *side))
                 .collect::<HashSet<(_,_)>>();
 
             let sw_ok = switches.difference(&ad.switches).nth(0).is_none();
             if sw_ok {
                 output.push(*route_idx);
-                curr_start = convert_routeentryexit(dgraph, route.exit);
+                curr_start = convert_routeentryexit(dgraph, None, route.exit);
                 continue 'ds;
             } else {
                 continue 'rs;
@@ -112,13 +113,20 @@ fn ignore_trigger(r :rolling_inf::RouteEntryExit) -> rolling_inf::RouteEntryExit
     }
 }
 
-fn convert_routeentryexit(dgraph :&DGraph, x :rolling_inf::RouteEntryExit) -> Result<Pt,PtA> {
+fn convert_routeentryexit(dgraph :&DGraph, id_map :Option<&HashMap<PtA,PtA>>,
+                          x :rolling_inf::RouteEntryExit) -> Result<Pt,PtA> {
     match x {
         rolling_inf::RouteEntryExit::Boundary(Some(nd)) => 
             Ok(*dgraph.node_ids.get_by_left(&nd).unwrap()),
         rolling_inf::RouteEntryExit::Signal(signal) |
-        rolling_inf::RouteEntryExit::SignalTrigger { signal, .. } => 
-            Err(*dgraph.object_ids.get_by_left(&signal).unwrap()),
+        rolling_inf::RouteEntryExit::SignalTrigger { signal, .. } => {
+            let signal_id = *dgraph.object_ids.get_by_left(&signal).unwrap();
+            if let Some(id_map) = id_map {
+                Err(*id_map.get(&signal_id).unwrap())
+            } else {
+                Err(signal_id)
+            }
+        }
         _ => panic!(),
     }
 }

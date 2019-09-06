@@ -34,7 +34,7 @@ pub fn keys(app :&mut App) {
             //mainmenu::save_as(doc);
         }
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('O' as _, false) {
-            //mainmenu::load(doc, self, diagram);
+            mainmenu::load(app);
         }
 
 
