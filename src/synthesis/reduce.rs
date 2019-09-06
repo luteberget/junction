@@ -4,47 +4,58 @@ use rolling::input::staticinfrastructure as rolling_inf;
 use nalgebra_glm as glm;
 
 use crate::synthesis::*;
+use crate::synthesis::abstractdispatch::*;
 use crate::document::topology;
 use crate::document::dgraph;
 use crate::document::interlocking;
 use crate::document::plan;
 
-pub fn reduced_signal_sets(bg :&SynthesisBackground, design :Design) 
-    -> impl Iterator<Item = (Design, MultiPlan)> {
+pub fn reduced_signal_sets<'a>(bg :&'a SynthesisBackground, design :Design) 
+    -> impl Iterator<Item = (Design, MultiPlan)> + 'a {
         
     let (topo,dgraph,il) = create_model(bg, &design);
-    let inf = plan::convert_inf(&il.routes.iter().map(|i| i.route.clone()).enumerate().collect());
-    let plans = bg.plans.iter().map(|p| plan::convert_plan(&il, bg.vehicles, p)).collect::<Result<Vec<_>,_>>()
-        .unwrap();
+    let inf = plan::convert_inf(&il.routes.iter()
+                                .map(|i| i.route.clone()).enumerate().collect());
+    let plans = bg.plans.iter().map(|p| plan::convert_plan(&il, bg.vehicles, p))
+        .collect::<Result<Vec<_>,_>>().unwrap();
 
     let mut optimizer = planner::optimize::SignalOptimizer::new(inf, plans.into());
 
-    Iter { topo, dgraph, optimizer }
+    Iter { bg, topo, dgraph, il, optimizer }
 }
 
-pub struct Iter {
+pub struct Iter<'a> {
+    bg :&'a SynthesisBackground<'a>,
     topo :topology::Topology,
     dgraph :dgraph::DGraph,
+    il :interlocking::Interlocking,
     optimizer :planner::optimize::SignalOptimizer,
 }
 
-impl Iterator for Iter {
+impl<'a> Iterator for Iter<'a> {
     type Item = (Design,MultiPlan);
     fn next(&mut self) -> Option<(Design,MultiPlan)> {
         let opt = &mut self.optimizer;
         let topo = &self.topo;
         let dgraph = &self.dgraph;
-        opt.next_signal_set().map(|s| {
+        let il = &self.il;
+        opt.next_signal_set().map(|mut s| {
             let design = convert_signals(topo, dgraph, s.get_signals());
-            (design, unimplemented!())
+            let dispatches = s.get_dispatches().into_iter().enumerate()
+                .map(|(planspec_idx,routeplans)| routeplans.into_iter()
+                     .map(|routeplan| abstract_dispatches(dgraph, il, &routeplan))
+                     .collect()).collect();
+            (design, dispatches)
         })
     }
 }
 
 
-fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph, signals :&HashMap<planner::input::SignalId, bool>) -> Design {
+fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph, 
+                   signals :&HashMap<planner::input::SignalId, bool>) -> Design {
     let mut design = Vec::new();
-    let pt_id = dgraph.object_ids.iter().map(|(a,b)| (*b,*a)).collect::<HashMap<PtA, rolling_inf::ObjectId>>();
+    let pt_id = dgraph.object_ids.iter().map(|(a,b)| (*b,*a))
+        .collect::<HashMap<PtA, rolling_inf::ObjectId>>();
 
     for (track_idx, track_objects) in topo.trackobjects.iter().enumerate() {
         for (pos, id, func, dir) in track_objects.iter() {
@@ -55,8 +66,5 @@ fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph, signals :&HashMap<p
             }
         }
     }
-
     design
 }
-
-

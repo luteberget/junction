@@ -14,13 +14,13 @@ pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) 
     let mut total_cost = 0.0;
     let mut total_travel = 0.0;
 
-    for (planspec_id, dispatches) in allplans.iter() {
+    for (planspec_id, dispatches) in allplans.iter().enumerate() {
         if dispatches.len() == 0 {
             total_cost += std::f64::INFINITY;
         } else {
             let mut planspec_cost = 0.0;
             for dispatch in dispatches.iter() {
-                let commands = mk_commands(bg, &dgraph, &il, *planspec_id, dispatch);
+                let commands = mk_commands(bg, &dgraph, &il, planspec_id, dispatch);
                 let history = rolling::evaluate_plan(&dgraph.rolling_inf, 
                      &il.routes.iter().map(|r| r.route.clone()).enumerate().collect(),
                      &rolling::input::dispatch::Dispatch { actions: commands },

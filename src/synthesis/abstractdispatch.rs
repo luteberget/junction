@@ -6,7 +6,7 @@ use rolling::input::staticinfrastructure as rolling_inf;
 
 /// A multiplan assigns a set of abstract dispatches
 /// to each usage.
-pub type MultiPlan = Vec<(usize, Vec<AbstractDispatch>)>; 
+pub type MultiPlan = Vec<Vec<AbstractDispatch>>; 
 pub type AbstractDispatch = Vec<AbstractCommand>;
 
 pub struct AbstractCommand {
@@ -19,7 +19,7 @@ pub struct AbstractCommand {
 
 //TODO didn't we need BiMap in Dgraph after all?
 
-fn abstract_dispatches(
+pub fn abstract_dispatches(
     dgraph :&DGraph,
     il :&Interlocking,
     routeplan :&planner::input::RoutePlan
