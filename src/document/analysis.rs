@@ -128,19 +128,15 @@ impl Analysis {
             }
 
             for (plan_idx,plan) in model.plans.iter() {
-                let dispatches = plan::get_dispatches(&interlocking,
+                let planresults = plan::get_dispatches(&dgraph, &interlocking,
                                              model.vehicles.data(),
                                              plan).unwrap();
 
-                info!("Planning successful. {:?}", dispatches);
+                info!("Planning successful. {:?}", planresults);
 
-                for (dispatch_idx,d) in dispatches.into_iter().enumerate() {
-                    let (history, route_refs) = history::get_history(model.vehicles.data(),
-                                         &dgraph.rolling_inf,
-                                         &interlocking,
-                                         &d.commands).unwrap(); // TODO UNWRAP?
-                    info!("Planned simulation successful");
-                    let view = dispatch::DispatchOutput::from_history(d.clone(), &dgraph, history);
+                for (dispatch_idx,(dispatch,history)) in planresults.into_iter().enumerate() {
+                    let view = dispatch::DispatchOutput::from_history(
+                        dispatch.clone(), &dgraph, history);
                     let send_ok = tx.send(SetData::PlanDispatch(gen, *plan_idx, dispatch_idx, view));
                     if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}/{}", 
                                                    plan_idx, dispatch_idx); }

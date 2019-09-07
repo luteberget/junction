@@ -6,14 +6,14 @@ use crate::synthesis::abstractdispatch::*;
 use rolling::input::dispatch::DispatchAction;
 use crate::document::history::convert_vehicle;
 use crate::document::dispatch::max_time;
+use crate::document::plan::eval_plan;
 use crate::document::history::History;
 
 
-pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) -> (f64,f64) {
+pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) -> f64 {
     //println!("cost::measure");
     let (topo,dgraph,il) = create_model(bg,design);
     let mut total_cost = 0.0;
-    let mut total_travel = 0.0;
 
     for (planspec_id, dispatches) in allplans.iter().enumerate() {
         if dispatches.len() == 0 {
@@ -27,14 +27,17 @@ pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) 
                      &rolling::input::dispatch::Dispatch { actions: commands },
                      None);
 
-                planspec_cost += max_time(&history);
-                total_travel += traveled_length(&history);
+                if eval_plan(&dgraph, &bg.plans[planspec_id], &history).is_ok() {
+                    planspec_cost += max_time(&history);
+                } else {
+                    planspec_cost += std::f64::INFINITY;
+                }
             }
             total_cost += planspec_cost / dispatches.len() as f64;
         }
     }
 
-    (total_cost,total_travel)
+    total_cost
 }
 
 fn mk_commands(bg :&SynthesisBackground, dgraph :&DGraph, il:&Interlocking, 
@@ -56,21 +59,5 @@ fn mk_commands(bg :&SynthesisBackground, dgraph :&DGraph, il:&Interlocking,
             }
         })
     }).collect()
-}
-
-fn traveled_length(h :&History) -> f64 {
-    use rolling::output::history::*;
-    use rolling::railway::dynamics::*;
-    let mut l = 0.0;
-    for (_,_,t) in h.trains.iter() {
-        for e in t.iter() {
-            match e {
-                TrainLogEvent::Move(_,_,DistanceVelocity { dx, .. }) => { l += dx; },
-                _ => {},
-            }
-        }
-    }
-
-    l
 }
 

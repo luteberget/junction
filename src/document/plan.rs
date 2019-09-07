@@ -2,6 +2,9 @@ use std::collections::{HashMap, HashSet};
 use crate::document::interlocking::*;
 use rolling::input::staticinfrastructure as rolling_inf;
 use crate::document::model::*;
+use crate::document::history;
+use crate::document::dgraph::DGraph;
+use rolling::output::history::*;
 
 #[derive(Debug)]
 pub enum ConvertPlanErr {
@@ -9,11 +12,79 @@ pub enum ConvertPlanErr {
     VehicleMissing,
 }
 
+pub enum TestPlanErr {
+    MissingVisits
+}
 
-pub fn get_dispatches(il :&Interlocking, 
-                      vehicles :&[(usize,Vehicle)],
-                      plan :&PlanSpec,
-                      ) -> Result<Vec<Dispatch>, String> {
+pub fn eval_plan(dgraph :&DGraph, plan_spec :&PlanSpec, history :&History) -> Result<(), TestPlanErr> {
+
+
+    //
+    // 1. check train's visits
+    for (train_idx, (train_id, (veh, visits))) in plan_spec.trains.iter().enumerate() {
+        let mut current_visit = 0;
+        let (train_name, train_params, train_log) = &history.trains[train_idx];
+        for ev in train_log.iter() {
+            if event_matches_spec(dgraph, &visits.data()[current_visit].1, ev) {
+                current_visit += 1;
+                if !(current_visit < visits.data().len()) { 
+                    break;
+                }
+            }
+        }
+        if current_visit < visits.data().len() {
+            // train train_idx failed to reach its planned locations
+            return Err(TestPlanErr::MissingVisits); 
+        }
+    }
+
+    // 2. check ordering constraints and time diff
+    for (ra,rb,dt) in plan_spec.order.iter() {
+        // TODO
+    }
+
+    Ok(())
+}
+
+pub fn test_plan(dgraph :&DGraph,
+                 il :&Interlocking, 
+                 vehicles :&[(usize,Vehicle)],
+                 plan_spec :&PlanSpec,
+                 candidate :&planner::input::RoutePlan) 
+    -> Result<Result<(Dispatch, History),TestPlanErr>,String> {
+    let dispatch = convert_dispatch_commands(candidate, il, plan_spec)?;
+
+    // simulate the dispatch
+    let (history,route_refs) =
+         history::get_history(vehicles, &dgraph.rolling_inf, il, &dispatch.commands)?;
+
+    // then check that the plan is satisfied
+    if let Err(e) = eval_plan(dgraph, plan_spec, &history) { return Ok(Err(e)); }
+    return Ok(Ok((dispatch,history)));
+}
+
+fn event_matches_spec(dgraph :&DGraph, visit :&Visit, event :&TrainLogEvent) -> bool {
+    if let TrainLogEvent::Node(n) = event {
+        for l in visit.locs.iter() {
+            match l {
+                Ok(Ref::Node(pt)) => {
+                    // have to check both boundaries and switch nodes in the dgraph
+                    if dgraph.node_ids.get_by_left(n) == Some(pt) { return true; }
+                    if dgraph.switch_ids.get_by_left(n) == Some(pt) { return true; }
+                },
+                _ => unimplemented!(), // TODO
+            };
+        }
+    }
+    false
+}
+
+pub fn get_dispatches(
+      dgraph :&DGraph,
+      il :&Interlocking, 
+      vehicles :&[(usize,Vehicle)],
+      plan :&PlanSpec,
+      ) -> Result<Vec<(Dispatch, History)>, String> {
 
     let routes : HashMap<usize,rolling_inf::Route> = 
         il.routes.iter().map(|r| r.route.clone()).enumerate().collect();
@@ -31,33 +102,21 @@ pub fn get_dispatches(il :&Interlocking,
     //println!("infrastructure {:#?}", plan_inf);
     //println!("usage {:#?}", plan_usage);
 
-    let routeplan = planner::solver::plan(&config, &plan_inf, &plan_usage, |_| {
-        // TODO test plan here using simulation
-        true
+    let mut output = Vec::new();
+    planner::solver::plan(&config, &plan_inf, &plan_usage, |candidate| {
+        println!("got one plan");
+        if let Ok((d,p)) = test_plan(dgraph, il, vehicles, plan, candidate).unwrap() {
+            output.push((d,p));
+        }
+        false
     });
-
-
-    let mut outputs = Vec::new();
-    if let Some(r) = &routeplan {
-        //println!("plaN() return \n{}", planner::input::format_schedule(r));
-        let single = convert_dispatch_commands(r, &routes, &route_specs, plan).unwrap();
-        //println!("dispatch {:?}", single);
-        outputs.push(single);
-    } else { 
-        //println!("plan() returned nothing."); 
-    }
-
-    // Convert back to dispatch
-
-    Ok(outputs)
-
+    println!("planner finished");
+    Ok(output)
 }
 
 
-fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan,
-                          routes :&HashMap<usize, rolling_inf::Route>,
-                          route_specs :&HashMap<usize, RouteSpec>,
-                          plan :&PlanSpec) -> Result<Dispatch,()> {
+fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan, il :&Interlocking,
+                          plan :&PlanSpec) -> Result<Dispatch,String> {
 
     use std::collections::BTreeSet;
 
@@ -74,16 +133,16 @@ fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan,
 
         for (new_route, train_id) in active_routes.difference(&last_active_routes) {
             // check if the route is in the birth of a train (comes from boundary)
-            match routes[new_route].entry {
+            match il.routes[*new_route].route.entry {
                 rolling_inf::RouteEntryExit::Boundary(_) => {
                     // Spawn new train
                     commands.push((0.0, Command::Train(
                                 plan.trains.get(*train_id).unwrap().0.unwrap(), //vehicle id
-                                route_specs[new_route])));
+                                il.routes[*new_route].id)));
                 },
                 rolling_inf::RouteEntryExit::Signal(_) 
                     | rolling_inf::RouteEntryExit::SignalTrigger { .. } => {
-                        commands.push((0.0, Command::Route(route_specs[new_route])));
+                        commands.push((0.0, Command::Route(il.routes[*new_route].id)));
                 },
             }
         }

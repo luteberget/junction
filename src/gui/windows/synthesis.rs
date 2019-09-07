@@ -38,6 +38,7 @@ fn add_objects(analysis :&mut Analysis, objs :&Design) {
             functions: vec![*func],
         };
         obj.move_to(&model, pt + sideways*glm::vec2(normal.x as f32, normal.y as f32));
+        println!("ADding object {:?}", obj);
         model.objects.insert(round_coord(obj.loc), obj);
     }
 
@@ -89,6 +90,15 @@ impl SynthesisWindow {
                         if igSelectable(const_cstr!("##msg").as_ptr(), false, 0 as _, ImVec2::zero()) {
                             add_objects(current_doc, objs);
                         }
+
+                        if igIsItemHovered(0) {
+                            igBeginTooltip();
+                            igPushTextWrapPos(300.0);
+                            widgets::show_text(&format!("{:?}", objs));
+                            igPopTextWrapPos();
+                            igEndTooltip();
+                        }
+
                         igSameLine(0.0,-1.0); widgets::show_text(&format!("Model {} @ {} with {} objs.",
                                                                           n, score, objs.len()));
                     },
