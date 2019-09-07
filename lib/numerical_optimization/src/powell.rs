@@ -53,7 +53,7 @@ pub fn powell_optimize_unit(initial_point :DVector<f64>,
 
     let mut search_vectors = (0..(powell_point.len())).map(|i| {
         let mut v = DVector::from_element(powell_point.len(), 0.0);
-        v[i] = 0.0; v}).collect::<Vec<_>>();
+        v[i] = 1.0; v}).collect::<Vec<_>>();
 
     loop {
         trace!("Powell iteration");
@@ -63,13 +63,13 @@ pub fn powell_optimize_unit(initial_point :DVector<f64>,
         let mut best_search_vector :Option<(usize, f64)> = None;
         for (v_i,v) in search_vectors.iter().enumerate() {
             let (min_alpha, max_alpha) = unit_box_parameter_bounds(&iter_point, v);
-            println!("brent minimum");
+            //println!("brent minimum");
             let (alpha, brent_cost) = brent_minimum( 
                 |alpha| {
                     point_cost(&(iter_point.clone() + alpha * v))
                 },
                 min_alpha, 0.0, max_alpha, 32, None);
-            println!("brent minimum ok");
+            //println!("brent minimum ok");
 
             let brent_improvement = iter_cost - brent_cost;
             if brent_improvement > cost_improvement_threshold {

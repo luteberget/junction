@@ -10,31 +10,23 @@ use crate::document::history::History;
 
 
 pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) -> (f64,f64) {
-    println!("cost::measure");
-    println!("call create model");
+    //println!("cost::measure");
     let (topo,dgraph,il) = create_model(bg,design);
-    println!("call create model ok");
     let mut total_cost = 0.0;
     let mut total_travel = 0.0;
 
     for (planspec_id, dispatches) in allplans.iter().enumerate() {
-        println!("iter planspec");
         if dispatches.len() == 0 {
             total_cost += std::f64::INFINITY;
         } else {
-            println!("len > 0");
             let mut planspec_cost = 0.0;
             for dispatch in dispatches.iter() {
-                println!("calling mk_commands");
                 let commands = mk_commands(bg, &dgraph, &il, planspec_id, dispatch);
-                println!("calling mk_commands ok");
-                println!("calling evaluate_plan");
                 let history = rolling::evaluate_plan(&dgraph.rolling_inf, 
                      &il.routes.iter().map(|r| r.route.clone()).enumerate().collect(),
                      &rolling::input::dispatch::Dispatch { actions: commands },
                      None);
 
-                println!("calling evaluate_plan OK");
                 planspec_cost += max_time(&history);
                 total_travel += traveled_length(&history);
             }
@@ -42,7 +34,6 @@ pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) 
         }
     }
 
-    println!("cost::measure ok");
     (total_cost,total_travel)
 }
 
@@ -52,7 +43,6 @@ fn mk_commands(bg :&SynthesisBackground, dgraph :&DGraph, il:&Interlocking,
 
     let planspec = &bg.plans[planspec_id];
     abstract_dispatch.iter().flat_map(move |ad| {
-        println!("call concrete dispatch");
         concrete_dispatch(dgraph, il, ad).into_iter().map(move |route_idx| {
             if il.routes[route_idx].route.entry.is_boundary() {
                 let (vehicle_id,_) = planspec.trains.get(ad.train).unwrap();

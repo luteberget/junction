@@ -80,14 +80,11 @@ impl DGraphBuilder {
                 let mut objs :Vec<(f64,PtA,Function,Option<AB>)> = trackobjects[track_idx].clone();
                 objs.sort_by_key(|(pos,_,_,_)| OrderedFloat(*pos));
                 for (pos, id, func, dir) in objs {
-                    println!("dgraph insert object");
 
                     // TODO stack overflow here
                     cursor = cursor.advance_single(&dg.dgraph, pos - last_pos).unwrap();
 
-                    println!("insert node pair");
                     cursor = dg.insert_node_pair(cursor);
-                    println!("insert node pair ok");
 
                     match func {
                         Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
@@ -102,7 +99,6 @@ impl DGraphBuilder {
                         },
                     }
                     last_pos = pos;
-                    println!("dgraph insert object ok");
                 }
             } );
 
@@ -124,12 +120,10 @@ impl DGraphBuilder {
                 detector_nodes.insert((node_idx, node.other_node));
             }
         }
-        println!("calc tvd sections");
         let (tvd_edges,tvd_entry_nodes) = route_finder::detectors_to_sections(&mut m.dgraph, 
                                                                               &detector_nodes,
                                                                               &crossing_edges)
             .expect("could not calc tvd sections.");
-        println!("calc tvd sections ok");
 
         let mut edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>
             = m.edge_tracks.into_iter()

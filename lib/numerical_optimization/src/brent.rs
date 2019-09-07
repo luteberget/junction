@@ -56,9 +56,9 @@ pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f
     let tolerance = (1.0 - bits as f64).exp2(); // 2^-(1-bits)
     
     let mut state = {
-        println!("calling1");
+        //println!("calling1");
         let fstart = f(start);
-        println!("calling1 ok");
+        //println!("calling1 ok");
         BrentState {
             min: min,
             max: max,
@@ -100,9 +100,9 @@ pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f
             }
         };
 
-        println!("calling2");
+        //println!("calling2");
         let next_loc = (next_param, f(next_param));
-        println!("calling2 ok");
+        //println!("calling2 ok");
 
         if next_loc.1 <= state.best.1 {
             // best point seen so far
@@ -146,6 +146,7 @@ pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
     fn test1() {
 

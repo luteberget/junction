@@ -19,7 +19,9 @@ pub fn reduced_signal_sets<'a>(bg :&'a SynthesisBackground, design :Design)
     let plans = bg.plans.iter().map(|p| plan::convert_plan(&il, bg.vehicles, p))
         .collect::<Result<Vec<_>,_>>().unwrap();
 
+    println!("create optmizer");
     let mut optimizer = planner::optimize::SignalOptimizer::new(inf, plans.into());
+    println!("create optmizer ok");
 
     Iter { bg, topo, dgraph, il, optimizer }
 }

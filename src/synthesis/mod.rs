@@ -52,7 +52,6 @@ pub fn full_synthesis( bg :&SynthesisBackground,
     // TODO reorg to breadth first?
     let mut n = 1;
     while let Some((mut design, adispatch)) = signal_set_iterator.next() {
-        println!("GOT SIGNAL SET");
         // the adispatch contains references to fixed infrastructure and
         // relative refernces to the Design, i.e. the objects whose positions can
         // be moved.
@@ -82,11 +81,7 @@ pub fn create_model(bg :&SynthesisBackground, design :&Vec<Object>) -> (Topology
         topo.trackobjects[*track_idx].push((*pos, glm::vec2(obj_idx as i32, 0), *func, *dir));
     }
 
-    println!("call dgraph");
     let dgraph = dgraph::DGraphBuilder::convert(&topo).unwrap();
-    println!("call dgraph ok");
-    println!("call calc il");
     let il = interlocking::calc(&dgraph);
-    println!("call calc il ok");
     (topo,dgraph,il)
 }

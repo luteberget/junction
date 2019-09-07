@@ -27,9 +27,9 @@ pub fn get_dispatches(il :&Interlocking,
         n_before: 3, n_after: 3, exact_n: None, optimize_signals: false,
     };
 
-    println!(" STARTIN GPLANNIGN");
-    println!("infrastructure {:#?}", plan_inf);
-    println!("usage {:#?}", plan_usage);
+    //println!(" STARTIN GPLANNIGN");
+    //println!("infrastructure {:#?}", plan_inf);
+    //println!("usage {:#?}", plan_usage);
 
     let routeplan = planner::solver::plan(&config, &plan_inf, &plan_usage, |_| {
         // TODO test plan here using simulation
@@ -39,12 +39,12 @@ pub fn get_dispatches(il :&Interlocking,
 
     let mut outputs = Vec::new();
     if let Some(r) = &routeplan {
-        println!("plaN() return \n{}", planner::input::format_schedule(r));
+        //println!("plaN() return \n{}", planner::input::format_schedule(r));
         let single = convert_dispatch_commands(r, &routes, &route_specs, plan).unwrap();
-        println!("dispatch {:?}", single);
+        //println!("dispatch {:?}", single);
         outputs.push(single);
     } else { 
-        println!("plan() returned nothing."); 
+        //println!("plan() returned nothing."); 
     }
 
     // Convert back to dispatch
@@ -176,7 +176,7 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
 
     // Add boundary conflicts
     for (_, set) in boundary_routes {
-        println!("Exlcuding set of routes because they share a boundary: {:?}", set);
+        //println!("Exlcuding set of routes because they share a boundary: {:?}", set);
         let set :Vec<usize> = set.into_iter().collect();
         for (i,j) in set.iter().flat_map(|x| set.iter().map(move |y| (*x,*y))).filter(|(x,y)| x != y) { 
             let j_choices = partial_routes.get_mut(&(j,0)).unwrap().conflicts.len();
