@@ -9,6 +9,7 @@ use rolling::input::staticinfrastructure as rolling_inf;
 pub type MultiPlan = Vec<Vec<AbstractDispatch>>; 
 pub type AbstractDispatch = Vec<AbstractCommand>;
 
+#[derive(Debug)]
 pub struct AbstractCommand {
     pub from :Result<Pt,PtA>,
     pub to :Result<Pt,PtA>,
@@ -73,7 +74,8 @@ pub fn abstract_dispatches(
     output
 }
 
-pub fn concrete_dispatch(dgraph :&DGraph, il :&Interlocking, ad :&AbstractCommand) -> Vec<usize> {
+pub fn concrete_dispatch(dgraph :&DGraph, il :&Interlocking, ad :&AbstractCommand) -> Result<Vec<usize>,()> {
+    //println!("concrete dispatch {:?}", ad);
     let mut curr_start = ad.from;
     let mut end = ad.to;
     let mut output = Vec::new();
@@ -99,10 +101,10 @@ pub fn concrete_dispatch(dgraph :&DGraph, il :&Interlocking, ad :&AbstractComman
                 continue 'rs;
             }
         }
-        panic!()
+        return Err(());
     }
 
-    output
+    Ok(output)
 }
 
 fn ignore_trigger(r :rolling_inf::RouteEntryExit) -> rolling_inf::RouteEntryExit {

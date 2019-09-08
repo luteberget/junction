@@ -1,3 +1,4 @@
+use matches::*;
 use std::collections::HashMap;
 use std::collections::BTreeSet;
 use rolling::input::staticinfrastructure as rolling_inf;
@@ -68,7 +69,7 @@ fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph,
         for (pos, id, func, dir) in track_objects.iter() {
             let active = pt_id.get(id).map(|o| planner::input::SignalId::ExternalId(*o))
                                 .and_then( |o| signals.get(&o)).unwrap_or(&false);
-            if *active {
+            if *active || matches!(func, Function::Detector) {
                 id_map.insert(glm::vec2(id.x as _, 0) , glm::vec2(design.len() as _, 0));
                 design.push((track_idx,*pos,*func,*dir));
             }

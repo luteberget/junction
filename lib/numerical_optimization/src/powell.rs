@@ -68,7 +68,7 @@ pub fn powell_optimize_unit(initial_point :DVector<f64>,
                 |alpha| {
                     point_cost(&(iter_point.clone() + alpha * v))
                 },
-                min_alpha, 0.0, max_alpha, 32, None);
+                min_alpha, 0.0, max_alpha, 12, None);
             //println!("brent minimum ok");
 
             let brent_improvement = iter_cost - brent_cost;

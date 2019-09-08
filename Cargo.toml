@@ -43,3 +43,6 @@ railplotlib = { path = "../railplot/lib/railplotlib" }
 railmlio = { path = "lib/railmlio" }
 numerical_optimization = { path = "lib/numerical_optimization" }
 
+
+[profile.release]
+lto = true
