@@ -18,8 +18,8 @@ pub struct DGraph {
     pub node_ids :BiMap<rolling_inf::NodeId, Pt>,
     pub switch_ids :BiMap<rolling_inf::ObjectId, Pt>,
     pub object_ids :BiMap<rolling_inf::ObjectId, PtA>,
-    pub tvd_edges :HashMap<rolling_inf::ObjectId, 
-        Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
+    pub detector_ids :BiMap<rolling_inf::NodeId, PtA>,
+    pub tvd_edges :HashMap<rolling_inf::ObjectId, Vec<(rolling_inf::NodeId, rolling_inf::NodeId)>>,
     pub tvd_entry_nodes :HashMap<rolling_inf::ObjectId, Vec<rolling_inf::NodeId>>,
     pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
     pub mileage :HashMap<rolling_inf::NodeId, f64>,
@@ -73,6 +73,7 @@ impl DGraphBuilder {
         let mut signal_cursors : HashMap<PtA, Cursor> = HashMap::new();
         let mut detector_nodes : HashSet<(rolling_inf::NodeId, rolling_inf::NodeId)> = HashSet::new();
         let mut object_ids = BiMap::new();
+        let mut detector_ids = BiMap::new();
         let (node_ids, switch_ids, crossing_edges) = m.create_network(
             tracks, &locs, 
             |track_idx,mut cursor,dg| {
@@ -87,7 +88,12 @@ impl DGraphBuilder {
                     cursor = dg.insert_node_pair(cursor);
 
                     match func {
-                        Function::Detector => { detector_nodes.insert(cursor.nodes(&dg.dgraph)); },
+                        Function::Detector => { 
+                            let (a,b) = cursor.nodes(&dg.dgraph);
+                            detector_nodes.insert((a,b));
+                            detector_ids.insert(a,id);
+                            detector_ids.insert(b,id);
+                        },
                         Function::MainSignal { has_distant }=> { 
                             let c = if matches!(dir,Some(AB::B)) { cursor.reverse(&dg.dgraph) } else { cursor };
                             signal_cursors.insert(id,c); 
@@ -143,6 +149,7 @@ impl DGraphBuilder {
             node_ids: node_ids,
             switch_ids: switch_ids,
             object_ids: object_ids,
+            detector_ids: detector_ids,
             tvd_edges: tvd_edges,
             tvd_entry_nodes: tvd_entry_nodes,
             edge_lines: edge_lines,
