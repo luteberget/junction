@@ -46,7 +46,7 @@ pub struct Path {
     node: NodeId,
     length: f64,
     entered_sections: SmallVec<[(ObjectId, f64); 2]>,
-    exited_sections: SmallVec<[(ObjectId, f64, f64);4]>,
+    exited_sections: SmallVec<[(ObjectId, f64, f64, Option<NodeId>);4]>,
     switches: SmallVec<[(ObjectId, f64, SwitchPosition);4]>,
     edges_taken :Vec<(NodeId, NodeId)>,
 }
@@ -120,7 +120,8 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
                                 if let Some(s) = exit {
                                     if let Some(i) = curr_state.entered_sections.iter().position(|y| y.0 == *s) {
                                         let e = curr_state.entered_sections.remove(i);
-                                        curr_state.exited_sections.push((e.0, e.1, curr_state.length));
+                                        curr_state.exited_sections.push((e.0, e.1, 
+                                                             curr_state.length, Some(curr_state.node)));
                                     } else {
                                         issues.push(ConvertRouteIssue::ExitedUnenteredSection(entry.entry, *s));
                                     }
@@ -215,27 +216,29 @@ pub fn find_routes(config :Config, model :&StaticInfrastructure) -> Result<(Vec<
 }
 
 
-pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: RouteEntryExit) -> Result<Route, ConvertRouteIssue> {
+pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: RouteEntryExit) 
+        -> Result<Route, ConvertRouteIssue> {
+
     if state.length < config.route_minimum_length {
         return Err(ConvertRouteIssue::RouteTooShort(entry, exit));
     }
 
     let mut sections = state.exited_sections.clone();
-    sections.extend(state.entered_sections.iter().map(|&(x, l)| (x, l, state.length)));
-    sections.retain(|&mut (_,a,b)| b-a > config.section_tolerance);
+    sections.extend(state.entered_sections.iter().map(|&(x, l)| (x, l, state.length, None)));
+    sections.retain(|&mut (_,a,b,_)| b-a > config.section_tolerance);
 
     let trigger = sections.first();
     let entry = match (trigger,entry) {
-        (Some((tvd,_,_)),RouteEntryExit::Signal(x)) => RouteEntryExit::SignalTrigger { signal: x, trigger_section: *tvd },
+        (Some((tvd,_,_,_)),RouteEntryExit::Signal(x)) => 
+            RouteEntryExit::SignalTrigger { signal: x, trigger_section: *tvd },
         _ => entry,
     };
     
-    let add_length = if let RouteEntryExit::Boundary(_) = &exit { 
-        1000.0 } 
+    let add_length = if let RouteEntryExit::Boundary(_) = &exit { 1000.0 } 
     else { 0.0 };
 
     let mut cleared_length = 0.0;
-    let mut releases = sections.iter().map(|(trigger, start, end)| {
+    let mut releases = sections.iter().map(|(trigger, start, end, node)| {
         let start = if cleared_length > *start { cleared_length } else { *start };
         let length = *end-start;
         cleared_length += length;
@@ -245,9 +248,9 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
                 resources.push(*sw);
             }
         }
-        //(trigger, length, resources)
 
         Release {
+            end_node: *node,
             trigger: *trigger,
             length: length,
             resources: resources.into(),
@@ -256,8 +259,6 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
 
     let sum_releases_length = releases.iter().map(|r| r.length).sum::<f64>();
     if releases.len() > 0 && sum_releases_length != state.length {
-        //println!("Release length and route length differ by {} {} {:?} {:?}", 
-        //         state.length, sum_releases_length, entry, exit);
         releases.last_mut().unwrap().length += state.length - sum_releases_length;
     } 
 
@@ -269,7 +270,7 @@ pub fn make_route(config: &Config, state :&Path, entry :RouteEntryExit, exit: Ro
         length: state.length + add_length,
 
         resources: RouteResources {
-            sections: sections.into_iter().map(|(x,_,_)| x).collect(),
+            sections: sections.into_iter().map(|(x,_,_,_)| x).collect(),
             switch_positions: state.switches.iter().map(|(x,_,s)| (*x,*s)).collect(),
             releases: releases.into(),
         },
