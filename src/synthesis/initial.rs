@@ -25,7 +25,8 @@ pub fn initial_design(topo :&Topology) -> Design {
                     for overlap_length in &overlap_lengths {
                         let l = fouling_length + overlap_length;
                         for c in cur_move(topo, Cursor { tr: track_idx, pos: *pos, dir: *dir}, l) {
-                            objects.push((c.tr,c.pos,Function::Detector,None));
+                            // signals now implies a co-located detector
+                            //objects.push((c.tr,c.pos,Function::Detector,None));
                             objects.push((c.tr,c.pos,Function::MainSignal { has_distant: true },Some(c.dir.other())));
                         }
                     }

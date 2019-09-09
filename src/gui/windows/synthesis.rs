@@ -1,3 +1,4 @@
+use matches::*;
 use nalgebra_glm as glm;
 use ordered_float::OrderedFloat;
 use const_cstr::*;
@@ -8,6 +9,7 @@ use crate::gui::widgets;
 use crate::document::model::*;
 use crate::document::analysis::*;
 use crate::document::objects;
+use crate::document::objects::*;
 use crate::document::infview::round_coord;
 use crate::synthesis::*;
 use crate::app::*;
@@ -40,6 +42,17 @@ fn add_objects(analysis :&mut Analysis, objs :&Design) {
         obj.move_to(&model, pt + sideways*glm::vec2(normal.x as f32, normal.y as f32));
         println!("ADding object {:?}", obj);
         model.objects.insert(round_coord(obj.loc), obj);
+
+        if matches!(func, Function::MainSignal { .. } ) {
+            let mut obj = objects::Object {
+                loc: pt, 
+                tangent: glm::vec2(tangent.x.round() as _, tangent.y.round() as _),
+                functions: vec![Function::Detector],
+            };
+            obj.move_to(&model, pt + sideways*glm::vec2(normal.x as f32, normal.y as f32));
+            println!("ADding object {:?}", obj);
+            model.objects.insert(round_coord(obj.loc), obj);
+        }
     }
 
     analysis.set_model(model, None);

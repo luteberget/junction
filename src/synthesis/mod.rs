@@ -1,6 +1,7 @@
 use numerical_optimization::powell::*;
 use std::collections::{HashMap,HashSet, BTreeSet};
 use boolinator::Boolinator;
+use matches::*;
 use nalgebra_glm as glm;
 
 use crate::document;
@@ -55,6 +56,7 @@ pub fn full_synthesis( bg :&SynthesisBackground,
         // the adispatch contains references to fixed infrastructure and
         // relative refernces to the Design, i.e. the objects whose positions can
         // be moved.
+        println!("GOT PLAN SET {:?}", adispatch);
         output(FullSynMsg::TryingSignalSet()).ok_or(SynErr::Aborted)?;
         let (score,design) = optimize::optimize_locations(bg, &adispatch, &design);
         output(FullSynMsg::ModelAvailable(format!("reduced {}",n), score, design.clone())).ok_or(SynErr::Aborted)?;
@@ -79,9 +81,17 @@ pub fn create_model(bg :&SynthesisBackground, design :&Vec<Object>) -> (Topology
     topo.trackobjects = topo.tracks.iter().map(|_| Vec::new()).collect::<Vec<_>>();
     for (obj_idx,(track_idx,pos,func,dir)) in design.iter().enumerate() {
         topo.trackobjects[*track_idx].push((*pos, glm::vec2(obj_idx as i32, 0), *func, *dir));
+        if matches!(func, Function::MainSignal { .. }) {
+            topo.trackobjects[*track_idx].push((*pos, glm::vec2(obj_idx as i32, 1), Function::Detector, None));
+        }
     }
 
     let dgraph = dgraph::DGraphBuilder::convert(&topo).unwrap();
     let il = interlocking::calc(&dgraph);
+
+    //println!("create_model interlocking");
+    //for r in il.routes.iter() {
+        //println!("route  {:?}", r);
+    //}
     (topo,dgraph,il)
 }

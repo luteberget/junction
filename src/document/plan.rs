@@ -13,7 +13,8 @@ pub enum ConvertPlanErr {
 }
 
 pub enum TestPlanErr {
-    MissingVisits
+    MissingVisits,
+    MissingTrain
 }
 
 pub fn eval_plan(dgraph :&DGraph, plan_spec :&PlanSpec, history :&History) -> Result<(), TestPlanErr> {
@@ -23,7 +24,7 @@ pub fn eval_plan(dgraph :&DGraph, plan_spec :&PlanSpec, history :&History) -> Re
     // 1. check train's visits
     for (train_idx, (train_id, (veh, visits))) in plan_spec.trains.iter().enumerate() {
         let mut current_visit = 0;
-        let (train_name, train_params, train_log) = &history.trains[train_idx];
+        let (train_name, train_params, train_log) = history.trains.get(train_idx).ok_or(TestPlanErr::MissingTrain)?;
         for ev in train_log.iter() {
             if event_matches_spec(dgraph, &visits.data()[current_visit].1, ev) {
                 current_visit += 1;
@@ -164,17 +165,26 @@ pub fn convert_inf(routes :&rolling_inf::Routes<usize>) -> planner::input::Infra
     fn convert_routeentryexit(e :&rolling_inf::RouteEntryExit) -> planner::input::SignalId {
         match e {
             rolling_inf::RouteEntryExit::Boundary(_) => planner::input::SignalId::Boundary,
-            rolling_inf::RouteEntryExit::Signal(s) => planner::input::SignalId::ExternalId(*s),
+            rolling_inf::RouteEntryExit::Signal(signal) |
             rolling_inf::RouteEntryExit::SignalTrigger { signal, .. } => 
-                planner::input::SignalId::ExternalId(*signal),
+                planner::input::SignalId::Signal(*signal),
         }
     }
 
     let mut boundary_routes :HashMap<rolling_inf::NodeId, HashSet<usize>> = HashMap::new();
+    let mut route_boundaries :Vec<(planner::input::PartialRouteId, 
+                                   planner::input::PartialRouteId, 
+                                   planner::input::SignalId)> = Vec::new();
     for (route_name,route) in routes.iter() {
         let mut signals = vec![convert_routeentryexit(&route.entry)];
         for i in 0..(route.resources.releases.len()-1) {
-            signals.push(planner::input::SignalId::Anonymous(fresh()));
+            // Add each release's end/exit detector, except the 
+            // last one, which has the route exit signal at its end.
+            if let Some(end_node) = route.resources.releases[i].end_node {
+                signals.push(planner::input::SignalId::Detector(end_node));
+            } else {
+                signals.push(planner::input::SignalId::Detector(1_000_000_000 + fresh()));
+            }
         }
         signals.push(convert_routeentryexit(&route.exit));
 

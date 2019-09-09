@@ -43,8 +43,11 @@ impl<'a> Iterator for Iter<'a> {
         let dgraph = &self.dgraph;
         let il = &self.il;
         opt.next_signal_set().map(|mut s| {
-            let (design, id_map) = convert_signals(topo, dgraph, s.get_signals());
-            let dispatches = s.get_dispatches().into_iter().enumerate()
+            let dispatches = s.get_dispatches();
+            let detectors = s.reduce_detectors(&dispatches);
+            let signals = s.get_signals();
+            let (design, id_map) = convert_signals(topo, dgraph, &signals, &detectors);
+            let dispatches = dispatches.into_iter().enumerate()
                 .map(|(planspec_idx,routeplans)| routeplans.into_iter()
                      .map(|routeplan| abstract_dispatches(dgraph, il, &id_map, &routeplan))
                      .collect()).collect();
@@ -55,23 +58,54 @@ impl<'a> Iterator for Iter<'a> {
 
 
 fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph, 
-                   signals :&HashMap<planner::input::SignalId, bool>) 
+                   signals :&HashSet<planner::input::SignalId>, 
+                   detectors :&HashSet<planner::input::SignalId>) 
     -> (Design,HashMap<PtA,PtA>) {
 
     let mut design = Vec::new();
     // maximal_design_object_id --> minimal_design_object_id 
     let mut id_map = HashMap::new();
 
-    let pt_id = dgraph.object_ids.iter().map(|(a,b)| (*b,*a))
+    let sig_id = dgraph.object_ids.iter().map(|(a,b)| (*b,*a))
         .collect::<HashMap<PtA, rolling_inf::ObjectId>>();
+    let canonical_node_id = |n| n/2*2;
+    let det_id = dgraph.detector_ids.iter().map(|(a,b)| (*b,canonical_node_id(*a)))
+        .collect::<HashMap<PtA, rolling_inf::NodeId>>();
+
+    println!("all signals {:?}", sig_id);
+    println!("all detectors {:?}", det_id);
+
+    println!("spec signals {:?}", signals);
+    println!("spec detectors {:?}", detectors);
 
     for (track_idx, track_objects) in topo.trackobjects.iter().enumerate() {
         for (pos, id, func, dir) in track_objects.iter() {
-            let active = pt_id.get(id).map(|o| planner::input::SignalId::ExternalId(*o))
-                                .and_then( |o| signals.get(&o)).unwrap_or(&false);
-            if *active || matches!(func, Function::Detector) {
-                id_map.insert(glm::vec2(id.x as _, 0) , glm::vec2(design.len() as _, 0));
-                design.push((track_idx,*pos,*func,*dir));
+            println!("convert {:?}", (pos,id,func,dir));
+            match func {
+                Function::Detector => {
+                    if det_id.get(id).map(|d| detectors.contains(&planner::input::SignalId::Detector(*d)) ||
+                                              detectors.contains(&planner::input::SignalId::Detector(*d + 1)))
+                        .unwrap_or(false) {
+
+                        design.push((track_idx, *pos, *func, *dir));
+                        id_map.insert(glm::vec2(id.x as _, 0) , glm::vec2(design.len() as _, 0));
+                    }
+                },
+                Function::MainSignal { .. } => {
+                    if sig_id.get(id).map(|o| signals.contains(&planner::input::SignalId::Signal(*o)))
+                        .unwrap_or(false) {
+
+                            
+                        id_map.insert(glm::vec2(id.x as _, 0) , glm::vec2(design.len() as _, 0));
+                        design.push((track_idx, *pos, *func, *dir));
+
+                    } else if sig_id.get(id).map(|o| detectors.contains(&planner::input::SignalId::Signal(*o)))
+                        .unwrap_or(false) {
+
+                        id_map.insert(glm::vec2(id.x as _, 0) , glm::vec2(design.len() as _, 0));
+                        design.push((track_idx, *pos, Function::Detector, None));
+                    }
+                },
             }
         }
     }

@@ -467,8 +467,9 @@ pub fn draw_train(time :f64, history :&History, dgraph :&DGraph) -> Vec<TrainIns
                 },
                 TrainLogEvent::Wait(dt) => { t += dt; },
                 TrainLogEvent::Sight(id, value) => {
-                    let pta = *dgraph.object_ids.get_by_left(id).unwrap();
-                    if *value { sighted.insert(pta); } else { sighted.remove(&pta); }
+                    if let Some(pta) = dgraph.object_ids.get_by_left(id) {
+                        if *value { sighted.insert(*pta); } else { sighted.remove(pta); }
+                    }
                 },
                 _ => {},
             }
