@@ -319,5 +319,23 @@ void glfw_opengl3_Destroy() {
     glfwTerminate();
 }
 
+void glfw_opengl3_Screenshot(const char* filename, unsigned int width, unsigned int height) {
+    size_t i, j, cur;
+    const size_t format_nchannels = 3;
+    GLubyte* pixels = new GLubyte[format_nchannels * width * height];
+    FILE *f = fopen(filename, "w");
+    fprintf(f, "P3\n%d %d\n%d\n", width, height, 255);
+    glReadBuffer( GL_FRONT );
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    for (i = 0; i < height; i++) {
+        for (j = 0; j < width; j++) {
+            cur = format_nchannels * ((height - i - 1) * width + j);
+            fprintf(f, "%3d %3d %3d ", pixels[cur], pixels[cur + 1], pixels[cur + 2]);
+        }
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+
 }
 

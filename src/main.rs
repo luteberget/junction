@@ -62,3 +62,46 @@ fn main() {
         return continue_running;
     }).unwrap();
 }
+
+pub fn screenshot(name :&str, app :&mut App) {
+    backend_glfw::screenshot(name, 
+                              app.config.get_font_filename().as_ref().map(|x| x.as_str()),
+                              app.config.get_font_size(),
+                              || { gui::main(app); });
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    pub fn ss_start_scree() {
+
+        let logstring = gui::windows::logview::StringLogger::init(log::LevelFilter::Trace).unwrap();
+        info!("Starting {} v{}.", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+
+        let config = config::Config::load();
+        let background_jobs = app::BackgroundJobs::new();
+
+        // Create an empty, untitled document
+        // TODO: command line read from file
+        let document = document::Document::empty(background_jobs.clone());
+
+        // Additional windows are closed.
+        let windows = app::Windows::closed(background_jobs.clone());
+
+        let mut app = app::App {
+            document: document,
+            log: logstring,
+            config :config,
+            windows: windows,
+            background_jobs: background_jobs,
+        };
+
+
+        screenshot("start_screen.ppm", &mut app);
+        println!("saved sceen shot start_screen.ppm");
+
+    }
+}

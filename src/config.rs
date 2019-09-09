@@ -274,7 +274,7 @@ pub fn default_colors() -> EnumMap<RailUIColorName, Color> {
     }
 }
 
-#[derive(Enum, FromPrimitive, Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Enum, Debug, PartialEq, Eq, Copy, Clone)]
 #[derive(Serialize,Deserialize)]
 pub enum RailUIColorName {
     CanvasBackground,
@@ -314,10 +314,10 @@ pub enum RailUIColorName {
 
 #[test]
 pub fn colr_no() {
-    use num_traits::FromPrimitive;
-    let x = RailUIColor::from_usize(2);
-    dbg!(x.unwrap());
-    assert_eq!(x.unwrap(), RailUIColor::TVDReserved);
+    //use num_traits::FromPrimitive;
+    //let x :RailUIColorName = RailUIColorName::from_usize(2usize);
+    //dbg!(x);
+    //assert_eq!(x, RailUIColorName::CanvasSymbol);
 }
 
 
