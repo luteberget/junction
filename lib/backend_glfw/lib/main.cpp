@@ -142,7 +142,7 @@ void glfw_opengl3_SetWindowTitle(const char* win_name) {
 	glfwSetWindowTitle(window, win_name);
 }
 
-void glfw_opengl3_Init(const char* win_name, const char* font_filename, float font_size) {
+void glfw_opengl3_Init(const char* win_name, const char* font_filename, float font_size, const char* fontawesome_ttf, int fontawesome_len) {
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -215,7 +215,24 @@ void glfw_opengl3_Init(const char* win_name, const char* font_filename, float fo
     //io.Fonts->AddFontDefault();
     if (font_filename != nullptr) {
       io.Fonts->AddFontFromFileTTF(font_filename, font_size);
+    } else {
+      io.Fonts->AddFontDefault();
     }
+
+    if (fontawesome_ttf != nullptr) {
+	    static const unsigned int ICON_MIN_FA = 0xf000;
+	    static const unsigned int ICON_MAX_FA = 0xf897;
+	    static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
+
+	    ImFontConfig icons_config; 
+	    icons_config.MergeMode = true; 
+	    icons_config.PixelSnapH = true;
+	    icons_config.FontDataOwnedByAtlas = false;
+	    io.Fonts->AddFontFromMemoryTTF( (void*)fontawesome_ttf, fontawesome_len,
+			    16.0f, &icons_config, icons_ranges );
+    }
+
+
     //
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);

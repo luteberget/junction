@@ -1,3 +1,6 @@
+pub mod fa_icons;
+
+
 pub mod imgui {
 	#![allow(non_upper_case_globals)]
 	#![allow(non_camel_case_types)]
@@ -58,7 +61,7 @@ pub enum SystemAction {
 }
 
 extern "C" { 
-    fn glfw_opengl3_Init(window_name :*const i8, font_name :*const i8, font_size :f32);  
+    fn glfw_opengl3_Init(window_name :*const i8, font_name :*const i8, font_size :f32, fontawesome_ttf :*const i8, fontawesome_len :u32);  
     fn glfw_opengl3_StartFrame();  
     fn glfw_opengl3_EndFrame(); 
     fn glfw_opengl3_HandleEvents(close :*mut bool); 
@@ -78,6 +81,8 @@ pub fn screenshot(filename :&str,
                   font_size :f32,
                   mut f :impl FnMut()) -> Result<(), String> {
 
+    let fontawesome_ttf = fa_icons::FA_TTF_CONTENTS;
+
     let window_name = std::ffi::CString::new("glfw").map_err(|e| format!("{:?}", e))?;
     let font_name_string = {
         match font_name {
@@ -89,7 +94,8 @@ pub fn screenshot(filename :&str,
     // Extern call to modified imgui example code.
     unsafe { glfw_opengl3_Init(window_name.as_ptr(), 
                    font_name_string.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
-                   font_size); }
+                   font_size,
+                   fontawesome_ttf.as_ptr() as _ , fontawesome_ttf.len() as _ ); }
 
     let mut close = false;
     unsafe { glfw_opengl3_HandleEvents(&mut close as *mut _); }
@@ -118,6 +124,9 @@ pub fn backend(window_name :&str,
                font_name :Option<&str>,
                font_size :f32,
                mut handle :impl FnMut(SystemAction) -> bool) -> Result<(), String> {
+
+    let fontawesome_ttf = fa_icons::FA_TTF_CONTENTS;
+
     let window_name = std::ffi::CString::new(window_name).map_err(|e| format!("{:?}", e))?;
     let font_name_string = {
         match font_name {
@@ -129,7 +138,8 @@ pub fn backend(window_name :&str,
     // Extern call to modified imgui example code.
     unsafe { glfw_opengl3_Init(window_name.as_ptr(), 
                    font_name_string.as_ref().map(|s| s.as_ptr()).unwrap_or(std::ptr::null()),
-                   font_size); }
+                   font_size,
+                   fontawesome_ttf.as_ptr() as _ , fontawesome_ttf.len() as _ ); }
 
     loop {
         let mut close = false;

@@ -361,7 +361,7 @@ fn inf_toolbar(inf_view :&mut InfView) {
         inf_view.action = Action::InsertObject(None);
     }
     igSameLine(0.0,-1.0);
-    if toolbar_button(const_cstr!("draw (D)").as_ptr(), 
+    if toolbar_button(const_cstr!("\u{f044} draw (D)").as_ptr(), 
                       'A' as _,  matches!(inf_view.action, Action::DrawingLine(_))) {
         inf_view.action = Action::DrawingLine(None);
     }
