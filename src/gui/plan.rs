@@ -38,7 +38,7 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
 
 
         igSameLine(0.0,-1.0);
-        if igButton(const_cstr!("(+) Train").as_ptr(), ImVec2::zero()) {
+        if igButton(const_cstr!("\u{f0fe} \u{f239} Train").as_ptr(), ImVec2::zero()) {
             action = Some(Action::NewTrain);
         }
 
@@ -614,13 +614,13 @@ fn good_location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_vis
             match nctype {
                 NDType::OpenEnd => {
                     name = if (vc.x > 0 && first_visit) || (vc.x < 0 && !first_visit) { 
-                        const_cstr!("->") }
+                        const_cstr!("\u{f061}") }
                     else if (vc.x < 0 && first_visit) || (vc.x > 0 && !first_visit) { 
-                        const_cstr!("<-") }
+                        const_cstr!("\u{f060}") }
                     else if (vc.y > 0 && first_visit) || (vc.y < 0 && !first_visit) { 
-                        const_cstr!("^ ") }
+                        const_cstr!("\u{f062}") }
                     else if (vc.y < 0 && first_visit) || (vc.y > 0 && !first_visit) { 
-                        const_cstr!("v ") }
+                        const_cstr!("\u{f063}") }
                     else { return Err(()); };
                     col = if first_visit {
                         config.color_u32(RailUIColorName::CanvasTrack)
@@ -629,15 +629,15 @@ fn good_location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_vis
                     };
                 },
                 NDType::Sw(_)  => {
-                    name = const_cstr!("Sw");
+                    name = const_cstr!("\u{f074}");
                     col = config.color_u32(RailUIColorName::GraphCommandRoute);
                 },
                 NDType::Cont => { 
-                    name = const_cstr!("C ");
+                    name = const_cstr!("\u{f337}");
                     col = config.color_u32(RailUIColorName::GraphTrainFront);
                 }
                 NDType::Crossing(_) => { 
-                    name = const_cstr!("Cr");
+                    name = const_cstr!("\u{f074}");
                     col = config.color_u32(RailUIColorName::GraphBlockReserved);
                 },
                 NDType::Err | NDType::BufferStop => { return Err(()); }

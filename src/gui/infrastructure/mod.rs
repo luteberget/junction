@@ -351,17 +351,17 @@ fn interact_insert(config :&Config, analysis :&mut Analysis,
 
 fn inf_toolbar(inf_view :&mut InfView) {
     unsafe  {
-    if toolbar_button(const_cstr!("select (A)").as_ptr(), 
+    if toolbar_button(const_cstr!("\u{f245} select (A)").as_ptr(), 
                       'A' as _,  matches!(inf_view.action, Action::Normal(_))) {
         inf_view.action = Action::Normal(NormalState::Default);
     }
     igSameLine(0.0,-1.0);
-    if toolbar_button(const_cstr!("insert (S)").as_ptr(), 
+    if toolbar_button(const_cstr!("\u{f637} insert (S)").as_ptr(), 
                       'S' as _,  matches!(inf_view.action, Action::InsertObject(_))) {
         inf_view.action = Action::InsertObject(None);
     }
     igSameLine(0.0,-1.0);
-    if toolbar_button(const_cstr!("\u{f044} draw (D)").as_ptr(), 
+    if toolbar_button(const_cstr!("\u{f303} draw (D)").as_ptr(), 
                       'A' as _,  matches!(inf_view.action, Action::DrawingLine(_))) {
         inf_view.action = Action::DrawingLine(None);
     }

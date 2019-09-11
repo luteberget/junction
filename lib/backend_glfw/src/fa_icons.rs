@@ -1,4 +1,4 @@
-pub const FA_TTF_CONTENTS :&[u8] = include_bytes!("fa-regular-400.ttf");
+pub const FA_TTF_CONTENTS :&[u8] = include_bytes!("fa-solid-900.ttf");
 
 pub const ICON_MIN_FA :usize = 0xf000;
 pub const ICON_MAX_FA :usize = 0xf897;

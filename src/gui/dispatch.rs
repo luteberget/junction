@@ -105,7 +105,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
             igPopID();
 
             igSpacing();
-            if igButton(const_cstr!("(+) Manual").as_ptr(), ImVec2::zero()) {
+            if igButton(const_cstr!("\u{f0fe} Manual").as_ptr(), ImVec2::zero()) {
                 new_dispatch_auto = Some(false);
             }
             igSpacing();
@@ -133,7 +133,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
 
 
             igSpacing();
-            if igButton(const_cstr!("(+) Auto").as_ptr(), ImVec2::zero()) {
+            if igButton(const_cstr!("\u{f0fe} Auto").as_ptr(), ImVec2::zero()) {
                 new_dispatch_auto = Some(true);
             }
             igSpacing();
