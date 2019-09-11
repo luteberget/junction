@@ -64,13 +64,23 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
         let mut new_dispatch_auto = None;
         let mut retval = None;
 
+        //if igButton(const_cstr!("\u{f2f2}").as_ptr(), ImVec2::zero()) {
+        //    igOpenPopup(const_cstr!("##sel").as_ptr());
+        //}
+        //if igIsItemHovered(0) {
+        //    igBeginTooltip();
+        //    widgets::show_text("Add automatic or manual dispatching.");
+        //    igEndTooltip();
+        //}
+        //igSameLine(0.0,-1.0);
+
         igPushItemWidth(250.0);
         let current_name = match dispatch_view {
-            None => CString::new("None").unwrap(),
+            None => CString::new("\u{f2f2} None").unwrap(),
             Some(DispatchView::Manual(ManualDispatchView { dispatch_idx, .. })) => 
-                CString::new(format!("Dispatch {}",dispatch_idx)).unwrap(),
+                CString::new(format!("\u{f2f2} Dispatch {}",dispatch_idx)).unwrap(),
             Some(DispatchView::Auto(AutoDispatchView { plan_idx , .. })) => 
-                CString::new(format!("Plan {}",plan_idx)).unwrap(),
+                CString::new(format!("\u{f2f2} Plan {}",plan_idx)).unwrap(),
         };
 
         let curr_manual = if let Some(DispatchView::Manual(ManualDispatchView { dispatch_idx , ..})) = &dispatch_view {
@@ -140,7 +150,14 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
 
             igEndCombo();
         }
+
         igPopItemWidth();
+
+        if igIsItemHovered(0) {
+            igBeginTooltip();
+            widgets::show_text("Add automatic or manual dispatching.");
+            igEndTooltip();
+        }
 
         if new_dispatch_auto == Some(false) {
             // Create new dispatch and set it to current

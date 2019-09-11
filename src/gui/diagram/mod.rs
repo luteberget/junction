@@ -19,21 +19,25 @@ pub enum DiagramViewAction {
     MoveCommand { idx :usize, id :usize, t :f64 },
 }
 
+pub fn default_viewport(graph :&DispatchOutput) -> DiagramViewport {
+    DiagramViewport {
+        time: (graph.time_interval.0 as _, graph.time_interval.1 as _),
+        pos: (graph.pos_interval.0 as _, graph.pos_interval.1 as _),
+    }
+}
+
 pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) -> Option<DiagramViewAction> {
     let mut action = None;
     unsafe {
-        diagram_toolbar(dv);
+        igSameLine(0.0,-1.0);
+        diagram_toolbar(dv, graph);
         let size = igGetContentRegionAvail_nonUDT2().into();
         widgets::canvas(size,
                     config.color_u32(RailUIColorName::GraphBackground),
                     const_cstr!("diag").as_ptr(),
                     |draw| {
 
-            if dv.viewport.is_none() { dv.viewport = Some(DiagramViewport {
-                    time: (graph.time_interval.0 as _, graph.time_interval.1 as _),
-                    pos: (graph.pos_interval.0 as _, graph.pos_interval.1 as _),
-                }); }
-
+            if dv.viewport.is_none() { dv.viewport = Some(default_viewport(graph)); }
 
             // Need to get a DispatchOutput from analysis.
             draw::diagram(config, graph, draw, dv.viewport.as_ref().unwrap());
@@ -107,12 +111,16 @@ fn scroll(draw :&Draw, viewport :&mut DiagramViewport) {
 }
 
 
-fn diagram_toolbar(dv :&mut ManualDispatchView) {
+fn diagram_toolbar(dv :&mut ManualDispatchView, graph :&DispatchOutput) {
     unsafe {
-    let label = if dv.play { const_cstr!("pause") }
-                else { const_cstr!("play") };
+    let label = if dv.play { const_cstr!("\u{f04c}") }
+                else { const_cstr!("\u{f04b}") };
     if igButton(label.as_ptr(), ImVec2::zero()) {
         dv.play = !dv.play;
+    }
+    igSameLine(0.0,-1.0);
+    if igButton(const_cstr!("\u{f0b2}").as_ptr(), ImVec2::zero()) {
+        dv.viewport = Some(default_viewport(graph));
     }
     }
 }

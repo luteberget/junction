@@ -22,6 +22,10 @@ pub fn edit_config_window(popen :&mut bool, config :&mut Config) {
                     igEndMenu();
                 }
                 if igBeginMenu(const_cstr!("Themes").as_ptr(), true) {
+                    if igMenuItemBool(const_cstr!("Junction-gray").as_ptr(), std::ptr::null(), false, true) {
+                        let s = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/themes/gray.toml"));
+                        import_string(config, s);
+                    }
                     if igMenuItemBool(const_cstr!("Junction-dark").as_ptr(), std::ptr::null(), false, true) {
                         let s = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/themes/dark.toml"));
                         import_string(config, s);
