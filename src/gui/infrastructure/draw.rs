@@ -49,7 +49,7 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
                 .map(|(a,b)| util::point_in_rect(p1,a,b) || util::point_in_rect(p2,a,b))
                 .unwrap_or(false) ;
             let col = if selected || preview { color_line_selected } else { color_line };
-            ImDrawList_AddLine(draw.draw_list, draw.pos + p1, draw.pos + p2, col, 2.0);
+            ImDrawList_AddLine(draw.draw_list, draw.pos + p1, draw.pos + p2, col, 4.0);
         }
 
         let color_node = config.color_u32(RailUIColorName::CanvasNode);
@@ -71,18 +71,18 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
                             ImDrawList_AddLine(draw.draw_list,
                                draw.pos + inf_view.view.world_ptc_to_screen(pt),
                                draw.pos + inf_view.view.world_ptc_to_screen(pt) 
-                                + util::to_imvec(8.0*rotate_vec2(&normalize(&tangent),radians(&vec1(*angle)).x)), col, 2.0);
+                                + util::to_imvec(2.0*8.0*rotate_vec2(&normalize(&tangent),radians(&vec1(*angle)).x)), col, 4.0);
                         }
                     },
                     NDType::Cont => {
                         ImDrawList_AddCircleFilled(draw.draw_list, 
-                            draw.pos + inf_view.view.world_ptc_to_screen(pt), 4.0, col, 8);
+                            draw.pos + inf_view.view.world_ptc_to_screen(pt), 8.0, col, 8);
                     },
                     NDType::Sw(side) => {
                         let angle = if matches!(side, Side::Left) { 45.0 } else { -45.0 };
                         let p1 = draw.pos + inf_view.view.world_ptc_to_screen(pt);
-                        let p2 = p1 + util::to_imvec(15.0*normalize(&tangent));
-                        let p3 = p1 + util::to_imvec(15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
+                        let p2 = p1 + util::to_imvec(2.0*15.0*normalize(&tangent));
+                        let p3 = p1 + util::to_imvec(2.0*15.0*rotate_vec2(&(1.41*normalize(&tangent)), radians(&vec1(angle)).x));
                         ImDrawList_AddTriangleFilled(draw.draw_list, p1,p2,p3, col);
                     },
                     NDType::Err =>{
@@ -90,19 +90,19 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
                         let window = ImVec2 { x: 4.0, y: 4.0 };
                         ImDrawList_AddRect(draw.draw_list, p - window, p + window,
                                            config.color_u32(RailUIColorName::CanvasNodeError),
-                                           0.0,0,4.0);
+                                           0.0,0,6.0);
                     },
                     NDType::BufferStop => {
                         let tangent = util::to_imvec(normalize(&tangent));
                         let normal = ImVec2 { x: -tangent.y, y: tangent.x };
 
                         let node = draw.pos + inf_view.view.world_ptc_to_screen(pt);
-                        let pline :&[ImVec2] = &[node + 8.0*normal + 4.0 * tangent,
-                                              node + 8.0*normal,
-                                              node - 8.0*normal,
-                                              node - 8.0*normal + 4.0 * tangent];
+                        let pline :&[ImVec2] = &[node + 2.0*8.0*normal + 2.0*4.0 * tangent,
+                                                 node + 2.0*8.0*normal,
+                                                 node - 2.0*8.0*normal,
+                                                 node - 2.0*8.0*normal + 2.0*4.0 * tangent];
 
-                        ImDrawList_AddPolyline(draw.draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0);
+                        ImDrawList_AddPolyline(draw.draw_list,pline.as_ptr(), pline.len() as i32, col, false, 4.0);
 
                     },
                     NDType::Crossing(type_) => {
@@ -113,29 +113,29 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
                         let normal = ImVec2 { x: tangenti.y, y: tangenti.x };
 
                         if right_conn {
-                            let base = draw.pos + inf_view.view.world_ptc_to_screen(pt) - 4.0*normal - 2.0f32.sqrt()*2.0*tangenti;
-                            let pline :&[ImVec2] = &[base - 8.0*tangenti,
+                            let base = draw.pos + inf_view.view.world_ptc_to_screen(pt) - 2.0*4.0*normal - 2.0*2.0f32.sqrt()*2.0*tangenti;
+                            let pline :&[ImVec2] = &[base - 2.0*8.0*tangenti,
                                                      base,
-                                                     base + 8.0*util::to_imvec(rotate_vec2(&tangent, radians(&vec1(45.0)).x))];
-                            ImDrawList_AddPolyline(draw.draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0);
+                                                     base + 2.0*8.0*util::to_imvec(rotate_vec2(&tangent, radians(&vec1(45.0)).x))];
+                            ImDrawList_AddPolyline(draw.draw_list,pline.as_ptr(), pline.len() as i32, col, false, 4.0);
                         }
 
                         if left_conn {
-                            let base = draw.pos + inf_view.view.world_ptc_to_screen(pt) + 4.0*normal + 2.0f32.sqrt()*2.0*tangenti;
-                            let pline :&[ImVec2] = &[base + 8.0*tangenti,
+                            let base = draw.pos + inf_view.view.world_ptc_to_screen(pt) + 2.0*4.0*normal + 2.0*2.0f32.sqrt()*2.0*tangenti;
+                            let pline :&[ImVec2] = &[base + 2.0*8.0*tangenti,
                                                      base,
-                                                     base - 8.0*util::to_imvec(rotate_vec2(&tangent, radians(&vec1(45.0)).x))];
-                            ImDrawList_AddPolyline(draw.draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0);
+                                                     base - 2.0*8.0*util::to_imvec(rotate_vec2(&tangent, radians(&vec1(45.0)).x))];
+                            ImDrawList_AddPolyline(draw.draw_list,pline.as_ptr(), pline.len() as i32, col, false, 2.0*2.0);
                         }
 
                         if left_conn || right_conn {
                             let p = draw.pos + inf_view.view.world_ptc_to_screen(pt);
-                            let pa = util::to_imvec(15.0*normalize(&tangent));
-                            let pb = util::to_imvec(15.0*rotate_vec2(&normalize(&tangent), radians(&vec1(45.0)).x));
+                            let pa = util::to_imvec(2.0*15.0*normalize(&tangent));
+                            let pb = util::to_imvec(2.0*15.0*rotate_vec2(&normalize(&tangent), radians(&vec1(45.0)).x));
                             ImDrawList_AddTriangleFilled(draw.draw_list,p,p+pa,p+pb,col);
                             ImDrawList_AddTriangleFilled(draw.draw_list,p,p-pa,p-pb,col);
                         } else {
-                            ImDrawList_AddCircleFilled(draw.draw_list, draw.pos + inf_view.view.world_ptc_to_screen(pt), 4.0, col, 8);
+                            ImDrawList_AddCircleFilled(draw.draw_list, draw.pos + inf_view.view.world_ptc_to_screen(pt), 8.0, col, 8);
                         }
                     },
                 }
@@ -175,7 +175,7 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
                             ImDrawList_AddLine(draw.draw_list,
                                                draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
                                                draw.pos + inf_view.view.world_ptc_to_screen(*pt_b),
-                                               color_section, 7.0);
+                                               color_section, 2.0*7.0);
                         }
                     }
                 }
@@ -188,7 +188,7 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
                     ImDrawList_AddLine(draw.draw_list,
                                        draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
                                        draw.pos + inf_view.view.world_ptc_to_screen(*pt_b),
-                                       color_path, 10.0);
+                                       color_path, 2.0*10.0);
                 }
             }
         }
@@ -207,7 +207,7 @@ pub fn trains(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Dra
             ImDrawList_AddLine(draw.draw_list,
                                draw.pos + inf_view.view.world_ptc_to_screen(*p1),
                                draw.pos + inf_view.view.world_ptc_to_screen(*p2),
-                               color, 10.0);
+                               color, 2.0*10.0);
             }
         }
 
@@ -217,7 +217,7 @@ pub fn trains(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Dra
                 ImDrawList_AddLine(draw.draw_list,
                                    draw.pos + inf_view.view.world_ptc_to_screen(front),
                                    draw.pos + inf_view.view.world_ptc_to_screen(unround_coord(*pta)),
-                                   sight_color, 2.0);
+                                   sight_color, 2.0*2.0);
                 }
             }
         }
@@ -241,7 +241,7 @@ pub fn state(config :&Config, instant :&Instant, inf_view :&InfView, draw :&Draw
                 ImDrawList_AddLine(draw.draw_list,
                                    draw.pos + inf_view.view.world_ptc_to_screen(*p1),
                                    draw.pos + inf_view.view.world_ptc_to_screen(*p2),
-                                   color, 4.0);
+                                   color, 2.0*4.0);
             }
         }
     }
