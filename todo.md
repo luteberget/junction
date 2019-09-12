@@ -61,8 +61,8 @@
  * X bug: VisitKey invalidated by moving visit from one train to another
  * X delete constraints
  *   delete trains
- *   delete plans and dispatches
- *   rename trains, dispatches, plans
+ * X delete plans and dispatches
+ * X rename trains, dispatches, plans
  *   disallow bad constraints, drop non-working constraints when rearranging visits
  *   highlight visits location in infrastructure
  * X visit types: boundary vs. middle
