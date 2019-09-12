@@ -39,14 +39,14 @@ fn main() {
     }
 
 
-    #[cfg(target_os = "linux"))]
+    #[cfg(target_os = "linux")]
     {
     println!("cargo:rustc-link-lib=glfw");
     println!("cargo:rustc-link-lib=GL");
     }
 
 
-    #[cfg(target_os = "osx"))]
+    #[cfg(target_os = "osx")]
     {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     println!("cargo:rustc-link-search={}/bin", manifest_dir);

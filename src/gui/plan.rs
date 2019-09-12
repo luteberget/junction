@@ -18,6 +18,7 @@ enum Action {
     OrderDeleteAt { key :VisitKey },
     TrainVehicle { train: usize, vehicle: usize },
     NewTrain,
+    RemoveTrain { train: usize },
 }
 
 pub fn edit_plan(config :&Config, analysis :&mut Analysis, 
@@ -90,7 +91,10 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
                 igPushIDInt(*train_id as _);
 
                 igAlignTextToFramePadding();
-                widgets::show_text(&format!("Train {}: ", train_id));
+                if igButton(const_cstr!("\u{f55a}").as_ptr(), ImVec2::zero()) {
+                    action = Some(Action::RemoveTrain(train_id));
+                }
+                widgets::show_text(&format!("\u{f239}({}) ", train_id));
                 igSameLine(0.0,-1.0);
                 igPushItemWidth(125.0);
                 if let Some(new_vehicle) = select_train_combo(analysis.model(), vehicle_ref) {
@@ -229,6 +233,12 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
             let default_train = analysis.model().vehicles.iter().next().map(|(id,_)| *id);
             analysis.edit_model(|m| {
                 m.plans.get_mut(plan_idx).unwrap().trains.insert((default_train, ImShortGenList::new()));
+                None
+            }); },
+        Some(Action::RemoveTrain { train }) => {
+            let default_train = analysis.model().vehicles.iter().next().map(|(id,_)| *id);
+            analysis.edit_model(|m| {
+                m.plans.get_mut(plan_idx).unwrap().trains.remove(train);
                 None
             }); },
         Some(Action::TrainVehicle { train, vehicle }) => {
@@ -555,18 +565,21 @@ unsafe {
     if igBeginPopup(const_cstr!("pctx").as_ptr(), 0 as _) {
         match auto_dispatch.action {
             PlanViewAction::Menu(key, pos) => {
+                if igSelectable(const_cstr!("\u{f0dc} Add ordering constraint...").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    auto_dispatch.action = PlanViewAction::DragFrom(key,pos);
+                }
+
+                widgets::sep();
+                
                 if key.location.is_some() {
-                    if igSelectable(const_cstr!("Remove location").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    if igSelectable(const_cstr!("\u{f55a} Remove location").as_ptr(), false, 0 as _, ImVec2::zero()) {
                         *action = Some(Action::VisitDelete { key });
                     }
                 }
-                if igSelectable(const_cstr!("Remove visit").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                if igSelectable(const_cstr!("\u{f55a} Remove visit").as_ptr(), false, 0 as _, ImVec2::zero()) {
                     *action = Some(Action::VisitDelete { key: VisitKey { location: None, .. key } } );
                 }
-                if igSelectable(const_cstr!("Add ordering constraint...").as_ptr(), false, 0 as _, ImVec2::zero()) {
-                    auto_dispatch.action = PlanViewAction::DragFrom(key,pos);
-                }
-                if igSelectable(const_cstr!("Remove ordering constraints").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                if igSelectable(const_cstr!("\u{f55a} Remove ordering constraints").as_ptr(), false, 0 as _, ImVec2::zero()) {
                     *action = Some(Action::OrderDeleteAt { key });
                 }
             },
