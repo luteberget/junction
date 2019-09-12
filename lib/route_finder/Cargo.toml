@@ -5,6 +5,6 @@ authors = ["Bjørnar Luteberget <luteberget@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rolling = {path = "../../../trainspotting/rolling"}
+rolling = {path = "../trainspotting/rolling"}
 petgraph = "*"
 smallvec = "*"

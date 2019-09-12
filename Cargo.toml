@@ -34,12 +34,12 @@ confy = {git = "https://github.com/rust-cli/confy/"}
 toml = "*"
 
 backend_glfw = { path = "lib/backend_glfw" }
-rolling = { path = "../trainspotting/rolling" }
-planner = { path = "../trainspotting/planner" }
+rolling = { path = "lib/trainspotting/rolling" }
+planner = { path = "lib/trainspotting/planner" }
 route_finder = { path = "lib/route_finder" }
-lsqr = { path = "../lsqr-rs" }
+lsqr = { path = "lib/lsqr-rs" }
 
-railplotlib = { path = "../railplot/lib/railplotlib" }
+railplotlib = { path = "lib/railplot/lib/railplotlib" }
 railmlio = { path = "lib/railmlio" }
 numerical_optimization = { path = "lib/numerical_optimization" }
 
