@@ -2,5 +2,5 @@
 
 set -ex
 
-carto test --target $TARGET
+cargo test --target $TARGET
 cargo build --target $TARGET --release
