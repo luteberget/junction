@@ -6,6 +6,7 @@ fn main() {
 
     cc::Build::new()
         .cpp(true)
+        .flag_if_supported("-std=c++11")
         .file("lib/imgui_impl_glfw.cpp")
         .file("lib/imgui_impl_opengl3.cpp")
         .file("lib/main.cpp")
