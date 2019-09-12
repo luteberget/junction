@@ -2,8 +2,10 @@ use crate::app::App;
 use crate::document::objects::*;
 use crate::document::infview::*;
 use crate::gui::mainmenu;
+use crate::file;
 use crate::document::*;
 
+use log::*;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
 
@@ -22,28 +24,28 @@ pub fn keys(app :&mut App) {
             app.document.analysis.redo();
         }
 
-        if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('S' as _, false) {
-            //match file::save(filename, app.document.model().clone()) {
-            //    Err(e) => { error!("Error saving file: {}", e); },
-            //    Ok(()) => { app.document.fileinfo.set_saved(); },
-            //};
-            // TODO
+        if (*io).KeyCtrl && igIsKeyPressed('S' as _, false) {
+            match (&app.document.fileinfo.filename, (*io).KeyShift) {
+                (None,_) | (_,true) => {
+                    match file::save_interactive(app.document.analysis.model().clone()) {
+                        Err(e) => { error!("Error saving file: {}", e); },
+                        Ok(Some(filename)) => { app.document.set_saved_file(filename); },
+                        _ => {},
+                    }
+                }
+                (Some(filename),_) => {
+                    match file::save(filename, app.document.analysis.model().clone()) {
+                        Err(e) => { error!("Error saving file: {}", e); },
+                        Ok(()) => { app.document.set_saved_file(filename.clone()); },
+                        _ => {},
+                    }
+                },
+            }
         }
 
-        if (*io).KeyCtrl && (*io).KeyShift && igIsKeyPressed('S' as _, false) {
-            //mainmenu::save_as(doc);
-        }
         if (*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed('O' as _, false) {
             mainmenu::load(app);
         }
-
-
-        // TODO play
-//        if !(*io).KeyCtrl && !(*io).KeyShift && igIsKeyPressed(' ' as _, false) {
-//            if let Some((_,_,play)) = self.active_dispatch.as_mut() {
-//                *play = !*play;
-//            }
-//        }
 
 
         if !igIsAnyItemActive() {

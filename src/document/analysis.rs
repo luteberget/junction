@@ -29,9 +29,9 @@ pub struct AnalysisOutput {
 }
 
 pub struct Analysis {
-    pub model: Undoable<Model, EditClass>,
+    model: Undoable<Model, EditClass>,
     model_generation: Generation,
-    pub output: AnalysisOutput,
+    output: AnalysisOutput,
     chan :Option<Receiver<SetData>>,
     bg :app::BackgroundJobs,
 }
@@ -67,15 +67,18 @@ impl app::BackgroundUpdates for Analysis {
 impl Analysis {
     pub fn model(&self) -> &Model { &self.model.get() }
     pub fn data(&self) -> &AnalysisOutput { &self.output }
+    pub fn generation(&self) -> &Generation { &self.model_generation }
 
     pub fn from_model(model :Model, bg: app::BackgroundJobs) -> Self {
-        Analysis {
+        let mut a = Analysis {
             model: Undoable::from(model),
             model_generation: 0,
             output: Default::default(),
             chan: None,
             bg: bg,
-        }
+        };
+        a.update();
+        a
     }
 
     fn update(&mut self) {

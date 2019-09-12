@@ -33,6 +33,7 @@ pub fn main_menu(app :&mut App) {
                 // TODO warn about saving file when doing new file / load file
                 if igMenuItemBool(const_cstr!("New file").as_ptr(), std::ptr::null(), false, true) {
                     app.document = Document::empty(app.background_jobs.clone());
+                    app.document.fileinfo.update_window_title();
                 }
 
                 if igMenuItemBool(const_cstr!("Load file...").as_ptr(), std::ptr::null(), false, true) {
@@ -46,7 +47,9 @@ pub fn main_menu(app :&mut App) {
                                           std::ptr::null(), false, true) {
                             match file::save(filename, app.document.analysis.model().clone()) {
                                 Err(e) => { error!("Error saving file: {}", e); },
-                                Ok(()) => { app.document.fileinfo.set_saved(); },
+                                Ok(()) => { 
+                                    app.document.set_saved_file(filename.clone()); 
+                                },
                             };
                         }
                     },
@@ -55,7 +58,7 @@ pub fn main_menu(app :&mut App) {
                                           std::ptr::null(), false, true) {
                             match file::save_interactive(app.document.analysis.model().clone()) {
                                 Err(e) => { error!("Error saving file: {}", e); },
-                                Ok(Some(filename)) => { app.document.fileinfo.set_saved_file(filename); },
+                                Ok(Some(filename)) => { app.document.set_saved_file(filename); },
                                 _ => {}, // cancelled
                             };
                         }
@@ -65,6 +68,9 @@ pub fn main_menu(app :&mut App) {
                 if igMenuItemBool(const_cstr!("Save as...").as_ptr(), std::ptr::null(), false, true) {
                     match file::save_interactive(app.document.analysis.model().clone()) {
                         Err(e) => { error!("Error saving file: {}", e); },
+                        Ok(Some(filename)) => {
+                            app.document.set_saved_file(filename);
+                        },
                         _ => {},
                     }
                 }

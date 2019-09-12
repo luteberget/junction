@@ -31,6 +31,7 @@ use backend_glfw::imgui::ImVec2;
 
 pub struct Document {
     pub analysis: analysis::Analysis,
+    pub saved_model :usize,
     pub fileinfo :file::FileInfo,
     pub inf_view :InfView,
     pub dispatch_view :Option<DispatchView>,
@@ -39,6 +40,11 @@ pub struct Document {
 
 impl BackgroundUpdates for Document {
     fn check(&mut self) {
+
+        if *self.analysis.generation() != self.saved_model {
+            self.fileinfo.set_unsaved();
+        }
+
         self.analysis.check();
     }
 }
@@ -54,10 +60,15 @@ impl Document {
             fileinfo: file::FileInfo::empty(),
             inf_view: InfView::default(),
             dispatch_view: None,
-            time_multiplier: 15.0
+            time_multiplier: 15.0,
+            saved_model: 0,
         }
     }
 
+    pub fn set_saved_file(&mut self, filename :String) {
+        self.saved_model = *self.analysis.generation();
+        self.fileinfo.set_saved_file(filename);
+    }
 
 }
 
