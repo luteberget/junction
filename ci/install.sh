@@ -3,6 +3,7 @@ case $TRAVIS_OS_NAME in
         sudo apt update
         sudo apt install -y zlib1g-dev
         sudo apt install -y g++-multilib gcc-multilib
+        sudo apt install -y libglfw3-dev
         ;;
 esac
 
