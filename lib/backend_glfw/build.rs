@@ -46,7 +46,7 @@ fn main() {
     }
 
 
-    #[cfg(target_os = "osx")]
+    #[cfg(target_os = "macos")]
     {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     println!("cargo:rustc-link-search={}/bin", manifest_dir);
