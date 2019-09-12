@@ -29,7 +29,6 @@ pub fn default_viewport(graph :&DispatchOutput) -> DiagramViewport {
 pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) -> Option<DiagramViewAction> {
     let mut action = None;
     unsafe {
-        igSameLine(0.0,-1.0);
         diagram_toolbar(dv, graph);
         let size = igGetContentRegionAvail_nonUDT2().into();
         widgets::canvas(size,

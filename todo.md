@@ -1,4 +1,4 @@
-# immuted TODOs
+# Junction TODOs
 
 ## cleanup
 * x refactor modules (ui, model, analysis)

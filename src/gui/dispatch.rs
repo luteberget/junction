@@ -22,6 +22,7 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
         DispatchView::Manual(manual) => {
             let graph = analysis.data().dispatch.vecmap_get(manual.dispatch_idx);
             if let Some((_gen,graph)) = graph {
+                unsafe { igSameLine(0.0, -1.0); }
                 if let Some(action) = diagram_view(config, analysis, manual, graph) {
                     analysis.edit_model(|m| {
                         match action {
@@ -40,6 +41,10 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
                     });
                 }
             }
+
+            if !(manual.dispatch_idx < analysis.model().dispatches.data().len()) {
+                new_dispatch = Some(None);
+            }
         },
         DispatchView::Auto(auto) => {
             let new_auto = plan::edit_plan(config, analysis, auto);
@@ -50,6 +55,9 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
                     .and_then(|p| p.vecmap_get(manual.dispatch_idx));
                 if let Some((_gen,graph)) = graph {
                     diagram_view(config, analysis, manual, graph);
+                } else {
+                    // Plan doesn't exist anymore.
+                    auto.dispatch = None;
                 }
             }
         },
