@@ -47,14 +47,12 @@ impl DispatchOutput {
         let instant = Instant::from(0.0, &history, dgraph);
         let diagram = Diagram::from(&history, dgraph);
         let (pos1,pos2) = pos_range(&diagram);
-        let pos_diff = pos2 - pos1;
-        //println!("Pos range {:?}", (pos1,pos2));
         DispatchOutput {
             dispatch,
             history: history,
-            time_interval: (-0.1*t, 1.1*t),
+            time_interval: (0.0, t),
             max_t: t,
-            pos_interval: (pos1-0.1*pos_diff,pos2+0.1*pos_diff),
+            pos_interval: (pos1, pos2),
             instant: instant,
             diagram: diagram,
         }

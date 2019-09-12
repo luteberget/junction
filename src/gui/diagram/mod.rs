@@ -20,10 +20,13 @@ pub enum DiagramViewAction {
 }
 
 pub fn default_viewport(graph :&DispatchOutput) -> DiagramViewport {
-    DiagramViewport {
-        time: (graph.time_interval.0 as _, graph.time_interval.1 as _),
-        pos: (graph.pos_interval.0 as _, graph.pos_interval.1 as _),
-    }
+    let (t1,t2) = graph.time_interval;
+    let (x1,x2) = graph.pos_interval;
+    let dt = t2-t1;
+    let dx = x2-x1;
+    let (t1,t2) = (t1 - 0.1*dt, t2 + 0.1*dt);
+    let (x1,x2) = (x1 - 0.1*dx, x2 + 0.1*dx);
+    DiagramViewport { time: (t1 as _ ,t2 as _ ), pos: (x1 as _ ,x2 as _) }
 }
 
 pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) -> Option<DiagramViewAction> {
@@ -38,6 +41,18 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
 
             if dv.viewport.is_none() { dv.viewport = Some(default_viewport(graph)); }
 
+            let viewport = dv.viewport.as_ref().unwrap();
+            let mouse_time = glm::lerp_scalar(viewport.time.0 as f32, viewport.time.1 as f32,
+                                              draw.mouse.y/draw.size.y);
+
+            if igIsItemHovered(0) && igIsMouseDown(0) {
+                dv.time = mouse_time as f64;
+            }
+
+            // Clamp the time to the history's interval
+            dv.time = glm::clamp_scalar(dv.time, graph.time_interval.0 as f64, 
+                                                 graph.time_interval.1 as f64);
+
             // Need to get a DispatchOutput from analysis.
             draw::diagram(config, graph, draw, dv.viewport.as_ref().unwrap());
             action = draw::command_icons(config, analysis, graph, draw, dv).or(action);
@@ -46,8 +61,6 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
             let viewport = dv.viewport.as_mut().unwrap();
             scroll(draw, viewport);
 
-            let mouse_time = glm::lerp_scalar(viewport.time.0 as f32, viewport.time.1 as f32,
-                                              draw.mouse.y/draw.size.y);
 
             match dv.action {
                 ManualDispatchViewAction::None => {},
@@ -68,9 +81,6 @@ pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatc
                 igEndPopup();
             }
 
-            if igIsItemHovered(0) && igIsMouseDown(0) {
-                dv.time = mouse_time as f64;
-            }
 
             Some(())
         });
