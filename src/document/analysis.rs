@@ -150,7 +150,7 @@ impl Analysis {
         });
     }
 
-    pub fn edit_model(&mut self, mut f :impl FnMut(&mut Model) -> Option<EditClass>) {
+    pub fn edit_model(&mut self, mut f :impl FnOnce(&mut Model) -> Option<EditClass>) {
         let mut new_model = self.model.get().clone();
         let cl = f(&mut new_model);
         self.set_model(new_model, cl);

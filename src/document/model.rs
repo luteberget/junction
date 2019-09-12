@@ -134,26 +134,31 @@ pub enum Command {
     Route(RouteSpec),
 }
 
+pub type Commands = Vec<(usize,(f64,Command))>;
+
 #[derive(Serialize,Deserialize)]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Dispatch {
+    pub name :String,
     generation :usize,
     pub commands :Vec<(usize,(f64,Command))>,
 }
 
 impl Dispatch {
-    pub fn new() -> Dispatch {
+    pub fn new_empty(name :String) -> Dispatch {
         Dispatch {
+            name: name,
             generation :0,
             commands :Vec::new(),
         }
     }
 
-    pub fn from_vec(x :Vec<(f64,Command)>) -> Dispatch {
-        let l = x.len();
+    pub fn from_vec(name :String, commands :Vec<(usize, (f64,Command))>) -> Dispatch {
+        let l = commands.len();
         Dispatch {
+            name: name, 
             generation: l,
-            commands: x.into_iter().enumerate().collect(),
+            commands: commands,
         }
     }
 
@@ -205,6 +210,10 @@ pub struct ShortGenList<T> {
 pub struct ImShortGenList<T>(Arc<ShortGenList<T>>);
 
 impl<T :Clone> ImShortGenList<T> {
+    pub fn next_id(&self) -> usize {
+        self.0.generation
+    }
+
     pub fn data(&self) -> &[(usize,T)] {
         &self.0.list
     }
@@ -382,6 +391,9 @@ pub enum EditClass {
     VehicleAcc(usize),
     VehicleBrk(usize),
     VehicleVel(usize),
+
+    DispatchName(usize),
+    PlanName(usize),
 }
 
 

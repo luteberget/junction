@@ -8,6 +8,23 @@ use crate::document::model::{PtC, Pt};
 use crate::document::view::View;
 
 
+pub fn edit_text(name :*const i8, s :impl Into<Vec<u8>>) -> Option<String> {
+    let mut s :Vec<u8> = s.into();
+    s.extend((0..15).map(|_| 0 ));
+    unsafe {
+        igInputText(name, s.as_ptr() as *mut _, s.len(),
+            0 as _, None, std::ptr::null_mut());
+
+        if igIsItemEdited() {
+            let terminator = s.iter().position(|&c| c == 0).unwrap();
+            s.truncate(terminator);
+            let s = String::from_utf8_unchecked(s);
+            return Some(s);
+        }
+    }
+    None
+}
+
 pub fn in_root_window(f :impl FnOnce()) {
     unsafe{
         let zero = ImVec2 { x: 0.0, y: 0.0 };

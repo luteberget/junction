@@ -66,40 +66,45 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
     new_dispatch
 }
 
+pub enum Action {
+    DispatchName(usize,String),
+}
+
 /// Select a new dispatch view from manual or auto dispatches already existing in model
 pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut Analysis) -> Option<Option<DispatchView>> {
     unsafe {
         let mut new_dispatch_auto = None;
         let mut retval = None;
+        let mut action = None;
 
-        //if igButton(const_cstr!("\u{f2f2}").as_ptr(), ImVec2::zero()) {
-        //    igOpenPopup(const_cstr!("##sel").as_ptr());
-        //}
-        //if igIsItemHovered(0) {
-        //    igBeginTooltip();
-        //    widgets::show_text("Add automatic or manual dispatching.");
-        //    igEndTooltip();
-        //}
-        //igSameLine(0.0,-1.0);
-
-        igPushItemWidth(250.0);
         let current_name = match dispatch_view {
             None => CString::new("\u{f2f2} None").unwrap(),
-            Some(DispatchView::Manual(ManualDispatchView { dispatch_idx, .. })) => 
-                CString::new(format!("\u{f2f2} Dispatch {}",dispatch_idx)).unwrap(),
-            Some(DispatchView::Auto(AutoDispatchView { plan_idx , .. })) => 
-                CString::new(format!("\u{f2f2} Plan {}",plan_idx)).unwrap(),
+            Some(DispatchView::Manual(ManualDispatchView { dispatch_idx, .. })) => {
+                if let Some(d) = analysis.model().dispatches.get(*dispatch_idx) {
+                    CString::new(format!("\u{f4fd} {}",&d.name)).unwrap()
+                } else {
+                    CString::new(format!("\u{f4fd} Dispatch ?")).unwrap()
+                }
+            }
+            Some(DispatchView::Auto(AutoDispatchView { plan_idx , .. })) =>  {
+                // TODO name inside plan
+                CString::new(format!("\u{f0d0} Plan {}",plan_idx)).unwrap()
+            }
         };
 
-        let curr_manual = if let Some(DispatchView::Manual(ManualDispatchView { dispatch_idx , ..})) = &dispatch_view {
+        igPushItemWidth(250.0);
+        let curr_manual = if let Some(DispatchView::Manual(
+                ManualDispatchView { dispatch_idx , ..})) = &dispatch_view {
             Some(dispatch_idx) } else { None };
-        let curr_auto = if let Some(DispatchView::Auto(AutoDispatchView { plan_idx , ..})) = &dispatch_view {
+        let curr_auto = if let Some(DispatchView::Auto(
+                AutoDispatchView { plan_idx , ..})) = &dispatch_view {
             Some(plan_idx) } else { None };
 
         let comboflag = ImGuiComboFlags__ImGuiComboFlags_HeightLarge;
         if igBeginCombo(const_cstr!("##sel").as_ptr(), current_name.as_ptr(), comboflag as _) {
 
-            if igSelectable(const_cstr!("None").as_ptr(), dispatch_view.is_none(), 0 as _, ImVec2::zero()) {
+            if igSelectable(const_cstr!("None").as_ptr(), 
+                            dispatch_view.is_none(), 0 as _, ImVec2::zero()) {
                 retval = Some(None);
             }
 
@@ -107,15 +112,30 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
 
             igPushIDInt(1);
             let mut any = false;
-            for (id,_) in analysis.model().dispatches.iter() {
+            for (id,d) in analysis.model().dispatches.iter() {
                 any = true;
                 igPushIDInt(*id as _);
 
-                if igSelectable(const_cstr!("##smanu").as_ptr(), Some(id) == curr_manual, 0 as _, ImVec2::zero()) {
+                //if igSelectable(const_cstr!("##smanu").as_ptr(), 
+                //                Some(id) == curr_manual, 0 as _, ImVec2::zero()) {
+                //    retval = Some(Some(DispatchView::Manual(ManualDispatchView::new(*id)))); 
+                //}
+
+                igAlignTextToFramePadding();
+                widgets::show_text("\u{f4fd}");
+
+                igSameLine(0.0,-1.0); 
+                if let Some(new_name) = widgets::edit_text(const_cstr!("##dnm").as_ptr(), 
+                                                           d.name.clone()) {
+                    action = Some(Action::DispatchName(*id, new_name));
+                }
+                igSameLine(0.0,-1.0); 
+                if igButton(const_cstr!("\u{f2ed}").as_ptr(), ImVec2::zero()) {
+                }
+                igSameLine(0.0,-1.0); 
+                if igButton(const_cstr!("\u{f07c}").as_ptr(), ImVec2::zero()) {
                     retval = Some(Some(DispatchView::Manual(ManualDispatchView::new(*id)))); 
                 }
-
-                igSameLine(0.0,-1.0); widgets::show_text(&format!("Dispatch {}", id));
 
                 igPopID();
             }
@@ -123,7 +143,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
             igPopID();
 
             igSpacing();
-            if igButton(const_cstr!("\u{f0fe} Manual").as_ptr(), ImVec2::zero()) {
+            if igButton(const_cstr!("\u{f0fe}\u{f4fd} Manual").as_ptr(), ImVec2::zero()) {
                 new_dispatch_auto = Some(false);
             }
             igSpacing();
@@ -135,14 +155,21 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
                 any = true;
                 igPushIDInt(*id as _);
 
-                if igSelectable(const_cstr!("##sauto").as_ptr(), Some(id) == curr_auto, 0 as _, ImVec2::zero()) {
+                igAlignTextToFramePadding();
+                widgets::show_text("\u{f0d0}");
+
+                igSameLine(0.0,-1.0); widgets::show_text(&format!("Plan {}", id));
+                igSameLine(0.0,-1.0);
+                if igButton(const_cstr!("\u{f2ed}").as_ptr(), ImVec2::zero()) {
+                }
+                igSameLine(0.0,-1.0); 
+                if igButton(const_cstr!("\u{f07c}").as_ptr(), ImVec2::zero()) {
                     retval = Some(Some(DispatchView::Auto(AutoDispatchView {
                         plan_idx: *id,
                         dispatch: None,
                         action: PlanViewAction::None,
                     })));
                 }
-                igSameLine(0.0,-1.0); widgets::show_text(&format!("Plan {}", id));
 
                 igPopID();
             }
@@ -151,7 +178,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
 
 
             igSpacing();
-            if igButton(const_cstr!("\u{f0fe} Auto").as_ptr(), ImVec2::zero()) {
+            if igButton(const_cstr!("\u{f0fe}\u{f0d0} Auto").as_ptr(), ImVec2::zero()) {
                 new_dispatch_auto = Some(true);
             }
             igSpacing();
@@ -167,10 +194,23 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
             igEndTooltip();
         }
 
+        match action {
+            Some(Action::DispatchName(id,name)) => {
+                analysis.edit_model(|m| {
+                    if let Some(d) = m.dispatches.get_mut(id) {
+                        d.name = name;
+                    }
+                    Some(model::EditClass::DispatchName(id))
+                });
+            }
+            _ => {},
+        }
+
         if new_dispatch_auto == Some(false) {
             // Create new dispatch and set it to current
             let mut model = analysis.model().clone();
-            let id = model.dispatches.insert(Default::default());
+            let dispatch_name = format!("Dispatch {}", model.dispatches.next_id()+1);
+            let id = model.dispatches.insert(model::Dispatch::new_empty(dispatch_name));
             analysis.set_model(model, None);
 
             retval = Some(Some(DispatchView::Manual(ManualDispatchView::new(id))));

@@ -16,17 +16,8 @@ pub fn edit_vehicles(doc :&mut Document) {
         name.push(0);
         if igCollapsingHeader(name.as_ptr() as _, 0) {
             for i in 0..(3+1) { name.pop(); }
-            name.extend((0..15).map(|_| 0));
-            igInputText(const_cstr!("Name").as_ptr(),
-                name.as_ptr() as *mut _, 
-                name.len(),
-                0 as _, None, std::ptr::null_mut());
-
-            if igIsItemEdited() {
-                let terminator = name.iter().position(|&c| c == 0).unwrap();
-                name.truncate(terminator);
-                let s = String::from_utf8_unchecked(name);
-                new_model.vehicles.get_mut(*i).unwrap().name = s;
+            if let Some(new_name) = widgets::edit_text(const_cstr!("Name").as_ptr(), name) {
+                new_model.vehicles.get_mut(*i).unwrap().name = new_name;
                 modified = Some(EditClass::VehicleName(*i));
             }
 

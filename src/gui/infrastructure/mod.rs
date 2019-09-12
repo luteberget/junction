@@ -468,7 +468,8 @@ fn start_route(analysis :&mut Analysis, dispatch_view :&mut Option<DispatchView>
     let (dispatch_idx,time) = match &dispatch_view {
         Some(DispatchView::Manual(m)) => (m.dispatch_idx, m.time),
         None | Some(DispatchView::Auto(_)) => {
-            let dispatch_idx = model.dispatches.insert(Default::default());
+            let name = format!("Dispatch {}", model.dispatches.next_id()+1);
+            let dispatch_idx = model.dispatches.insert(Dispatch::new_empty(name));
             let time = 0.0;
 
             let mut m = ManualDispatchView::new(dispatch_idx);

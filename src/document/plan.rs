@@ -52,16 +52,16 @@ pub fn test_plan(dgraph :&DGraph,
                  vehicles :&[(usize,Vehicle)],
                  plan_spec :&PlanSpec,
                  candidate :&planner::input::RoutePlan) 
-    -> Result<Result<(Dispatch, History),TestPlanErr>,String> {
-    let dispatch = convert_dispatch_commands(candidate, il, plan_spec)?;
+    -> Result<Result<(Commands, History),TestPlanErr>,String> {
+    let commands = convert_dispatch_commands(candidate, il, plan_spec)?;
 
     // simulate the dispatch
     let (history,route_refs) =
-         history::get_history(vehicles, &dgraph.rolling_inf, il, &dispatch.commands)?;
+         history::get_history(vehicles, &dgraph.rolling_inf, il, &commands)?;
 
     // then check that the plan is satisfied
     if let Err(e) = eval_plan(dgraph, plan_spec, &history) { return Ok(Err(e)); }
-    return Ok(Ok((dispatch,history)));
+    return Ok(Ok((commands,history)));
 }
 
 fn event_matches_spec(dgraph :&DGraph, visit :&Visit, event :&TrainLogEvent) -> bool {
@@ -106,8 +106,9 @@ pub fn get_dispatches(
     let mut output = Vec::new();
     planner::solver::plan(&config, &plan_inf, &plan_usage, |candidate| {
         println!("got one plan");
-        if let Ok((d,p)) = test_plan(dgraph, il, vehicles, plan, candidate).unwrap() {
-            output.push((d,p));
+        if let Ok((cmds,p)) = test_plan(dgraph, il, vehicles, plan, candidate).unwrap() {
+            let name = format!("Dispatch {}", output.len()+1);
+            output.push((Dispatch::from_vec(name,cmds),p));
         }
         false
     });
@@ -117,7 +118,7 @@ pub fn get_dispatches(
 
 
 fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan, il :&Interlocking,
-                          plan :&PlanSpec) -> Result<Dispatch,String> {
+                          plan :&PlanSpec) -> Result<Commands,String> {
 
     use std::collections::BTreeSet;
 
@@ -151,7 +152,7 @@ fn convert_dispatch_commands(routeplan :&planner::input::RoutePlan, il :&Interlo
         last_active_routes = active_routes;
     }
 
-    Ok(Dispatch::from_vec(commands))
+    Ok(commands.into_iter().enumerate().collect())
 }
 
 
