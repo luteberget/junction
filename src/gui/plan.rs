@@ -92,7 +92,7 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
 
                 igAlignTextToFramePadding();
                 if igButton(const_cstr!("\u{f55a}").as_ptr(), ImVec2::zero()) {
-                    action = Some(Action::RemoveTrain(train_id));
+                    action = Some(Action::RemoveTrain { train: train_id });
                 }
                 widgets::show_text(&format!("\u{f239}({}) ", train_id));
                 igSameLine(0.0,-1.0);
