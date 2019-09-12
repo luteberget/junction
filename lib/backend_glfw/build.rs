@@ -40,6 +40,10 @@ fn main() {
     println!("cargo:rustc-link-lib=GL");
     }
 
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    println!("cargo:rustc-link-search={}/bin", manifest_dir);
+
+
 
     let bindings = bindgen::Builder::default()
         .header("../imgui-sys-bindgen/wrapper.h")
