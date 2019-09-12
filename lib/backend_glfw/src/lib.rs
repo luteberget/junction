@@ -1,3 +1,8 @@
+#[cfg(target_os = "macos")]
+#[link_args="-framework OpenGL -framework Cocoa"]
+mod osx_frameworks {}
+
+
 pub mod fa_icons;
 
 
