@@ -8,5 +8,7 @@ git clone https://github.com/luteberget/railplot.git
 git clone https://github.com/koengit/trainspotting.git
 cd ..
 
-cargo test --target $TARGET
+# don't test on CI for now, because tests include opening windows, which is not supported.
+#cargo test --target $TARGET
+
 cargo build --target $TARGET --release

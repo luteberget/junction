@@ -21,6 +21,10 @@ fn main() {
         .include("lib/glfw/include")
         .compile("libimgui_glfw_opengl3.a");
 
+    
+
+
+
     // add glfw to linker args
     //
     //
@@ -34,14 +38,23 @@ fn main() {
     println!("cargo:rustc-link-lib=opengl32");
     }
 
-    #[cfg(not(target_os = "windows"))]
+
+    #[cfg(target_os = "linux"))]
     {
     println!("cargo:rustc-link-lib=glfw");
     println!("cargo:rustc-link-lib=GL");
     }
 
+
+    #[cfg(target_os = "osx"))]
+    {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     println!("cargo:rustc-link-search={}/bin", manifest_dir);
+    println!("cargo:rustc-link-lib=glfw3");
+    println!("cargo:rustc-link-lib=GL");
+    }
+
+
 
 
 
