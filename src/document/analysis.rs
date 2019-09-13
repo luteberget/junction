@@ -25,7 +25,8 @@ pub struct AnalysisOutput {
     pub dgraph :Option<(Generation, Arc<DGraph>)>,
     pub interlocking :Option<(Generation, Arc<interlocking::Interlocking>)>,
     pub dispatch :Vec<Option<(Generation, dispatch::DispatchOutput)>>,
-    pub plandispatches :HashMap<usize, Vec<Option<(Generation, dispatch::DispatchOutput)>>>,
+    //pub plandispatches :HashMap<usize, Vec<Option<(Generation, dispatch::DispatchOutput)>>>,
+    pub plandispatches :Vec<Option<(Generation, Vec<dispatch::DispatchOutput>)>>,
 }
 
 pub struct Analysis {
@@ -41,7 +42,7 @@ pub enum SetData {
     DGraph(Generation, Arc<DGraph>),
     Interlocking(Generation, Arc<interlocking::Interlocking>),
     Dispatch(Generation, usize,dispatch::DispatchOutput),
-    PlanDispatch(Generation, usize,usize,dispatch::DispatchOutput),
+    PlanDispatch(Generation, usize,Vec<dispatch::DispatchOutput>),
 }
 
 impl app::BackgroundUpdates for Analysis {
@@ -54,10 +55,11 @@ impl app::BackgroundUpdates for Analysis {
                     self.output.dispatch.vecmap_insert(idx, (g, h));
                     //cache.clear_dispatch(idx);
                 },
-                SetData::PlanDispatch(g, plan_idx,dispatch_idx,h) => {
-                    self.output.plandispatches.entry(plan_idx)
-                        .or_insert(Vec::new())
-                        .vecmap_insert(dispatch_idx, (g, h));
+                SetData::PlanDispatch(g, plan_idx,hs) => {
+                    //self.output.plandispatches.entry(plan_idx)
+                        //.or_insert(Vec::new())
+                        //.vecmap_insert(dispatch_idx, (g, h));
+                    self.output.plandispatches.vecmap_insert(plan_idx, (g,hs));
                 },
             }
         }
@@ -137,14 +139,12 @@ impl Analysis {
 
                 info!("Planning successful. {:?}", planresults);
 
-                for (dispatch_idx,(dispatch,history)) in planresults.into_iter().enumerate() {
-                    let view = dispatch::DispatchOutput::from_history(
-                        dispatch.clone(), &dgraph, history);
-                    let send_ok = tx.send(SetData::PlanDispatch(gen, *plan_idx, dispatch_idx, view));
-                    if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}/{}", 
-                                                   plan_idx, dispatch_idx); }
-                }
+                let dispatches = planresults.into_iter().map(|(d,h)| {
+                    dispatch::DispatchOutput::from_history(d, &dgraph, h)
+                }).collect();
 
+                let send_ok = tx.send(SetData::PlanDispatch(gen, *plan_idx, dispatches));
+                if !send_ok.is_ok() { println!("job cancelled after plan dispatch {}", plan_idx); }
             }
 
         });

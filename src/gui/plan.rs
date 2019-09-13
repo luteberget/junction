@@ -12,6 +12,7 @@ use crate::gui::widgets;
 use crate::config::*;
 use crate::document::infview::{InfView, unround_coord};
 use crate::gui::infrastructure::draw::box_around;
+use crate::document::dispatch::DispatchOutput;
 
 enum Action { 
     VisitDelete { key :VisitKey },
@@ -50,7 +51,7 @@ pub fn edit_plan(config :&Config,
         }
 
         igSameLine(0.0,-1.0);
-        plan_dispatches(analysis, auto_dispatch);
+        plan_dispatches(config, analysis, auto_dispatch);
 
         widgets::sep();
 
@@ -304,38 +305,65 @@ pub fn edit_plan(config :&Config,
     new_dispatchview
 }
 
-fn plan_dispatches(analysis :&Analysis, adv :&mut AutoDispatchView)  {
+pub fn planning_icon(config :&Config, analysis :&Analysis, generation :usize, dispatches :&Vec<DispatchOutput>) {
     unsafe {
-        let dispatch_idx = if let Some(ManualDispatchView { dispatch_idx, .. }) = &adv.dispatch {
-            Some(*dispatch_idx) } else { None };
-        let dispatch_name = if let Some(dispatch_idx) = dispatch_idx {
-            CString::new(format!("Dispatch {}", dispatch_idx)).unwrap()
-        } else { CString::new(format!("None")).unwrap() };
+    if generation == *analysis.generation() {
+        if dispatches.len() > 0 {
+            // Planning was successful
+            igPushStyleColorU32(ImGuiCol__ImGuiCol_Text as _, 
+                                config.color_u32(RailUIColorName::CanvasSignalProceed));
+            widgets::show_text("\u{f00c}");
+            igPopStyleColor(1);
+        } else {
+            // Planning failed
+            igPushStyleColorU32(ImGuiCol__ImGuiCol_Text as _, 
+                                config.color_u32(RailUIColorName::CanvasSignalStop));
+            widgets::show_text("\u{f00d}");
+            igPopStyleColor(1);
+        }
+    } else {
+        // Planning still running 
+        igPushStyleColorU32(ImGuiCol__ImGuiCol_Text as _, 
+                            config.color_u32(RailUIColorName::CanvasTrackDrawing));
+        widgets::show_text("\u{f110}");
+        igPopStyleColor(1);
+    }
+    }
+}
 
-        if igBeginCombo(const_cstr!("##chtr").as_ptr(), dispatch_name.as_ptr(), 0) {
-            if igSelectable(const_cstr!("None").as_ptr(), dispatch_idx.is_none(), 0 as _, ImVec2::zero()) {
+fn plan_dispatches(config :&Config, analysis :&Analysis, adv :&mut AutoDispatchView)  {
+    unsafe {
+        if let Some(Some((generation,dispatches))) = analysis.data().plandispatches.get(adv.plan_idx) {
+            planning_icon(config,analysis,*generation,dispatches);
+            igSameLine(0.0,-1.0);
 
-                adv.dispatch = None;
-            }
+            let dispatch_idx = if let Some(ManualDispatchView { dispatch_idx, .. }) = &adv.dispatch {
+                Some(*dispatch_idx) } else { None };
+            let dispatch_name = if let Some(dispatch_idx) = dispatch_idx {
+                CString::new(format!("Dispatch {}", dispatch_idx)).unwrap()
+            } else { CString::new(format!("None")).unwrap() };
 
-            if let Some(dispatches) = analysis.data().plandispatches.get(&adv.plan_idx) {
+            if igBeginCombo(const_cstr!("##chtr").as_ptr(), dispatch_name.as_ptr(), 0) {
+                if igSelectable(const_cstr!("None").as_ptr(), dispatch_idx.is_none(), 0 as _, ImVec2::zero()) {
+
+                    adv.dispatch = None;
+                }
+
                 for (di,d) in dispatches.iter().enumerate() {
                     igPushIDInt(di as _);
-                    if let Some(d) = d {
-                        if igSelectable(const_cstr!("##asdf").as_ptr(), 
-                                     dispatch_idx == Some(di), 
-                                     0 as _ , ImVec2::zero()) {
-                            adv.dispatch = Some(ManualDispatchView::new(di));
-                        }
-
-                        igSameLine(0.0,-1.0);
-                        widgets::show_text(&format!("Dispatch {}", di));
+                    if igSelectable(const_cstr!("##asdf").as_ptr(), 
+                                 dispatch_idx == Some(di), 
+                                 0 as _ , ImVec2::zero()) {
+                        adv.dispatch = Some(ManualDispatchView::new(di));
                     }
+
+                    igSameLine(0.0,-1.0);
+                    widgets::show_text(&format!("Dispatch {}", di));
                     igPopID();
                 }
-            }
 
-            igEndCombo();
+                igEndCombo();
+            }
         }
     }
 }

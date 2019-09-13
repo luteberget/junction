@@ -12,13 +12,14 @@ use crate::gui::plan;
 use crate::gui::diagram::diagram_view;
 use crate::util::VecMap;
 use crate::gui::diagram::*;
+use crate::gui::plan::planning_icon;
 use crate::gui::widgets::Draw;
 use crate::document::infview::InfView;
 
 pub fn dispatch_view(config :&Config, inf_canvas :Option<&Draw>, inf_view :&InfView,
                      analysis :&mut Analysis, dv :&mut DispatchView) -> Option<Option<DispatchView>> {
     let mut new_dispatch :Option<Option<DispatchView>> = None;
-    let sel = dispatch_select_bar(&Some(*dv), analysis);
+    let sel = dispatch_select_bar(config, &Some(*dv), analysis);
     new_dispatch = sel.or(new_dispatch);
 
     match dv {
@@ -54,13 +55,17 @@ pub fn dispatch_view(config :&Config, inf_canvas :Option<&Draw>, inf_view :&InfV
             new_dispatch = new_auto.or(new_dispatch);
 
             if let Some(manual) = &mut auto.dispatch {
-                let graph = analysis.data().plandispatches.get(&auto.plan_idx)
-                    .and_then(|p| p.vecmap_get(manual.dispatch_idx));
-                if let Some((_gen,graph)) = graph {
-                    diagram_view(config, inf_canvas, inf_view, analysis, manual, graph);
-                } else {
-                    // Plan doesn't exist anymore.
-                    auto.dispatch = None;
+                if let Some(Some((_gen,dispatches))) = analysis.data().plandispatches.get(auto.plan_idx) {
+                    if let Some(graph) = dispatches.get(manual.dispatch_idx) {
+                        diagram_view(config, inf_canvas, inf_view, analysis, manual, graph);
+                    } else {
+                        // Plan doesn't exist anymore.
+                        if dispatches.len() > 0 {
+                            manual.dispatch_idx = dispatches.len()-1;
+                        } else {
+                            auto.dispatch = None;
+                        }
+                    }
                 }
             }
         },
@@ -77,7 +82,8 @@ pub enum Action {
 }
 
 /// Select a new dispatch view from manual or auto dispatches already existing in model
-pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut Analysis) -> Option<Option<DispatchView>> {
+pub fn dispatch_select_bar(config :&Config, dispatch_view :&Option<DispatchView>, 
+                           analysis :&mut Analysis) -> Option<Option<DispatchView>> {
     unsafe {
         let mut new_dispatch_auto = None;
         let mut retval = None;
@@ -162,6 +168,13 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
 
                 igAlignTextToFramePadding();
                 widgets::show_text("\u{f0d0}");
+                igSameLine(0.0,-1.0); 
+
+                if let Some(Some((gen, ds))) = analysis.data().plandispatches.get(*id) {
+                    planning_icon(config, analysis, *gen, ds);
+                    igSameLine(0.0,-1.0); 
+                }
+
 
                 igSameLine(0.0,-1.0); 
                 if let Some(new_name) = widgets::edit_text(const_cstr!("##pnm").as_ptr(), 

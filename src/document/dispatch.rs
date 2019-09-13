@@ -72,8 +72,14 @@ impl InstantCache {
         let (dgraph_gen,dgraph) = analysis.data().dgraph.as_ref()?;
         let (d,time) = r;
         let (dispatch_gen, dispatch) = match d {
-            Ok(d) => analysis.data().dispatch.get(d)?.as_ref()?,
-            Err((p,d)) => analysis.data().plandispatches.get(&p)?.get(d)?.as_ref()?,
+            Ok(d) => {
+                let (gen,d) = analysis.data().dispatch.get(d)?.as_ref()?;
+                (gen,d)
+            }
+            Err((p,d)) => {
+                let (gen,ds) = analysis.data().plandispatches.get(p)?.as_ref()?;
+                (gen,ds.get(d)?)
+            }
         };
         let cached_gen = self.cached.as_ref().map(|x| &x.0);
         let cached_ref = self.cached.as_ref().map(|x| &x.1);
