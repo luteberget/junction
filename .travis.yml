@@ -6,17 +6,11 @@ language: rust
 services: docker
 sudo: required
 
-# TODO Rust builds on stable by default, this can be
-# overridden on a case by case basis down below.
-
 env:
   global:
-    # TODO Update this to match the name of your project.
-    - CRATE_NAME=railplot
+    - CRATE_NAME=junction
 
 matrix:
-  # TODO These are all the build jobs. Adjust as necessary. Comment out what you
-  # don't need
   include:
     # Linux
     #- env: TARGET=i686-unknown-linux-gnu BINNAME=linux-x86
@@ -52,7 +46,7 @@ before_deploy:
   - sh ci/before_deploy.sh
 
 deploy:
-  # TODO update `api_key.secure`
+  # to update `api_key.secure`:
   # - Create a `public_repo` GitHub token. Go to: https://github.com/settings/tokens/new
   # - Encrypt it: `travis encrypt 0123456789012345678901234567890123456789
   # - Paste the output down here
