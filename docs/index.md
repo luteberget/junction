@@ -14,10 +14,14 @@ such as construction projects. Its main features are:
    drawing lines on a grid. Switches and crossings geometry and topology
    are automatically inferred from the visual drawing.
 
+   ![Inf1](imgs/inf_draw_1.png) ![Inf2](imgs/inf_draw_2.png)
+
    See [Infrastructure](infrastructure.md).
 
  * **Dispatch** individual trains using train routes by pointing to the starting location
    of a train route and selecting a route from the menu.
+
+   ![Inf1](imgs/dispatch_2.png)
 
    See [Dispatching](dispatch.md).
 
@@ -25,6 +29,8 @@ such as construction projects. Its main features are:
    and get a list of possible dispatch patterns that solve.
    When you continue adjusting the infrastructure, the plans will be updated and
    you can check at a glance that operations are still working.
+
+   ![Inf1](imgs/autodispatch_1.png)
 
    See [Planning](planning.md).
 
