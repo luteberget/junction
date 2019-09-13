@@ -11,6 +11,8 @@ use crate::document::model::*;
 use crate::document::analysis::*;
 use crate::document::*;
 use crate::gui::diagram::DiagramViewAction;
+use crate::gui::infrastructure::draw::highlight_node;
+use crate::document::infview::InfView;
 
 pub fn diagram(config :&Config, graphics :&DispatchOutput, draw :&Draw, view :&DiagramViewport) {
     let col_res = config.color_u32(RailUIColorName::GraphBlockReserved);
@@ -152,7 +154,10 @@ impl Polyline {
     }
 }
 
-pub fn command_icons(config :&Config, analysis :&Analysis, 
+pub fn command_icons(config :&Config, 
+                     inf_canvas :Option<&Draw>,
+                     inf_view :&InfView,
+                     analysis :&Analysis, 
                      graphics :&DispatchOutput,
                      draw :&Draw, 
                      dv :&mut ManualDispatchView) -> Option<DiagramViewAction> {
@@ -175,10 +180,10 @@ pub fn command_icons(config :&Config, analysis :&Analysis,
             (Command::Train(_,_),_) =>  config.color_u32(RailUIColorName::GraphCommandTrain),
         };
 
-        let km = route_idx.and_then(|r| il.routes[*r].start_mileage(dgraph)).unwrap_or(0.0);
+        let km = route_idx.and_then(|r| dgraph.mileage.get(&il.routes[*r].start_node())).cloned().unwrap_or(0.0);
 
         unsafe {
-            let half_icon_size = ImVec2 { x: 4.0, y: 4.0 };
+            let half_icon_size = ImVec2 { x: 8.0, y: 8.0 };
             let mut p = to_screen(draw, dv.viewport.as_ref().unwrap(), *cmd_t, km);
             //p.y = p.y.max(prev_y + 2.0*half_icon_size.y);
             ImDrawList_AddRectFilled(draw.draw_list, 
@@ -189,6 +194,15 @@ pub fn command_icons(config :&Config, analysis :&Analysis,
                                p + half_icon_size, border_col, 0.0, 0, 1.0);
 
             if igIsItemHovered(0) && (p-draw.pos-draw.mouse).length_sq() < 5.0*5.0 {
+
+                if let Some(inf) = inf_canvas {
+                    if let Some(node) = route_idx.map(|r| il.routes[*r].start_node()) {
+                        inf.begin_draw();
+                        highlight_node(config, inf, inf_view, dgraph, node);
+                        inf.end_draw();
+                    }
+                }
+
                 igBeginTooltip();
                 match (cmd, route_idx) {
                     (_,None) => {

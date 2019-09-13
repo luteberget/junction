@@ -37,7 +37,11 @@ pub struct RouteInfo {
 
 impl RouteInfo {
     pub fn start_mileage(&self, dgraph :&DGraph) -> Option<f64> {
-        self.path.get(0).and_then(|(n,_)| dgraph.mileage.get(n)).cloned()
+        dgraph.mileage.get(&self.start_node()).cloned()
+    }
+
+    pub fn start_node(&self) -> rolling_inf::NodeId {
+        self.path[0].0
     }
 }
 

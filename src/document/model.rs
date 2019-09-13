@@ -173,11 +173,22 @@ impl Dispatch {
 
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[derive(Serialize,Deserialize)]
 pub struct PlanSpec {
+    pub name :String,
     pub trains: ImShortGenList<(Option<ListId>, ImShortGenList<Visit>)>,
     pub order :Vec<(VisitRef,VisitRef,Option<f64>)>,
+}
+
+impl PlanSpec {
+    pub fn new_empty(name :String) -> Self {
+        PlanSpec {
+            name: name,
+            trains: Default::default(),
+            order: Default::default(),
+        }
+    }
 }
 
 pub type VisitRef = (ListId,ListId);

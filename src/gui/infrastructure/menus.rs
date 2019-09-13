@@ -185,9 +185,11 @@ pub fn add_plan_visit(analysis :&mut Analysis,
                                  .trains.get_mut(train_id).unwrap();
                 visits
             } else {
-                let plan_idx = m.plans.insert(Default::default());
+                let plan_name = format!("Plan {}", m.plans.next_id()+1);
+                let plan_idx = m.plans.insert(PlanSpec::new_empty(plan_name));
                 let plan = m.plans.get_mut(plan_idx).unwrap();
-                let train_idx = plan.trains.insert((None, ImShortGenList::new()));
+                let vehicle = m.vehicles.iter().nth(0).map(|(id,v)| id).cloned();
+                let train_idx = plan.trains.insert((vehicle, ImShortGenList::new()));
                 let (_, visits) = plan.trains.get_mut(train_idx).unwrap();
                 set_plan = Some(plan_idx);
                 visits

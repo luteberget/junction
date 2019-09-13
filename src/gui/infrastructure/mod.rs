@@ -31,28 +31,28 @@ pub enum Highlight {
 pub fn inf_view(config :&Config, 
                 analysis :&mut Analysis,
                 inf_view :&mut InfView,
-                dispatch_view :&mut Option<DispatchView>) {
+                dispatch_view :&mut Option<DispatchView>) -> Draw {
     unsafe {
-    let pos_before : ImVec2 = igGetCursorPos_nonUDT2().into();
+        let pos_before : ImVec2 = igGetCursorPos_nonUDT2().into();
 
-    let size = igGetContentRegionAvail_nonUDT2().into();
-    widgets::canvas(size,
-                    config.color_u32(RailUIColorName::CanvasBackground),
-                    const_cstr!("railwaycanvas").as_ptr(),
-                    |draw| {
+        let size = igGetContentRegionAvail_nonUDT2().into();
+        let draw = widgets::canvas(size,
+                        config.color_u32(RailUIColorName::CanvasBackground),
+                        const_cstr!("railwaycanvas").as_ptr());
+        draw.begin_draw();
         scroll(inf_view);
         let mut preview_route = None;
-        context_menu(analysis, inf_view, dispatch_view, draw, &mut preview_route);
-        interact(config, analysis, inf_view, draw);
-        draw_inf(config, analysis, inf_view, dispatch_view, draw, preview_route);
-        Some(())
-    });
+        context_menu(analysis, inf_view, dispatch_view, &draw, &mut preview_route);
+        interact(config, analysis, inf_view, &draw);
+        draw_inf(config, analysis, inf_view, dispatch_view, &draw, preview_route);
+        draw.end_draw();
 
-    let pos_after = igGetCursorPos_nonUDT2().into();
-    let framespace = igGetFrameHeightWithSpacing() - igGetFrameHeight();
-    igSetCursorPos(pos_before + ImVec2 { x: 2.0*framespace, y: 2.0*framespace });
-    inf_toolbar(inf_view);
-    igSetCursorPos(pos_after);
+        let pos_after = igGetCursorPos_nonUDT2().into();
+        let framespace = igGetFrameHeightWithSpacing() - igGetFrameHeight();
+        igSetCursorPos(pos_before + ImVec2 { x: 2.0*framespace, y: 2.0*framespace });
+        inf_toolbar(inf_view);
+        igSetCursorPos(pos_after);
+        draw
     }
 }
 

@@ -28,7 +28,7 @@ pub fn main(app :&mut App) -> bool {
         // Three main window arrangements:
         // 1. Infrastructure only (diagram_view = None)
         // 2. Manual dispatch view (diagram_view = Some(DispatchView::Manual(...)))
-        // 3. Auto-dispatch view (diagram_view = Some(DispatchView::Manual(...)))
+        // 3. Auto-dispatch view (diagram_view = Some(DispatchView::Auto(...)))
         let config = &app.config;
         let analysis = &mut app.document.analysis;
         let inf_view = &mut app.document.inf_view;
@@ -48,11 +48,15 @@ pub fn main(app :&mut App) -> bool {
         } else {
             if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(0.5); } 
 
+            let mut inf_canvas = None;
             widgets::Splitter::vertical(app.windows.diagram_split.as_mut().unwrap())
                 .left(const_cstr!("inf_canv").as_ptr(), || {
-                    infrastructure::inf_view(config, analysis, inf_view, dispatch_view); })
+                    let d = infrastructure::inf_view(config, analysis, inf_view, dispatch_view); 
+                    inf_canvas = Some(d);
+                })
                 .right(const_cstr!("dia_dptch").as_ptr(), || {
-                    if let Some(d) = dispatch::dispatch_view(config, analysis, dispatch_view.as_mut().unwrap() ) {
+                    if let Some(d) = dispatch::dispatch_view(config, inf_canvas.as_ref(), inf_view,
+                                                             analysis, dispatch_view.as_mut().unwrap() ) {
                         *dispatch_view = d;
                     }
                 });

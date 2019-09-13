@@ -53,7 +53,22 @@ pub struct Draw {
     pub mouse :ImVec2,
 }
 
-pub fn canvas(mut size :ImVec2, color :u32, name :*const i8, f :impl FnOnce(&mut Draw) -> Option<()>) {
+impl Draw {
+    pub fn begin_draw(&self) {
+        unsafe {
+            ImDrawList_PushClipRect(self.draw_list, self.pos, self.pos + self.size, true);
+        }
+    }
+
+    pub fn end_draw(&self) {
+        unsafe {
+            ImDrawList_PopClipRect(self.draw_list);
+        }
+    }
+
+}
+
+pub fn canvas(mut size :ImVec2, color :u32, name :*const i8) -> Draw {
     unsafe {
         let pos :ImVec2 = igGetCursorScreenPos_nonUDT2().into();
         let draw_list = igGetWindowDrawList();
@@ -61,10 +76,8 @@ pub fn canvas(mut size :ImVec2, color :u32, name :*const i8, f :impl FnOnce(&mut
         size.y -= igGetFrameHeightWithSpacing() - igGetFrameHeight();
         let clicked = igInvisibleButton(name, size);
         igSetItemAllowOverlap();
-        ImDrawList_PushClipRect(draw_list, pos, pos+size, true);
         let mouse = (*igGetIO()).MousePos - pos;
-        f(&mut Draw { pos, size, draw_list, mouse });
-        ImDrawList_PopClipRect(draw_list);
+        Draw { pos, size, draw_list, mouse }
     }
 }
 

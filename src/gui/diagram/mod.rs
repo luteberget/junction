@@ -10,6 +10,7 @@ use crate::config::*;
 use crate::app::*;
 use crate::document::*;
 use crate::gui::widgets::Draw;
+use crate::document::infview::InfView;
 
 mod draw;
 
@@ -29,61 +30,61 @@ pub fn default_viewport(graph :&DispatchOutput) -> DiagramViewport {
     DiagramViewport { time: (t1 as _ ,t2 as _ ), pos: (x1 as _ ,x2 as _) }
 }
 
-pub fn diagram_view(config :&Config, analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) -> Option<DiagramViewAction> {
+pub fn diagram_view(config :&Config, inf_canvas :Option<&Draw>, inf_view :&InfView,
+                    analysis :&Analysis, dv :&mut ManualDispatchView, graph :&DispatchOutput) -> Option<DiagramViewAction> {
     let mut action = None;
     unsafe {
         diagram_toolbar(dv, graph);
         let size = igGetContentRegionAvail_nonUDT2().into();
-        widgets::canvas(size,
+        let draw = widgets::canvas(size,
                     config.color_u32(RailUIColorName::GraphBackground),
-                    const_cstr!("diag").as_ptr(),
-                    |draw| {
+                    const_cstr!("diag").as_ptr());
+        draw.begin_draw();
 
-            if dv.viewport.is_none() { dv.viewport = Some(default_viewport(graph)); }
+        if dv.viewport.is_none() { dv.viewport = Some(default_viewport(graph)); }
 
-            let viewport = dv.viewport.as_ref().unwrap();
-            let mouse_time = glm::lerp_scalar(viewport.time.0 as f32, viewport.time.1 as f32,
-                                              draw.mouse.y/draw.size.y);
+        let viewport = dv.viewport.as_ref().unwrap();
+        let mouse_time = glm::lerp_scalar(viewport.time.0 as f32, viewport.time.1 as f32,
+                                          draw.mouse.y/draw.size.y);
 
-            if igIsItemHovered(0) && igIsMouseDown(0) {
-                dv.time = mouse_time as f64;
-            }
+        if igIsItemHovered(0) && igIsMouseDown(0) {
+            dv.time = mouse_time as f64;
+        }
 
-            // Clamp the time to the history's interval
-            dv.time = glm::clamp_scalar(dv.time, graph.time_interval.0 as f64, 
-                                                 graph.time_interval.1 as f64);
+        // Clamp the time to the history's interval
+        dv.time = glm::clamp_scalar(dv.time, graph.time_interval.0 as f64, 
+                                             graph.time_interval.1 as f64);
 
-            // Need to get a DispatchOutput from analysis.
-            draw::diagram(config, graph, draw, dv.viewport.as_ref().unwrap());
-            action = draw::command_icons(config, analysis, graph, draw, dv).or(action);
-            draw::time_slider(config, draw, dv.viewport.as_ref().unwrap(), dv.time);
+        // Need to get a DispatchOutput from analysis.
+        draw::diagram(config, graph, &draw, dv.viewport.as_ref().unwrap());
+        action = draw::command_icons(config, inf_canvas, inf_view, analysis, graph, &draw, dv).or(action);
+        draw::time_slider(config, &draw, dv.viewport.as_ref().unwrap(), dv.time);
 
-            let viewport = dv.viewport.as_mut().unwrap();
-            scroll(draw, viewport);
+        let viewport = dv.viewport.as_mut().unwrap();
+        scroll(&draw, viewport);
 
 
-            match dv.action {
-                ManualDispatchViewAction::None => {},
-                ManualDispatchViewAction::DragCommandTime { idx, id } => {
-                    action = Some(DiagramViewAction::MoveCommand { idx, id, t: mouse_time as f64 });
-                    if !igIsMouseDown(0) {
-                        dv.action = ManualDispatchViewAction::None;
-                    }
-                },
-            }
-
-            if igBeginPopup(const_cstr!("cmded").as_ptr(), 0 as _) {
-                if let Some(selection) = dv.selected_command {
-                    if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
-                        action = Some(DiagramViewAction::DeleteCommand { id: selection });
-                    }
+        match dv.action {
+            ManualDispatchViewAction::None => {},
+            ManualDispatchViewAction::DragCommandTime { idx, id } => {
+                action = Some(DiagramViewAction::MoveCommand { idx, id, t: mouse_time as f64 });
+                if !igIsMouseDown(0) {
+                    dv.action = ManualDispatchViewAction::None;
                 }
-                igEndPopup();
+            },
+        }
+
+        if igBeginPopup(const_cstr!("cmded").as_ptr(), 0 as _) {
+            if let Some(selection) = dv.selected_command {
+                if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                    action = Some(DiagramViewAction::DeleteCommand { id: selection });
+                }
             }
+            igEndPopup();
+        }
 
 
-            Some(())
-        });
+        draw.end_draw();
     }
     action
 }

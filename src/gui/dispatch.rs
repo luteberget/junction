@@ -12,8 +12,11 @@ use crate::gui::plan;
 use crate::gui::diagram::diagram_view;
 use crate::util::VecMap;
 use crate::gui::diagram::*;
+use crate::gui::widgets::Draw;
+use crate::document::infview::InfView;
 
-pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut DispatchView) -> Option<Option<DispatchView>> {
+pub fn dispatch_view(config :&Config, inf_canvas :Option<&Draw>, inf_view :&InfView,
+                     analysis :&mut Analysis, dv :&mut DispatchView) -> Option<Option<DispatchView>> {
     let mut new_dispatch :Option<Option<DispatchView>> = None;
     let sel = dispatch_select_bar(&Some(*dv), analysis);
     new_dispatch = sel.or(new_dispatch);
@@ -23,7 +26,7 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
             let graph = analysis.data().dispatch.vecmap_get(manual.dispatch_idx);
             if let Some((_gen,graph)) = graph {
                 unsafe { igSameLine(0.0, -1.0); }
-                if let Some(action) = diagram_view(config, analysis, manual, graph) {
+                if let Some(action) = diagram_view(config, inf_canvas, inf_view, analysis, manual, graph) {
                     analysis.edit_model(|m| {
                         match action {
                             DiagramViewAction::DeleteCommand { id } => {
@@ -47,14 +50,14 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
             }
         },
         DispatchView::Auto(auto) => {
-            let new_auto = plan::edit_plan(config, analysis, auto);
+            let new_auto = plan::edit_plan(config, inf_canvas, inf_view, analysis, auto);
             new_dispatch = new_auto.or(new_dispatch);
 
             if let Some(manual) = &mut auto.dispatch {
                 let graph = analysis.data().plandispatches.get(&auto.plan_idx)
                     .and_then(|p| p.vecmap_get(manual.dispatch_idx));
                 if let Some((_gen,graph)) = graph {
-                    diagram_view(config, analysis, manual, graph);
+                    diagram_view(config, inf_canvas, inf_view, analysis, manual, graph);
                 } else {
                     // Plan doesn't exist anymore.
                     auto.dispatch = None;
@@ -68,6 +71,9 @@ pub fn dispatch_view(config :&Config, analysis :&mut Analysis, dv :&mut Dispatch
 
 pub enum Action {
     DispatchName(usize,String),
+    PlanName(usize, String),
+    DeleteDispatch(usize),
+    DeletePlan(usize),
 }
 
 /// Select a new dispatch view from manual or auto dispatches already existing in model
@@ -87,8 +93,11 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
                 }
             }
             Some(DispatchView::Auto(AutoDispatchView { plan_idx , .. })) =>  {
-                // TODO name inside plan
-                CString::new(format!("\u{f0d0} Plan {}",plan_idx)).unwrap()
+                if let Some(p) = analysis.model().plans.get(*plan_idx) {
+                    CString::new(format!("\u{f0d0} {}",&p.name)).unwrap()
+                } else {
+                    CString::new(format!("\u{f0d0} Plan ?")).unwrap()
+                }
             }
         };
 
@@ -116,11 +125,6 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
                 any = true;
                 igPushIDInt(*id as _);
 
-                //if igSelectable(const_cstr!("##smanu").as_ptr(), 
-                //                Some(id) == curr_manual, 0 as _, ImVec2::zero()) {
-                //    retval = Some(Some(DispatchView::Manual(ManualDispatchView::new(*id)))); 
-                //}
-
                 igAlignTextToFramePadding();
                 widgets::show_text("\u{f4fd}");
 
@@ -131,6 +135,7 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
                 }
                 igSameLine(0.0,-1.0); 
                 if igButton(const_cstr!("\u{f2ed}").as_ptr(), ImVec2::zero()) {
+                    action = Some(Action::DeleteDispatch(*id));
                 }
                 igSameLine(0.0,-1.0); 
                 if igButton(const_cstr!("\u{f07c}").as_ptr(), ImVec2::zero()) {
@@ -151,16 +156,22 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
             widgets::sep();
             igPushIDInt(2);
             let mut any = false;
-            for (id,_) in analysis.model().plans.iter() {
+            for (id,p) in analysis.model().plans.iter() {
                 any = true;
                 igPushIDInt(*id as _);
 
                 igAlignTextToFramePadding();
                 widgets::show_text("\u{f0d0}");
 
-                igSameLine(0.0,-1.0); widgets::show_text(&format!("Plan {}", id));
+                igSameLine(0.0,-1.0); 
+                if let Some(new_name) = widgets::edit_text(const_cstr!("##pnm").as_ptr(), 
+                                                           p.name.clone()) {
+                    action = Some(Action::PlanName(*id, new_name));
+                }
+
                 igSameLine(0.0,-1.0);
                 if igButton(const_cstr!("\u{f2ed}").as_ptr(), ImVec2::zero()) {
+                    action = Some(Action::DeletePlan(*id));
                 }
                 igSameLine(0.0,-1.0); 
                 if igButton(const_cstr!("\u{f07c}").as_ptr(), ImVec2::zero()) {
@@ -197,10 +208,26 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
         match action {
             Some(Action::DispatchName(id,name)) => {
                 analysis.edit_model(|m| {
-                    if let Some(d) = m.dispatches.get_mut(id) {
-                        d.name = name;
-                    }
+                    if let Some(d) = m.dispatches.get_mut(id) { d.name = name; }
                     Some(model::EditClass::DispatchName(id))
+                });
+            },
+            Some(Action::PlanName(id,name)) => {
+                analysis.edit_model(|m| {
+                    if let Some(p) = m.plans.get_mut(id) { p.name = name; }
+                    Some(model::EditClass::PlanName(id))
+                });
+            },
+            Some(Action::DeleteDispatch(id)) => {
+                analysis.edit_model(|m| {
+                    m.dispatches.remove(id);
+                    None
+                });
+            }
+            Some(Action::DeletePlan(id)) => {
+                analysis.edit_model(|m| {
+                    m.plans.remove(id);
+                    None
                 });
             }
             _ => {},
@@ -219,7 +246,8 @@ pub fn dispatch_select_bar(dispatch_view :&Option<DispatchView>, analysis :&mut 
         if new_dispatch_auto == Some(true) {
             // Create new plan and set it to current
             let mut model = analysis.model().clone();
-            let id = model.plans.insert(Default::default());
+            let plan_name = format!("Plan {}", model.plans.next_id()+1);
+            let id = model.plans.insert(model::PlanSpec::new_empty(plan_name));
             analysis.set_model(model, None);
 
             retval = Some(Some(DispatchView::Auto(AutoDispatchView {

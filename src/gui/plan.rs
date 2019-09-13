@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use const_cstr::*;
 use backend_glfw::imgui::*;
 use std::ffi::CString;
+use nalgebra_glm as glm;
 
 use crate::app::*;
 use crate::document::model::*;
@@ -9,6 +10,8 @@ use crate::document::*;
 use crate::document::analysis::Analysis;
 use crate::gui::widgets;
 use crate::config::*;
+use crate::document::infview::{InfView, unround_coord};
+use crate::gui::infrastructure::draw::box_around;
 
 enum Action { 
     VisitDelete { key :VisitKey },
@@ -21,7 +24,10 @@ enum Action {
     RemoveTrain { train: usize },
 }
 
-pub fn edit_plan(config :&Config, analysis :&mut Analysis, 
+pub fn edit_plan(config :&Config, 
+                 inf_canvas :Option<&widgets::Draw>,
+                 inf_view :&InfView,
+                 analysis :&mut Analysis, 
                  auto_dispatch :&mut AutoDispatchView) -> Option<Option<DispatchView>> {
     let plan_idx = auto_dispatch.plan_idx;
 
@@ -94,7 +100,8 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
                 if igButton(const_cstr!("\u{f55a}").as_ptr(), ImVec2::zero()) {
                     action = Some(Action::RemoveTrain { train: *train_id });
                 }
-                widgets::show_text(&format!("\u{f239}({}) ", train_id));
+                igSameLine(0.0,-1.0);
+                widgets::show_text(&format!(" \u{f239} ({}) ", train_id));
                 igSameLine(0.0,-1.0);
                 igPushItemWidth(125.0);
                 if let Some(new_vehicle) = select_train_combo(analysis.model(), vehicle_ref) {
@@ -192,6 +199,9 @@ pub fn edit_plan(config :&Config, analysis :&mut Analysis,
             }
 
             igSetCursorScreenPos(end_pos);
+
+            // Draw hovered visits/location in infrastructure view
+            draw_hovered_inf(config, analysis.model(), plan_idx, &hovered_visit, inf_canvas, inf_view);
 
 
             if let PlanViewAction::DragFrom(other_key, mouse_pos) = auto_dispatch.action {
@@ -556,7 +566,6 @@ unsafe {
     igPopStyleColor(1);
 
     if igIsItemHovered(0) && igIsMouseClicked(1, false) {
-        println!("open menu");
         auto_dispatch.action = PlanViewAction::Menu(VisitKey { location: hovered_location, .. visit_key }, 
                                                     igGetMousePos_nonUDT2().into());
         igOpenPopup(const_cstr!("pctx").as_ptr());
@@ -591,7 +600,7 @@ unsafe {
     }
 
     if igIsItemHovered(0) {
-        *hovered_visit = Some(visit_key);
+        *hovered_visit = Some(VisitKey { location: hovered_location, .. visit_key});
     }
 
 
@@ -679,4 +688,25 @@ fn good_location_marker(config :&Config, vm :&Analysis, loc :&PlanLoc, first_vis
 
 
 
+fn draw_hovered_inf(config :&Config, model :&Model, plan_idx :usize, hovered_visit :&Option<VisitKey>, 
+                    inf_canvas :Option<&widgets::Draw>, inf_view :&InfView) -> Option<()> {
+    let visit_key = hovered_visit.as_ref()?;
+    let draw = inf_canvas?;
+    let visit = model.plans.get(plan_idx)?
+        .trains.get(visit_key.train)?
+        .1.get(visit_key.visit)?;
+
+    for (loc_id,loc) in visit.locs.iter().enumerate() {
+        if visit_key.location.is_none() || visit_key.location.unwrap() == loc_id {
+            let pt = match loc {
+                Ok(Ref::Node(pt)) => glm::vec2(pt.x as f32, pt.y as f32),
+                Ok(Ref::Object(pta)) => unround_coord(*pta),
+                Ok(Ref::LineSeg(a,b)) => glm::vec2(a.x as f32, a.y as f32),
+                Err(p) => *p,
+            };
+            box_around(config, draw, inf_view, pt);
+        }
+    }
+    Some(())
+}
 

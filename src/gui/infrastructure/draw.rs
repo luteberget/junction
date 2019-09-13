@@ -15,6 +15,34 @@ use nalgebra_glm as glm;
 use matches::*;
 use std::collections::HashMap;
 
+use rolling::input::staticinfrastructure as rolling_inf;
+use crate::document::dgraph::*;
+
+pub fn highlight_node(config :&Config, draw :&Draw, inf_view :&InfView, dgraph :&DGraph, node :rolling_inf::NodeId) {
+    // first try node coords
+    if let Some(pt) = dgraph.node_ids.get_by_left(&node) {
+        box_around(config, draw, inf_view, glm::vec2(pt.x as f32, pt.y as f32));
+    } else if let Some(pt) = dgraph.node_ids.get_by_left(&dgraph.rolling_inf.nodes[node].other_node){
+        box_around(config, draw, inf_view, glm::vec2(pt.x as f32, pt.y as f32));
+    } else {
+        for obj_id in dgraph.rolling_inf.nodes[node].objects.iter() {
+            if let Some(pta) = dgraph.object_ids.get_by_left(obj_id) {
+                box_around(config, draw, inf_view, unround_coord(*pta));
+            }
+        }
+    }
+}
+
+pub fn box_around(config :&Config, draw :&Draw, inf_view :&InfView, p :PtC) {
+    let p = draw.pos + inf_view.view.world_ptc_to_screen(p);
+    let window = ImVec2 { x: 8.0, y: 8.0 };
+    unsafe {
+    ImDrawList_AddRect(draw.draw_list, p - window, p + window,
+                       config.color_u32(RailUIColorName::CanvasTrackDrawing),
+                       0.0,0,5.0);
+    }
+}
+
 pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView, 
             instant :Option<&Instant>,
             dispatch_view :&Option<DispatchView>, draw :&Draw) {
@@ -49,7 +77,7 @@ pub fn base(config :&Config, analysis :&Analysis, inf_view :&InfView,
                 .map(|(a,b)| util::point_in_rect(p1,a,b) || util::point_in_rect(p2,a,b))
                 .unwrap_or(false) ;
             let col = if selected || preview { color_line_selected } else { color_line };
-            ImDrawList_AddLine(draw.draw_list, draw.pos + p1, draw.pos + p2, col, 4.0);
+            ImDrawList_AddLine(draw.draw_list, draw.pos + p1, draw.pos + p2, col, 2.5);
         }
 
         let color_node = config.color_u32(RailUIColorName::CanvasNode);
