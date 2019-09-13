@@ -19,6 +19,7 @@ pub fn save_interactive(m :Model) -> Result<Option<String>,std::io::Error> {
     if let Some(filename) = tinyfiledialogs::save_file_dialog("Save model to file", "") {
         save(&filename, m).map(|_| Some(filename))
     } else {
+        info!("User cancelled save");
         Ok(None) // user cancelled, this is not an error
     }
 }
