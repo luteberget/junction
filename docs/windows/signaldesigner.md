@@ -1,6 +1,7 @@
 ---
 title: Signal designer
-order: 7
+parent: Tool windows
+nav_order: 3
 ---
 
 The signal designer can be used to synthesise a signalling design

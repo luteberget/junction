@@ -1,3 +1,10 @@
+---
+title: Model inspector
+parent: Tool windows
+nav_order: 5
+---
+
+
 The model inspector shows you a tree representation of the analysis model 
 that is being edited, and also all of the derived information about
 the model that is used for dispatching.

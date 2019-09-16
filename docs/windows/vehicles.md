@@ -1,6 +1,7 @@
 ---
 title: Vehicles
-order: 6
+parent: Tool windows
+nav_order: 2
 ---
 
 Vehicles used in dispatches and planning are defined by the following characteristics:

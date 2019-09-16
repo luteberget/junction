@@ -1,6 +1,6 @@
 ---
 title: Dispatch
-order: 4
+nav_order: 4
 ---
 
 From the infrastructure view, you can start dispatching trains by either:

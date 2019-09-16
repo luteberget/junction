@@ -1,6 +1,6 @@
 ---
 title: Getting started 
-order: 2
+nav_order: 2
 ---
 
 ## Installing
