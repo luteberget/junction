@@ -14,8 +14,58 @@ switch to another dispatch or to add, delete or rename dispatches.
 
 ## Dispatch selection
 
+The dispatch selection menu is always located at the bottom of the infrastructure
+view. 
+
+![Dispatch selection menu](imgs/dispatch_select_1.png)
+
+
+The dispatch selection menu presents the dispatching **modes**:
+
+* **None**: closes the dispatch view, leaving only the infrastructure.
+* **Manual dispatches**: dispatches where you can add and remove commands.
+
+  Commands are either:
+
+    * **Trains**: a train of a given vehicle type appears in the model
+      through a specified boundary traintrain  route.
+
+    * **Route**: a train route is activated.
+
+* **Auto dispatch**: plan dispatched by giving constraints for train movements,
+  and see a list of possible dispatches for the plan on the current infrastructure. 
+  See [Planning](planning.md).
+
+The dispatch selection menu has buttons for adding new dispatches of each mode,
+renaming, deleting, and opening them. Opening a dispatch opens the 
+dispatch diagram and planning view (if an auto dispatch is selected).
+
 ## Dispatch diagram view
 
 When a dispatch has been opened in the dispatch selection menu, 
 a diagram is shown at the bottom part of the window. 
+The diagram is a time/distance diagram with 
+time on the vertical axis and distance (mileage) on
+the horizontal axis.
+The diagram contains:
+
+ * Squares representing the commands in the dispatch. Right-clicking
+   a command brings up a context menu where the command can be deleted.
+   Left-clicking and dragging the command adjusts the time
+   that the command is given. 
+
+ * Boxes representing the train vacancy detection status of each section.
+
+ * Curves representing the front and the back of each train.
+
+![Dispatch time/distance diagram view](imgs/dispatch_diagram_1.png)
+
+
+### Editing the dispatch 
+
+Left-clicking the diagram view will set the time slider to the time corresponding
+to the vertical position of the cursor.
+
+New commands are added to the dispatch from the infrastructure context menu 
+(see [Infrastructure](infrastructure.md)).
 

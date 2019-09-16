@@ -78,7 +78,7 @@ The context menu contains actions that are relevant to the currently selected it
    Main signals may have distant signals enabled or disabled.
 
  * On boundary nodes and main signals, available train routes are shown. 
-   If a train route is selected, it is added to the current active dispatch at
+   If you click a train route, it is added to the current active dispatch at
    the current time. If no dispatch is active, a new dispatch will be created and opened, 
    and the selected train route will be added to it. See [Dispatch](dispatch.md).
 
