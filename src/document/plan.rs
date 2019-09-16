@@ -105,14 +105,14 @@ pub fn get_dispatches(
 
     let mut output = Vec::new();
     planner::solver::plan(&config, &plan_inf, &plan_usage, |candidate| {
-        println!("got one plan");
+        //println!("got one plan");
         if let Ok((cmds,p)) = test_plan(dgraph, il, vehicles, plan, candidate).unwrap() {
             let name = format!("Dispatch {}", output.len()+1);
             output.push((Dispatch::from_vec(name,cmds),p));
         }
         false
     });
-    println!("planner finished");
+    //println!("planner finished");
     Ok(output)
 }
 

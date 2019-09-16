@@ -71,7 +71,7 @@ pub fn full_synthesis( bg :&SynthesisBackground,
         }
     }
 
-    output(FullSynMsg::S(format!("Done"))).ok_or(SynErr::Aborted)?;
+    //output(FullSynMsg::S(format!("Done"))).ok_or(SynErr::Aborted)?;
     Ok(())
 }
 

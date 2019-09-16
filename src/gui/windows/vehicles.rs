@@ -84,6 +84,7 @@ pub fn edit_vehicles(doc :&mut Document) {
 pub fn edit_vehicles_window(popen :&mut bool, doc :&mut Document) {
     if !*popen { return; }
     unsafe {
+    widgets::next_window_center_when_appearing();
     igBegin(const_cstr!("Vehicles").as_ptr(), popen as *mut bool, 0 as _);
 
     edit_vehicles(doc);

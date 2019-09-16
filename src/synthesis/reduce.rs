@@ -20,9 +20,9 @@ pub fn reduced_signal_sets<'a>(bg :&'a SynthesisBackground, design :Design)
     let plans = bg.plans.iter().map(|p| plan::convert_plan(&il, bg.vehicles, p))
         .collect::<Result<Vec<_>,_>>().unwrap();
 
-    println!("create optmizer");
+    //println!("create optmizer");
     let mut optimizer = planner::optimize::SignalOptimizer::new(inf, plans.into());
-    println!("create optmizer ok");
+    //println!("create optmizer ok");
 
     Iter { bg, topo, dgraph, il, optimizer }
 }
@@ -72,15 +72,15 @@ fn convert_signals(topo :&Topology, dgraph :&dgraph::DGraph,
     let det_id = dgraph.detector_ids.iter().map(|(a,b)| (*b,canonical_node_id(*a)))
         .collect::<HashMap<PtA, rolling_inf::NodeId>>();
 
-    println!("all signals {:?}", sig_id);
-    println!("all detectors {:?}", det_id);
+    //println!("all signals {:?}", sig_id);
+    //println!("all detectors {:?}", det_id);
 
-    println!("spec signals {:?}", signals);
-    println!("spec detectors {:?}", detectors);
+    //println!("spec signals {:?}", signals);
+    //println!("spec detectors {:?}", detectors);
 
     for (track_idx, track_objects) in topo.trackobjects.iter().enumerate() {
         for (pos, id, func, dir) in track_objects.iter() {
-            println!("convert {:?}", (pos,id,func,dir));
+            //println!("convert {:?}", (pos,id,func,dir));
             match func {
                 Function::Detector => {
                     if det_id.get(id).map(|d| detectors.contains(&planner::input::SignalId::Detector(*d)) ||

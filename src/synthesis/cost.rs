@@ -30,15 +30,15 @@ pub fn measure(bg :&SynthesisBackground, allplans :&MultiPlan, design :&Design) 
     //println!("cost::measure");
     let (topo,dgraph,il) = create_model(bg,design);
     let mut total_cost = 0.0;
-    println!("Testing design {:?}", design);
-    println!("Testing design on plans {:?}", allplans);
+    //println!("Testing design {:?}", design);
+    //println!("Testing design on plans {:?}", allplans);
 
     for (planspec_id, dispatches) in allplans.iter().enumerate() {
         if dispatches.len() == 0 {
             total_cost += std::f64::INFINITY;
         } else {
             let planspec_cost = dispatches.iter().map(|d|  {
-                println!("measure on dispatch {:?}", d);
+                //println!("measure on dispatch {:?}", d);
                     measure_dispatch(bg, &dgraph, &il, planspec_id, d)
                     .unwrap_or(std::f64::INFINITY)}).sum::<f64>();
             total_cost += planspec_cost / dispatches.len() as f64;

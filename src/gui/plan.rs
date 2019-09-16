@@ -214,7 +214,7 @@ pub fn edit_plan(config :&Config,
                                 m.plans.get_mut(plan_idx).unwrap().order
                                     .push(((other_key.train, other_key.visit), 
                                            (visit_key.train, visit_key.visit), None));
-                                println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
+                                //println!("Plan is now {:#?}", m.plans.get(plan_idx).unwrap());
                                 None
                             });
                         }

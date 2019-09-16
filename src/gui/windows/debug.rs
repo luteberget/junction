@@ -6,6 +6,7 @@ use crate::app;
 pub fn debug_window(mut popen :bool, app :&app::App) -> bool {
     if !popen { return popen; }
     unsafe {
+    widgets::next_window_center_when_appearing();
     igBegin(const_cstr!("View data").as_ptr(), &mut popen as _, 0 as _);
     igPushTextWrapPos(0.0);
 

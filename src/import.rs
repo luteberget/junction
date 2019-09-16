@@ -56,6 +56,7 @@ impl ImportWindow {
         if !self.open { return; }
         use backend_glfw::imgui::*;
         unsafe {
+        widgets::next_window_center_when_appearing();
         igBegin(const_cstr!("Import from railML file").as_ptr(), &mut self.open as _, 0 as _);
 
         match &self.state {

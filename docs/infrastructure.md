@@ -7,13 +7,13 @@ The top part of the Junction main window shows the infrastructure, consisting of
 signalling objects. When Junction is first started, or a new document is created, the infrastructure
 is empty and the window shows only a blank canvas and buttons for each editing tool.
 
-![Empty infrastructure view](imgs/empty_inf_1.png)
+![Empty infrastructure view](imgs/inf_edit_overview_1.png)
 
-### Infrastructure editing tools
+### Top tool bar
 
 The top tool bar has the following tools:
 
- * ![select tool](imgs/inf_select_1.png) Select items (hotkey 'A'). 
+ * ![select tool](imgs/inf_select_1.png) **Select items** (hotkey 'A'). 
 
     Left-click on tracks, nodes, or objects to select them. Currently selected items 
     are highlighted by color. Hold the Shift button to add to selection instead of replacing.
@@ -22,7 +22,7 @@ The top tool bar has the following tools:
     Left-click and drag while the pointer is over an item to move the item. If the
     item is part of the current selection, all currently selected items will be moved.
 
- * ![insert tool](imgs/inf_insert_1.png) Insert object (hotkey 'S').
+ * ![insert tool](imgs/inf_insert_1.png) **Insert object** (hotkey 'S').
 
     Insert railway signalling objects. The available objects are:
 
@@ -36,7 +36,7 @@ The top tool bar has the following tools:
     Detectors are placed in the middle of the track, and constitute a section boundary 
     for a train vacancy detection section.
 
- * ![draw tool](imgs/inf_draw_tool_1.png) Draw tracks (hotkey 'D').
+ * ![draw tool](imgs/inf_draw_tool_1.png) **Draw tracks** (hotkey 'D').
 
     Left-click and drag to draw lines representing tracks onto the infrastructure grid. 
     Whenever more than two lines meet at a grid point, a node type is detected and a node 
@@ -45,6 +45,8 @@ The top tool bar has the following tools:
 
    ![switch](imgs/inf_switch_1.png) ![crossing](imgs/inf_crossing_1.png) 
 
+
+### Bottom tool bar
 
 The bottom tool bar contains the closed version of the dispatch select menu. Click the tool bar
 to open the dispatch select menu. See [Dispatch](dispatch.md).

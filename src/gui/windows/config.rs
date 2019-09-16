@@ -9,6 +9,7 @@ pub fn edit_config_window(popen :&mut bool, config :&mut Config) {
     if !*popen { return; }
     unsafe {
         let win_flags = ImGuiWindowFlags__ImGuiWindowFlags_MenuBar;
+        widgets::next_window_center_when_appearing();
         if igBegin(const_cstr!("Configuration").as_ptr(), popen as _, win_flags as _) {
 
             if igBeginMenuBar() {

@@ -8,6 +8,17 @@ use crate::document::model::{PtC, Pt};
 use crate::document::view::View;
 
 
+pub fn next_window_center_when_appearing() {
+    unsafe {
+    let cond = ImGuiCond__ImGuiCond_Appearing as _; // Every time the window is opened (closed->notclosed)
+    let display_size = (*igGetIO()).DisplaySize;
+    igSetNextWindowPos(ImVec2 { x: display_size.x/2.0, y: display_size.y / 2.0}, 
+                       cond, ImVec2 { x: 0.5, y: 0.5 });
+    
+    igSetNextWindowSize(ImVec2 { x: display_size.x/2.0, y: display_size.y / 2.0}, cond);
+    }
+}
+
 pub fn edit_text(name :*const i8, s :impl Into<Vec<u8>>) -> Option<String> {
     let mut s :Vec<u8> = s.into();
     s.extend((0..15).map(|_| 0 ));

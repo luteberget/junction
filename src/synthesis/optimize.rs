@@ -13,7 +13,7 @@ pub fn optimize_locations(bg :&SynthesisBackground, adispatch :&MultiPlan, desig
     let baseline_value = cost::measure(bg, adispatch, design);
     let mut n = 0;
     let start_pt = design_encode(bg, design, &order);
-    println!("Encoding first design {:?}\n  {:?}", design, start_pt);
+    //println!("Encoding first design {:?}\n  {:?}", design, start_pt);
     let (cost, best_pt) = powell_optimize_unit(start_pt, |new_pt| {
         n += 1;
         cost::measure(bg, adispatch, &design_decode(bg, new_pt, design, &order))

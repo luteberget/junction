@@ -195,6 +195,13 @@ void glfw_opengl3_Init(const char* win_name, const char* font_filename, float fo
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
+    
+
+
+    // Don't create the imgui.ini file by default
+    io.IniFilename = nullptr;
+
+
 
     // Setup Dear ImGui style
     //ImGui::StyleColorsLight();
@@ -239,6 +246,7 @@ void glfw_opengl3_Init(const char* win_name, const char* font_filename, float fo
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
+
 
 }
 
