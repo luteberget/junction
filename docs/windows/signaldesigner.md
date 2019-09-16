@@ -17,4 +17,4 @@ The right part of the window contains the designs that are output
 from the synthesis procedure, along with their score. 
 Select a design from the list to add it to the current infrastructure.
 
-![Signal designer window](imgs/signaldesigner.png)
+![Signal designer window](../imgs/signaldesigner.png)

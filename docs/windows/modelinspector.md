@@ -30,4 +30,4 @@ The analysis output consists of:
    (auto dispatch), there is a (possibly empty) set of simulation outputs.
    
 
-![Model inspector window](imgs/viewdata_1.png)
+![Model inspector window](../imgs/viewdata_1.png)

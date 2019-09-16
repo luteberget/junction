@@ -12,4 +12,4 @@ Vehicles used in dispatches and planning are defined by the following characteri
 * Maximum acceleration
 * Maximum braking de-acceleration
 
-![Vehicles editor window](imgs/vehicles_1.png)
+![Vehicles editor window](../imgs/vehicles_1.png)
