@@ -5,7 +5,7 @@ nav_order: 1
 
 ![Junction logo](imgs/logo1.png)
 
-[⇓ Download (Win/Linux/MacOS)](https://github.com/luteberget/junction/releases/latest){: .btn .btn-green } [Repository](http://github.com/luteberget/junction/){: .btn .btn-outline }
+[Download (Win/Linux/MacOS)](https://github.com/luteberget/junction/releases/latest){: .btn .btn-green } [Repository](http://github.com/luteberget/junction/){: .btn .btn-outline }
 
 Junction is a railway operations analysis tool for small-scale infrastructure,
 such as construction projects. 
