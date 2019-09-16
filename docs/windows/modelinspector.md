@@ -29,3 +29,5 @@ The analysis output consists of:
    timeline used for the dispatch diagram view. For each plan specification
    (auto dispatch), there is a (possibly empty) set of simulation outputs.
    
+
+![Model inspector window](imgs/viewdata_1.png)

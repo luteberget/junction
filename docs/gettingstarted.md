@@ -36,7 +36,7 @@ The main menu let you load, save, import, and export documents, and
 lets you open the following tool windows:
 
  * File
-    * Import/export railml (see [railML](railml.md)).
+    * Import/export railML files.
  * Edit
     * Edit vehicles (see [Vehicles](vehicles.md)).
     * Signal designer (see [Signal designer](signaldesigner.md)).

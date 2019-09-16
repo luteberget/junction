@@ -71,6 +71,8 @@
 
 * X gui for dispatch/auto-dispatch
 
+*   copy autodispatch as manual
+
 ## railml
 
 * import railml 2.x 
@@ -96,7 +98,7 @@
 
 ## synthesis
 
-* whole-station proof of concept
+* X whole-station proof of concept
 * suggestions proof of concept
 * limit to selection
 

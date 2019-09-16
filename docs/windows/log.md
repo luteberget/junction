@@ -3,4 +3,7 @@ title: Log
 parent: Tool windows
 nav_order: 4
 ---
-Log window
+
+The log window shows diagnostic output from all modules of the Junction program.
+
+![Log window](imgs/log_1.png)

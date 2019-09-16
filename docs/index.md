@@ -37,7 +37,7 @@ your signaling design that help you when making changes as your project progress
    ![Inf1](imgs/dispatch_3_contents.png)
 
  * Build **plans** representing train operations such as crossing, overtaking, train frequency, etc.,
-   and get a list of possible dispatch patterns that solve.
+   and get a list of possible dispatch patterns that satisfy the plans.
    When you continue adjusting the infrastructure, the plans will be updated and
    you can check at a glance that operations are still working.
 
