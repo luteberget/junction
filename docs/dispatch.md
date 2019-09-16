@@ -17,7 +17,7 @@ switch to another dispatch or to add, delete or rename dispatches.
 The dispatch selection menu is always located at the bottom of the infrastructure
 view. 
 
-![Dispatch selection menu](imgs/dispatch_select_1.png)
+![Dispatch selection menu](imgs/dispatch_select_2.png)
 
 
 The dispatch selection menu presents the dispatching **modes**:
@@ -39,6 +39,8 @@ The dispatch selection menu presents the dispatching **modes**:
 The dispatch selection menu has buttons for adding new dispatches of each mode,
 renaming, deleting, and opening them. Opening a dispatch opens the 
 dispatch diagram and planning view (if an auto dispatch is selected).
+Each auto dispatch also has an icon showing whether it is currently 
+satisfied or not on the current infrastructure.
 
 ## Dispatch diagram view
 
@@ -58,13 +60,16 @@ The diagram contains:
 
  * Curves representing the front and the back of each train.
 
-![Dispatch time/distance diagram view](imgs/dispatch_diagram_1.png)
+![Dispatch time/distance diagram view](imgs/dispatch_diagram_2.png)
 
 
-### Editing the dispatch 
+### Interaction in the dispatch view
 
 Left-clicking the diagram view will set the time slider to the time corresponding
 to the vertical position of the cursor.
+
+If the currently opened dispatch is a manual dispatch, the dispatch
+can be edited.
 
 New commands are added to the dispatch from the infrastructure context menu 
 (see [Infrastructure](infrastructure.md)).
