@@ -2,9 +2,10 @@
 
 ## cleanup
 * x refactor modules (ui, model, analysis)
+* x end user documentation (README.md)
+* x web page
+
 * code comments documentation
-* end user documentation (README.md)
-* web page
 * user test
 * rewrite viewport/canvas plotting (canvas object with wrapped addLine, etc., functions)
 * wrap all unsafe / imgui
@@ -14,8 +15,11 @@
 * x  hotkeys (save,load)
 * x save/load config / colors
 * x better color defaults
-* change fonts+size
-* save/load with extension .junc
+*   change fonts+size
+*   save/load with extension .junc
+
+*   view (center/zoom) better preserved when opening/closing dispatch
+*   polyline trains (and tracks, and tvd sections?)
 
 ## infrastructure model + sim
 * more objects
@@ -60,11 +64,11 @@
  * X draw constraints
  * X bug: VisitKey invalidated by moving visit from one train to another
  * X delete constraints
- *   delete trains
+ * x delete trains
  * X delete plans and dispatches
  * X rename trains, dispatches, plans
  *   disallow bad constraints, drop non-working constraints when rearranging visits
- *   highlight visits location in infrastructure
+ * x highlight visits location in infrastructure
  * X visit types: boundary vs. middle
  *   dwell time
  *   constraint maximum time diff
@@ -86,15 +90,18 @@
 * export railml 2.x nor?
 * export railml 3
 
+
 ## schematic
 * auto-layout whole model
 * auto-layout selection
 * with given mileages / positions / fixed symbols
 
+
 ## testing
 
 * code tests
 * gui tests, including screenshots?
+
 
 ## synthesis
 
@@ -102,13 +109,16 @@
 * suggestions proof of concept
 * limit to selection
 
+
 ## static analysis
 
 * datalog properties in errors window
 
 
 ## bugs
-1. can undo creation of manual dispatch, but still displayed and crashes when adding new commands.
+* X can undo creation of manual dispatch, but still displayed and crashes when adding new commands.
+*   synthesis with multiple properties does not work?
+
 
 # file format
 
