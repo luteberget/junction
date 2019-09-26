@@ -18,6 +18,7 @@ pub struct InfView {
 pub enum Action {
     Normal(NormalState),
     DrawingLine(Option<Pt>),
+    SelectObjectType,
     InsertObject(Option<Object>),
 }
 

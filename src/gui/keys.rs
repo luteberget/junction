@@ -66,7 +66,7 @@ pub fn keys(app :&mut App) {
             }
 
             if igIsKeyPressed('S' as _, false) {
-                app.document.inf_view.action = Action::InsertObject(None);
+                app.document.inf_view.action = Action::SelectObjectType;
             }
         }
     }

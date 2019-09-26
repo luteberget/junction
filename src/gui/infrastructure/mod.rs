@@ -106,6 +106,7 @@ fn interact(config :&Config, analysis :&mut Analysis, inf_view :&mut InfView, dr
             let obj = obj.clone();
             interact_insert(config, analysis, inf_view, draw, obj); 
         },
+        Action::SelectObjectType => {},
     }
 }
 
@@ -360,8 +361,10 @@ fn inf_toolbar(inf_view :&mut InfView) {
     object_select(inf_view);
 
     if toolbar_button(const_cstr!("\u{f637} insert (S)").as_ptr(), 
-                      'S' as _,  matches!(inf_view.action, Action::InsertObject(_))) {
-        inf_view.action = Action::InsertObject(None);
+                      'S' as _,  
+                      matches!(inf_view.action, Action::InsertObject(_)) || 
+                      matches!(inf_view.action, Action::SelectObjectType)) {
+        inf_view.action = Action::SelectObjectType;
     }
     igSameLine(0.0,-1.0);
     if toolbar_button(const_cstr!("\u{f303} draw (D)").as_ptr(), 
@@ -390,9 +393,12 @@ fn toolbar_button(name :*const i8, char :i8, selected :bool) -> bool {
 }
 
 fn object_select(inf_view :&mut InfView) {
-    let open = matches!(&inf_view.action, Action::InsertObject(None));
-
     unsafe {
+        if matches!(&inf_view.action, Action::SelectObjectType) {
+            inf_view.action = Action::InsertObject(None);
+            igOpenPopup(const_cstr!("osel").as_ptr());
+        }
+
         if igBeginPopup(const_cstr!("osel").as_ptr(), 0 as _) {
 
 
@@ -415,15 +421,7 @@ fn object_select(inf_view :&mut InfView) {
                         ));
             } 
 
-            if !open {
-                igCloseCurrentPopup();
-            }
-
             igEndPopup();
-        }
-
-        if open {
-            igOpenPopup(const_cstr!("osel").as_ptr());
         }
     }
 }

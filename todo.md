@@ -42,6 +42,8 @@
 * X rename node references in model when "extending" boundary node
 * X rename object references in model when moving objects.
 
+*   rename open end -> model boundary
+
 ## interlocking
 * inspectable interlocking
 * configurable interlocking
