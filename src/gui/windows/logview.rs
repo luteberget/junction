@@ -68,6 +68,7 @@ impl Log for StringLogger {
                                     record.args());
 
             let trim = ((buf.len() as isize + statement.len() as isize) - max_len).max(0) as usize;
+            let trim = trim.min(buf.len());
             drop(buf.drain(0..trim));
             buf.extend(statement.bytes());
         }
