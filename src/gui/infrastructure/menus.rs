@@ -97,6 +97,10 @@ pub fn object_menu(analysis :&mut Analysis, pta :PtA) -> Option<()> {
 
 pub fn route_selector(analysis :&mut Analysis, dispatch_view :&Option<DispatchView>, 
                       thing :Ref, preview :&mut Option<usize>) -> Option<Command> {
+
+    let have_auto = matches!(&dispatch_view, Some(DispatchView::Auto(_)));
+    if have_auto { return None; }
+
     let il = &analysis.data().interlocking.as_ref()?.1;
     let routes = il.get_routes(thing)?;
 
@@ -151,6 +155,9 @@ pub fn route_selector(analysis :&mut Analysis, dispatch_view :&Option<DispatchVi
 pub fn add_plan_visit(analysis :&mut Analysis, 
                       dispatch_view :&mut Option<DispatchView>, thing :Ref) {
     let mut action = None;
+
+    let have_manual = matches!(&dispatch_view, Some(DispatchView::Manual(_)));
+    if have_manual { return; }
 
     unsafe {
         if let Some(DispatchView::Auto(AutoDispatchView { plan_idx, .. })) = &dispatch_view {
