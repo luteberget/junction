@@ -250,6 +250,11 @@ pub fn edit_plan(config :&Config,
             let default_train = analysis.model().vehicles.iter().next().map(|(id,_)| *id);
             analysis.edit_model(|m| {
                 m.plans.get_mut(plan_idx).unwrap().trains.remove(train);
+
+                // Remove all constraints referencing the train
+                let plan = m.plans.get_mut(plan_idx)?;
+                remove_ordering_train(plan, train);
+
                 None
             }); },
         Some(Action::TrainVehicle { train, vehicle }) => {
@@ -402,6 +407,14 @@ fn rename_train_visit(plan :&mut PlanSpec, train :usize, visit :usize, new_train
             b.1 = new_visit;
         }
     }
+}
+
+fn remove_ordering_train(plan :&mut PlanSpec, train :usize) {
+    plan.order.retain(|(a,b,_)| {
+        let a = a.0 == train;
+        let b = b.0 == train;
+        !a && !b
+    });
 }
 
 fn remove_ordering_at(plan :&mut PlanSpec, train :usize, visit :usize) {
