@@ -66,28 +66,8 @@ pub fn keys(app :&mut App) {
             }
 
             if igIsKeyPressed('S' as _, false) {
-                let current_object_function = if let Action::InsertObject(Some(obj)) = 
-                                &app.document.inf_view.action {
-                    obj.functions.iter().next()
-                } else { None };
-
-                if current_object_function == Some(&Function::Detector) {
-                        app.document.inf_view.action = Action::InsertObject(Some(
-                                Object {
-                                    loc: glm::vec2(0.0,0.0),
-                                    tangent :glm::vec2(1,0),
-                                    functions: vec![Function::MainSignal { has_distant: false }] } ));
-
-                } else {
-                        app.document.inf_view.action = Action::InsertObject(Some(
-                                Object {
-                                    loc: glm::vec2(0.0,0.0),
-                                    tangent :glm::vec2(1,0),
-                                    functions: vec![Function::Detector] } ));
-                }
+                app.document.inf_view.action = Action::InsertObject(None);
             }
-
-
         }
     }
 }

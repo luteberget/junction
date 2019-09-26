@@ -356,6 +356,9 @@ fn inf_toolbar(inf_view :&mut InfView) {
         inf_view.action = Action::Normal(NormalState::Default);
     }
     igSameLine(0.0,-1.0);
+
+    object_select(inf_view);
+
     if toolbar_button(const_cstr!("\u{f637} insert (S)").as_ptr(), 
                       'S' as _,  matches!(inf_view.action, Action::InsertObject(_))) {
         inf_view.action = Action::InsertObject(None);
@@ -383,6 +386,45 @@ fn toolbar_button(name :*const i8, char :i8, selected :bool) -> bool {
             igPopStyleColor(3);
         }
         clicked
+    }
+}
+
+fn object_select(inf_view :&mut InfView) {
+    let open = matches!(&inf_view.action, Action::InsertObject(None));
+
+    unsafe {
+        if igBeginPopup(const_cstr!("osel").as_ptr(), 0 as _) {
+
+
+            if igSelectable(const_cstr!("Signal").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                inf_view.action = Action::InsertObject(Some( 
+                        Object {
+                            loc: glm::vec2(0.0, 0.0),
+                            tangent: glm::vec2(1,0),
+                            functions: vec![Function::MainSignal { has_distant: false}],
+                        }
+                        ));
+            } 
+            if igSelectable(const_cstr!("Detector").as_ptr(), false, 0 as _, ImVec2::zero()) {
+                inf_view.action = Action::InsertObject(Some( 
+                        Object {
+                            loc: glm::vec2(0.0, 0.0),
+                            tangent: glm::vec2(1,0),
+                            functions: vec![Function::Detector],
+                        }
+                        ));
+            } 
+
+            if !open {
+                igCloseCurrentPopup();
+            }
+
+            igEndPopup();
+        }
+
+        if open {
+            igOpenPopup(const_cstr!("osel").as_ptr());
+        }
     }
 }
 
