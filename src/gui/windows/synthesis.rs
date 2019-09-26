@@ -146,7 +146,7 @@ impl SynthesisWindow {
                     igEndTooltip();
                 }
 
-                igSameLine(0.0,-1.0); widgets::show_text(&format!("Design {} @ {} with {} objs.",
+                igSameLine(0.0,-1.0); widgets::show_text(&format!("Design {} @ {:.2} with {} objs.",
                                                                   n, score, objs.len()));
                 igPopID();
             }

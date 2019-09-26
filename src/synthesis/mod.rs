@@ -3,6 +3,7 @@ use std::collections::{HashMap,HashSet, BTreeSet};
 use boolinator::Boolinator;
 use matches::*;
 use nalgebra_glm as glm;
+use log::*;
 
 use crate::document;
 use crate::document::model::*;
@@ -56,7 +57,13 @@ pub fn full_synthesis( bg :&SynthesisBackground,
         // the adispatch contains references to fixed infrastructure and
         // relative refernces to the Design, i.e. the objects whose positions can
         // be moved.
-        println!("GOT PLAN SET {:?}", adispatch);
+        info!("got plan set {:?}", adispatch);
+        for d in adispatch.iter() {
+            println!("A dispatch");
+            for x in d.iter() {
+                println!("  {:?}", x);
+            }
+        }
         output(FullSynMsg::TryingSignalSet()).ok_or(SynErr::Aborted)?;
         let (score,design) = optimize::optimize_locations(bg, &adispatch, &design);
         output(FullSynMsg::ModelAvailable(format!("reduced {}",n), score, design.clone())).ok_or(SynErr::Aborted)?;

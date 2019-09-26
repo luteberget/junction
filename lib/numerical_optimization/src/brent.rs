@@ -1,3 +1,5 @@
+use log::*;
+
 type Loc = (f64,f64); // (x, f(x))
 #[derive(Debug)]
 struct BrentState {
@@ -51,7 +53,7 @@ fn brent_step(state :&BrentState, rel_move :f64, rel_move2 :f64) -> (f64,f64) {
 
 
 pub fn brent_minimum(mut f :impl FnMut(f64) -> f64, min :f64, start :f64, max :f64, bits :usize, max_iter :Option<usize>) -> (f64,f64) {
-    println!("Brent minimum {} {} {} {:?}", min, max, bits, max_iter);
+    trace!("Brent minimum {} {} {} {:?}", min, max, bits, max_iter);
     // ported from boost 1.63 boost/math/tools/minima.hpp
     let tolerance = (1.0 - bits as f64).exp2(); // 2^-(1-bits)
     

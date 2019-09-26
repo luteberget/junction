@@ -5,12 +5,13 @@ use crate::brent::*;
 #[derive(Debug)]
 pub enum PowellErr {
     InvalidInitialPoint,
+    InvalidInternalPoint,
 }
 
-fn is_unit_box(pt :&DVector<f64>) -> Result<(), PowellErr> {
+fn is_unit_box(pt :&DVector<f64>) -> Result<(), ()> {
     for x in pt.iter() {
         if !(0.0 <= *x) || !(*x <= 1.0) {
-            return Err(PowellErr::InvalidInitialPoint);
+            return Err(());
         }
     }
     Ok(())
@@ -45,7 +46,7 @@ pub fn powell_optimize_unit(initial_point :DVector<f64>,
     let cost_improvement_threshold = 0.1;
 
     // Check that the initial vector is inside the unit cube.
-    is_unit_box(&initial_point)?;
+    is_unit_box(&initial_point).map_err(|_| PowellErr::InvalidInitialPoint)?;
 
     let initial_cost = point_cost(&initial_point);
     let mut powell_point = initial_point;
@@ -75,7 +76,7 @@ pub fn powell_optimize_unit(initial_point :DVector<f64>,
             if brent_improvement > cost_improvement_threshold {
                 iter_cost = brent_cost;
                 iter_point += alpha*v;
-                is_unit_box(&iter_point)?;
+                is_unit_box(&iter_point).map_err(|_| PowellErr::InvalidInternalPoint)?;
                 if best_search_vector.is_none() || best_search_vector.unwrap().1 > brent_cost {
                     best_search_vector = Some((v_i, brent_cost));
                 }
