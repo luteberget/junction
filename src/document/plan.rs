@@ -26,11 +26,12 @@ pub fn eval_plan(dgraph :&DGraph, plan_spec :&PlanSpec, history :&History) -> Re
         let mut current_visit = 0;
         let (train_name, train_params, train_log) = history.trains.get(train_idx).ok_or(TestPlanErr::MissingTrain)?;
         for ev in train_log.iter() {
+            if !(current_visit < visits.data().len()) { 
+                break;
+            }
+
             if event_matches_spec(dgraph, &visits.data()[current_visit].1, ev) {
                 current_visit += 1;
-                if !(current_visit < visits.data().len()) { 
-                    break;
-                }
             }
         }
         if current_visit < visits.data().len() {
