@@ -58,10 +58,14 @@ pub fn full_synthesis( bg :&SynthesisBackground,
         // relative refernces to the Design, i.e. the objects whose positions can
         // be moved.
         info!("got plan set {:?}", adispatch);
-        for d in adispatch.iter() {
-            println!("A dispatch");
-            for x in d.iter() {
-                println!("  {:?}", x);
+        println!("ABSTRACT DISPATCH FOUND WITH {} SIGNALS ", design.len());
+        for (usage_idx,d) in adispatch.iter().enumerate() {
+            println!("Usage {}", usage_idx);
+            for (i,x) in d.iter().enumerate() {
+                println!("  Usage dispatch {}", i);
+                for d in x.iter() {
+                    println!("     {:?}", d);
+                }
             }
         }
         output(FullSynMsg::TryingSignalSet()).ok_or(SynErr::Aborted)?;
