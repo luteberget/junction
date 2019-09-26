@@ -32,7 +32,9 @@ fn design_encode(bg :&SynthesisBackground, design :&Design, order :&Permutation)
         .group_by(|(tr,_,_,_)| tr).into_iter().flat_map(|(tr,group)| {
            let track_length = bg.topology.tracks[*tr].0;
            group.scan(0.0, move |prev, (_,pos,_,_)| {
-               Some(linearstep(replace(prev, *pos) + min_dist, track_length - min_dist, *pos))
+               Some(glm::clamp_scalar(
+                     linearstep(replace(prev, *pos) + min_dist, track_length - min_dist, *pos),
+                   0.0, 1.0))
            })
        })
     )
