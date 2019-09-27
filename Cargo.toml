@@ -1,6 +1,6 @@
 [package]
 name = "junction"
-version = "0.2.6"
+version = "0.2.7"
 authors = ["Bjørnar Luteberget <bjlut@railcomplete.no>"]
 edition = "2018"
 
