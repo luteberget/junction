@@ -50,7 +50,7 @@ pub fn inf_view(config :&Config,
         let pos_after = igGetCursorPos_nonUDT2().into();
         let framespace = igGetFrameHeightWithSpacing() - igGetFrameHeight();
         igSetCursorPos(pos_before + ImVec2 { x: 2.0*framespace, y: 2.0*framespace });
-        inf_toolbar(inf_view);
+        inf_toolbar(analysis, inf_view);
         igSetCursorPos(pos_after);
         draw
     }
@@ -350,10 +350,10 @@ fn interact_insert(config :&Config, analysis :&mut Analysis,
     }
 }
 
-fn inf_toolbar(inf_view :&mut InfView) {
+fn inf_toolbar(analysis :&mut Analysis, inf_view :&mut InfView) {
     unsafe  {
     if toolbar_button(const_cstr!("\u{f245} select (A)").as_ptr(), 
-                      'A' as _,  matches!(inf_view.action, Action::Normal(_))) {
+                      matches!(inf_view.action, Action::Normal(_)), true) {
         inf_view.action = Action::Normal(NormalState::Default);
     }
     igSameLine(0.0,-1.0);
@@ -361,20 +361,27 @@ fn inf_toolbar(inf_view :&mut InfView) {
     object_select(inf_view);
 
     if toolbar_button(const_cstr!("\u{f637} insert (S)").as_ptr(), 
-                      'S' as _,  
                       matches!(inf_view.action, Action::InsertObject(_)) || 
-                      matches!(inf_view.action, Action::SelectObjectType)) {
+                      matches!(inf_view.action, Action::SelectObjectType), true) {
         inf_view.action = Action::SelectObjectType;
     }
     igSameLine(0.0,-1.0);
     if toolbar_button(const_cstr!("\u{f303} draw (D)").as_ptr(), 
-                      'A' as _,  matches!(inf_view.action, Action::DrawingLine(_))) {
+                      matches!(inf_view.action, Action::DrawingLine(_)), true ) {
         inf_view.action = Action::DrawingLine(None);
+    }
+    igSameLine(0.0,-1.0);
+    if toolbar_button(const_cstr!("\u{f0e2} undo").as_ptr(), false, analysis.can_undo()) {
+        analysis.undo();
+    }
+    igSameLine(0.0,-1.0);
+    if toolbar_button(const_cstr!("\u{f01e} redo").as_ptr(), false, analysis.can_redo()) {
+        analysis.redo();
     }
     }
 }
 
-fn toolbar_button(name :*const i8, char :i8, selected :bool) -> bool {
+fn toolbar_button(name :*const i8, selected :bool, enabled :bool) -> bool {
         unsafe {
         if selected {
             let c1 = ImVec4 { x: 0.4, y: 0.65,  z: 0.4, w: 1.0 };
@@ -384,7 +391,16 @@ fn toolbar_button(name :*const i8, char :i8, selected :bool) -> bool {
             igPushStyleColor(ImGuiCol__ImGuiCol_ButtonHovered as _, c1);
             igPushStyleColor(ImGuiCol__ImGuiCol_ButtonActive as _, c1);
         }
+        if !enabled {
+            igPushDisable();
+            igPushStyleVarFloat(ImGuiStyleVar__ImGuiStyleVar_Alpha, 0.5);
+
+        }
         let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
+        if !enabled {
+            igPopStyleVar(1);
+            igPopDisable();
+        }
         if selected {
             igPopStyleColor(3);
         }

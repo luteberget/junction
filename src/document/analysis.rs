@@ -168,6 +168,8 @@ impl Analysis {
 
     pub fn undo(&mut self) { if self.model.undo() { self.on_changed(); } }
     pub fn redo(&mut self) { if self.model.redo() { self.on_changed(); } }
+    pub fn can_undo(&self) -> bool { self.model.can_undo() }
+    pub fn can_redo(&self) -> bool { self.model.can_redo() }
 
     fn on_changed(&mut self) {
         // TODO 
