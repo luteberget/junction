@@ -55,7 +55,7 @@ pub struct Vehicle {
 
 impl Default for Vehicle {
     fn default() -> Vehicle { Vehicle {
-        name : "Default vehicle".to_string(),
+        name : "Vehicle 1".to_string(),
         length: 210.0,
         max_acc: 0.9,
         max_brk: 0.85,

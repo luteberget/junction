@@ -491,11 +491,42 @@ fn context_menu(analysis :&mut Analysis,
     }
 }
 
+fn selection_title(inf_view :&InfView) -> String {
+    if inf_view.selection.len() == 0 {
+        format!("No selection")
+    }
+    else if inf_view.selection.len() == 1 {
+        match inf_view.selection.iter().next() {
+            Some(Ref::LineSeg(a,b)) => format!("Line segment from ({},{}) to ({},{})", a.x, a.y, b.x, b.y),
+            Some(Ref::Node(pt)) => format!("Node at ({},{})", pt.x, pt.y),
+            Some(Ref::Object(pt)) => format!("Object at ({:.1},{:.1})", pt.x as f32 / 10.0, pt.y as f32 / 10.0),
+            None => unreachable!(),
+        }
+    }
+    else {
+        let (mut n_linesegs, mut n_nodes, mut n_objects) = (0,0,0);
+        for x in inf_view.selection.iter() {
+            match x {
+                Ref::LineSeg(_,_) => { n_linesegs += 1; },
+                Ref::Node(_) => { n_nodes += 1; },
+                Ref::Object(_) => { n_objects += 1; },
+            }
+        }
+        if n_nodes == 0 && n_objects == 0 { format!("Selection: {} line segments.", n_linesegs) }
+        else if n_linesegs == 0 && n_objects == 0 { format!("Selection: {} nodes.", n_nodes) }
+        else if n_linesegs == 0 && n_nodes == 0 { format!("Selection: {} objects.", n_objects) }
+        else {
+            format!("Selection: {} entities.", inf_view.selection.len())
+        }
+    }
+}
+
 fn context_menu_contents(analysis :&mut Analysis, inf_view :&mut InfView,
                          dispatch_view :&mut Option<DispatchView>,
                          preview_route :&mut Option<usize>) {
     unsafe {
-    widgets::show_text(&format!("selection: {:?}", inf_view.selection));
+    widgets::show_text(&selection_title(inf_view));
+
     widgets::sep();
     if !inf_view.selection.is_empty() {
         if igSelectable(const_cstr!("Delete").as_ptr(), false, 0 as _, ImVec2::zero()) {
