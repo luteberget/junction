@@ -130,3 +130,36 @@
 
 
 
+# issues found in user test 2019-08-27
+
+TOP pri
+ * planning: visits to signals etc. is not implemented
+ * close popup menus with escape key
+ * sort dispatches from planning so they are stable through minor changes
+ * add constraint -> then click a location fails (because the location is a button?)
+ * Show Error message if loading file fails (make vec of error messages)
+ * Synthesis example failed (remove detectors may be at fault)
+ * a delete all buttons (Edit menu bar)
+ * Minimize window crashed application
+
+MIDDLE pri
+ * user wants to pan view while the infrastructure context menu is open
+ * the box size is not the actual grip size in commands in dispatch view
+ * when highlighting a command in the dispatch, higlight not only the 
+   signal but the whole route
+ * the name of a new vehicle is the same as the default vehicle
+ * the add vehicle button at the bottom of the vehicles window may give the impression
+   that clicking it is necessary to save changes made in the window
+ * the dispatch dropdown menu should close when clicking (add auto) or (add manual)
+ * playlist of dipatches (run through all dispatches)
+ * planning: locations look like buttons, but they are not
+ * plan: t1: a-> b->, t2: b<-, a<- with constraints only on the last two, force a crossing, 
+   but they probably should not. 
+ * Save as type: \*.junc
+
+
+LOW pri
+ * draw trains as polylines
+ * (maybe) when hovering a signal in the infrastructure, highlight any routes starting
+   from that signal 
+
