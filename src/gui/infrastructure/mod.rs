@@ -352,31 +352,59 @@ fn interact_insert(config :&Config, analysis :&mut Analysis,
 
 fn inf_toolbar(analysis :&mut Analysis, inf_view :&mut InfView) {
     unsafe  {
-    if toolbar_button(const_cstr!("\u{f245} select (A)").as_ptr(), 
+    if toolbar_button(
+        const_cstr!("\u{f245}").as_ptr(), 
                       matches!(inf_view.action, Action::Normal(_)), true) {
         inf_view.action = Action::Normal(NormalState::Default);
     }
+    if igIsItemHovered(0) {
+        igBeginTooltip();
+        widgets::show_text("\u{f245} select (A)\nSelect tracks, nodes and objects. Drag to move.");
+        igEndTooltip();
+    }
+
     igSameLine(0.0,-1.0);
 
     object_select(inf_view);
 
-    if toolbar_button(const_cstr!("\u{f637} insert (S)").as_ptr(), 
+    if toolbar_button(const_cstr!("\u{f637}").as_ptr(), 
                       matches!(inf_view.action, Action::InsertObject(_)) || 
                       matches!(inf_view.action, Action::SelectObjectType), true) {
         inf_view.action = Action::SelectObjectType;
     }
+    if igIsItemHovered(0) {
+        igBeginTooltip();
+        widgets::show_text("\u{f637} insert object (S)\nOpens a drop-down menu for selecting an object type.\nInsert the object by clicking a position.");
+        igEndTooltip();
+    }
     igSameLine(0.0,-1.0);
-    if toolbar_button(const_cstr!("\u{f303} draw (D)").as_ptr(), 
+
+    if toolbar_button(const_cstr!("\u{f303}").as_ptr(), 
                       matches!(inf_view.action, Action::DrawingLine(_)), true ) {
         inf_view.action = Action::DrawingLine(None);
     }
-    igSameLine(0.0,-1.0);
-    if toolbar_button(const_cstr!("\u{f0e2} undo").as_ptr(), false, analysis.can_undo()) {
-        analysis.undo();
+    if igIsItemHovered(0) {
+        igBeginTooltip();
+        widgets::show_text("\u{f303} draw tracks (D)\nClick and drag to create new tracks.");
+        igEndTooltip();
     }
     igSameLine(0.0,-1.0);
-    if toolbar_button(const_cstr!("\u{f01e} redo").as_ptr(), false, analysis.can_redo()) {
+    if toolbar_button(const_cstr!("\u{f0e2}").as_ptr(), false, analysis.can_undo()) {
+        analysis.undo();
+    }
+    if igIsItemHovered(0) {
+        igBeginTooltip();
+        widgets::show_text("\u{f0e2} undo (CTRL-Z)\nUndo the previous action.");
+        igEndTooltip();
+    }
+    igSameLine(0.0,-1.0);
+    if toolbar_button(const_cstr!("\u{f01e}").as_ptr(), false, analysis.can_redo()) {
         analysis.redo();
+    }
+    if igIsItemHovered(0) {
+        igBeginTooltip();
+        widgets::show_text("\u{f01e} redo (CTRL-Y)\nRedo the previously undone action.");
+        igEndTooltip();
     }
     }
 }
