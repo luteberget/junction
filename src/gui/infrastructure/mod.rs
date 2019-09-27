@@ -421,7 +421,7 @@ fn toolbar_button(name :*const i8, selected :bool, enabled :bool) -> bool {
         }
         if !enabled {
             igPushDisable();
-            igPushStyleVarFloat(ImGuiStyleVar__ImGuiStyleVar_Alpha, 0.5);
+            igPushStyleVarFloat(ImGuiStyleVar__ImGuiStyleVar_Alpha as _, 0.5);
 
         }
         let clicked = igButton( name , ImVec2 { x: 0.0, y: 0.0 } );
