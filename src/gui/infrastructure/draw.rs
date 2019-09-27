@@ -198,7 +198,7 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
         for sec in route.resources.sections.iter() {
             if let Some(edges) = dgraph.tvd_edges.get(sec) {
                 for (a,b) in edges.iter() {
-                    if let Some(v) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
+                    if let Some((v,_)) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
                         for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
                             ImDrawList_AddLine(draw.draw_list,
                                                draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),
@@ -211,7 +211,7 @@ pub fn route(config :&Config, analysis :&Analysis, inf_view :&InfView, draw :&Dr
         }
 
         for (a,b) in path {
-            if let Some(v) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
+            if let Some((v,_)) = util::get_symm(&dgraph.edge_lines, (*a,*b)) {
                 for (pt_a,pt_b) in v.iter().zip(v.iter().skip(1)) {
                     ImDrawList_AddLine(draw.draw_list,
                                        draw.pos + inf_view.view.world_ptc_to_screen(*pt_a),

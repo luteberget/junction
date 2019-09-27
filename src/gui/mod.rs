@@ -20,6 +20,7 @@ pub fn main(app :&mut App) -> bool {
     // keyboard commands (ctrl+s for save, etc. + a/s/d for tool selection)
     keys::keys(app);
 
+    let mut inf_canvas = None;
     // Main window
     widgets::in_root_window(|| {
         // top menu bar
@@ -34,7 +35,9 @@ pub fn main(app :&mut App) -> bool {
         let inf_view = &mut app.document.inf_view;
         let dispatch_view = &mut app.document.dispatch_view;
         if dispatch_view.is_none() {
-            infrastructure::inf_view(config, analysis, inf_view, dispatch_view); 
+            let d = infrastructure::inf_view(config, analysis, inf_view, dispatch_view);
+            inf_canvas = Some(d);
+
             unsafe {
                 use backend_glfw::imgui::*;
                 let pos = igGetCursorPos_nonUDT2().into();
@@ -45,10 +48,10 @@ pub fn main(app :&mut App) -> bool {
                 if let Some(nd) = new_dispatchview { *dispatch_view = nd; }
                 igSetCursorPos(pos);
             }
+
         } else {
             if app.windows.diagram_split.is_none() { app.windows.diagram_split = Some(0.5); } 
 
-            let mut inf_canvas = None;
             widgets::Splitter::vertical(app.windows.diagram_split.as_mut().unwrap())
                 .left(const_cstr!("inf_canv").as_ptr(), || {
                     let d = infrastructure::inf_view(config, analysis, inf_view, dispatch_view); 
@@ -65,7 +68,8 @@ pub fn main(app :&mut App) -> bool {
 
     // Other windows
     windows::logview::view_log(&mut app.windows.log, &app.log);
-    app.windows.debug = windows::debug::debug_window(app.windows.debug, &app);
+    app.windows.debug = windows::debug::debug_window(app.windows.debug, &app, 
+                                                     inf_canvas.as_ref(), &app.document.inf_view );
     windows::vehicles::edit_vehicles_window(&mut app.windows.vehicles, &mut app.document);
     windows::config::edit_config_window(&mut app.windows.config, &mut app.config);
 

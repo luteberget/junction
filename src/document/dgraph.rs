@@ -12,6 +12,8 @@ use nalgebra_glm as glm;
 pub type ModelNodeId = Pt;
 pub type ModelObjectId = PtA;
 
+pub mod allpaths;
+
 #[derive(Debug)]
 pub struct DGraph {
     pub rolling_inf :rolling_inf::StaticInfrastructure, 
@@ -23,7 +25,10 @@ pub struct DGraph {
     pub tvd_entry_nodes :HashMap<rolling_inf::ObjectId, Vec<rolling_inf::NodeId>>,
     pub edge_lines :HashMap<(rolling_inf::NodeId, rolling_inf::NodeId), Vec<PtC>>,
     pub mileage :HashMap<rolling_inf::NodeId, f64>,
+    pub all_paths :(f64, Vec<allpaths::Path>),
 }
+
+
 
 impl DGraph {
     pub fn mileage_at(&self, a :rolling_inf::NodeId, b :rolling_inf::NodeId, param :f64) -> Option<f64> {
@@ -144,6 +149,8 @@ impl DGraphBuilder {
         //mileage::test_lsq();
         //let mileage = std::iter::empty().collect();
 
+        let all_paths_length = 100.0;
+        let all_paths = (all_paths_length, allpaths::paths(&m.dgraph, all_paths_length));
         Ok(DGraph {
             rolling_inf: m.dgraph,
             node_ids: node_ids,
@@ -154,6 +161,7 @@ impl DGraphBuilder {
             tvd_entry_nodes: tvd_entry_nodes,
             edge_lines: edge_lines,
             mileage: mileage,
+            all_paths: all_paths,
         })
 
     }

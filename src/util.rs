@@ -155,9 +155,9 @@ impl<T : Clone> ImIndexedList<T> {
 
 
 pub fn get_symm<'a, K:std::hash::Hash+std::cmp::Eq+Copy, V>
-        (map :&'a HashMap<(K,K), V>, (a,b) :(K,K)) -> Option<&'a V> {
-    if let Some(x) = map.get(&(a,b)) { return Some(x); }
-    if let Some(x) = map.get(&(b,a)) { return Some(x); }
+        (map :&'a HashMap<(K,K), V>, (a,b) :(K,K)) -> Option<(&'a V, bool)> {
+    if let Some(x) = map.get(&(a,b)) { return Some((x,true)); }
+    if let Some(x) = map.get(&(b,a)) { return Some((x,false)); }
     None
 }
 
