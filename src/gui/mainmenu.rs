@@ -108,6 +108,12 @@ pub fn main_menu(app :&mut App) {
 
                     }
                 }
+                if igMenuItemBool(const_cstr!("Delete all objects").as_ptr(), std::ptr::null(), false, true) {
+                    app.document.analysis.edit_model(|m| {
+                        m.objects.clear();
+                        None
+                    });
+                }
                 igEndMenu();
             }
             if igBeginMenu(const_cstr!("View").as_ptr(), true) {
