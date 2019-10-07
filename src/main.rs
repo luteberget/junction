@@ -36,9 +36,12 @@ fn main() {
     };
 
 
+   let args: Vec<String> = std::env::args().collect();
+   let big = args.iter().find(|x| *x == "--big").is_some();
+
     backend_glfw::backend(&app.document.fileinfo.window_title(),
                           app.config.get_font_filename().as_ref().map(|x| x.as_str()),
-                          app.config.get_font_size(),
+                          if big { 24.0 } else { app.config.get_font_size() },
                           |action| {
                               
         match action {

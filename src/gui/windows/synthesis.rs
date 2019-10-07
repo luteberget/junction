@@ -5,6 +5,7 @@ use const_cstr::*;
 use std::collections::HashMap;
 use std::sync::mpsc;
 use std::sync::Arc;
+use log::*;
 
 use crate::gui::widgets;
 use crate::document::model::*;
@@ -183,8 +184,13 @@ impl SynthesisWindow {
             let topo = topology::convert(&model, 50.0).unwrap();
             let vehicles = model.vehicles.iter().cloned().collect::<Vec<_>>();
 
-            full_synthesis(&SynthesisBackground { topology: &topo, plans: &plans, vehicles: &vehicles }, 
-                           |msg| tx.send(msg).is_ok()).unwrap(); // TODO unwrap?
+            let result = full_synthesis(&SynthesisBackground { topology: &topo, plans: &plans, vehicles: &vehicles }, 
+                           |msg| tx.send(msg).is_ok());
+
+            if let Err(e) = result {
+                error!("full_synthesis: {:?}", e);
+            }
+
         });
     }
 }

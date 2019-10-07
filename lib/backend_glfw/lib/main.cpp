@@ -236,7 +236,7 @@ void glfw_opengl3_Init(const char* win_name, const char* font_filename, float fo
 	    icons_config.PixelSnapH = true;
 	    icons_config.FontDataOwnedByAtlas = false;
 	    io.Fonts->AddFontFromMemoryTTF( (void*)fontawesome_ttf, fontawesome_len,
-			    16.0f, &icons_config, icons_ranges );
+			    font_size, &icons_config, icons_ranges );
     }
 
 
