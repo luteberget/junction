@@ -283,6 +283,9 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
 
             for (node_idx,node_type) in topo.nodes.iter().enumerate() {
                 let (dir,km0) = km0[&node_idx];
+
+                if let topo::TopoNode::Continuation = node_type { continue; }
+
                 model.nodes.push(plot::Node {
                     name: format!("n{}", node_idx),
                     pos: km0,
@@ -295,7 +298,6 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                             plot::Shape::Switch(plot::Side::Left, to_dir(dir)),
                         topo::TopoNode::Switch(topo::Side::Right) => 
                             plot::Shape::Switch(plot::Side::Right, to_dir(dir)),
-
                         _ => unimplemented!(),
                     }
                 });
@@ -311,6 +313,31 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                 let mut nb = track_connections.get(&(track_idx,topo::AB::B))
                     .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
 
+                // walk continuations
+                // let track_connections :HashMap<(usize,topo::AB),(usize,topo::Port)> = 
+                // let node_connections :HashMap<(usize,topo::Port),(usize,topo::AB)> = 
+                fn cont_opposite(p :topo::Port) -> topo::Port {
+                    match p {
+                        topo::Port::ContA => topo::Port::ContB,
+                        topo::Port::ContB => topo::Port::ContA,
+                        x => x,
+                    }
+                }
+
+                while let topo::Port::ContA | topo::Port::ContB = na.1 {
+                    let (ti,tab) = node_connections.get(&(na.0, cont_opposite(na.1)))
+                        .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
+                    na = track_connections.get(&(*ti,tab.opposite()))
+                        .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
+                }
+                while let topo::Port::ContA | topo::Port::ContB = nb.1 {
+                    let (ti,tab) = node_connections.get(&(nb.0, cont_opposite(nb.1)))
+                        .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
+                    nb = track_connections.get(&(*ti,tab.opposite()))
+                        .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
+                }
+
+                // swap to order pos
                 if model.nodes[na.0].pos > model.nodes[nb.0].pos {
                     std::mem::swap(&mut na, &mut nb);
                 }

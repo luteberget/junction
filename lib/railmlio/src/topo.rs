@@ -46,6 +46,7 @@ pub enum Port {
     Trunk, Left, Right,
     Crossing(AB, usize),
     Single,
+    ContA, ContB,
 }
 
 impl Port {
@@ -56,6 +57,8 @@ impl Port {
             Port::Right => vec![(Port::Left,-1), (Port::Trunk,1)],
             Port::Single => vec![],
             Port::Crossing(_,_) => unimplemented!(), 
+            Port::ContA => vec![(Port::ContB,1)],
+            Port::ContB => vec![(Port::ContA,1)],
         }
     }
 }
@@ -86,6 +89,7 @@ pub enum TopoNode {
     MacroscopicNode, // TODO preserve names for boundaries?
     Switch(Side),
     Crossing(()), // TODO crossing type
+    Continuation,
 }
 
 pub fn new_node(topo :&mut Topological, node :TopoNode) -> usize {
@@ -226,8 +230,16 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
     }
 
     // TODO track contiunations,i .e. connetions track->track.
-    if let Some(((c,r),_)) = named_track_ports.into_iter().next() {
-        return Err(TopoConvErr::UnmatchedConnection(c,r));
+
+    while named_track_ports.len() > 0 {
+        let key = named_track_ports.keys().next().unwrap().clone();
+        let ((c1,c2),(t1_idx,ab1)) = named_track_ports.remove_entry(&key).unwrap();
+        let (t2_idx,ab2) = named_track_ports.remove(&(c2.clone(),c1.clone()))
+            .ok_or(TopoConvErr::UnmatchedConnection(c1,c2))?;
+
+        let n = new_node(&mut topo, TopoNode::Continuation);
+        topo.connections.push(((t1_idx,ab1),(n,Port::ContA)));
+        topo.connections.push(((t2_idx,ab2),(n,Port::ContB)));
     }
 
     debug!("CONNECTIONS {:?}", topo.connections);
