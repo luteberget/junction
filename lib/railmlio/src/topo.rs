@@ -126,6 +126,7 @@ pub enum TopoConvErr {
 pub struct TopoSwitchInfo {
     connref: (Id,IdRef),
     deviating_side :Side,
+    switch_geometry :Side,
     dir :AB,
     pos :f64,
 }
@@ -140,7 +141,8 @@ pub fn switch_info(sw :Switch) -> Result<TopoSwitchInfo,TopoConvErr> {
                         .or(track_continue_course.and_then(|c| c.opposite()))
                         .ok_or(TopoConvErr::SwitchCourseUnknown(id.clone()))?;
 
-                    let deviating_side = if connection.radius.unwrap_or(0.0) > 
+                    let deviating_side = sw_course.to_side().unwrap();
+                    let switch_geometry = if connection.radius.unwrap_or(0.0) > 
                                             track_continue_radius.unwrap_or(std::f64::INFINITY) {
                         sw_course.opposite().unwrap().to_side().unwrap()
                     } else { sw_course.to_side().unwrap() };
@@ -149,6 +151,7 @@ pub fn switch_info(sw :Switch) -> Result<TopoSwitchInfo,TopoConvErr> {
                         TopoSwitchInfo {
                             connref: (connection.id.clone(), connection.r#ref.clone()),
                             deviating_side: deviating_side,
+                            switch_geometry: switch_geometry,
                             pos: pos.offset,
                             dir: match connection.orientation { 
                                 ConnectionOrientation::Outgoing => AB::A,
@@ -196,7 +199,7 @@ pub fn convert_railml_topo(doc :RailML) -> Result<Topological,TopoConvErr> {
                 debug!("Switch info b. {:?}", sw_info);
                 topo.tracks[track_idx].length = sw_info.pos - current_offset;
 
-                let nd = new_node(&mut topo, TopoNode::Switch(sw_info.deviating_side));
+                let nd = new_node(&mut topo, TopoNode::Switch(sw_info.switch_geometry));
                 named_node_ports.insert(sw_info.connref, (nd, sw_info.deviating_side.to_port()));
                 let (mut a_port, mut b_port) = (Port::Trunk, sw_info.deviating_side.opposite().to_port());
                 if sw_info.dir == AB::B { std::mem::swap(&mut a_port, &mut b_port); }
