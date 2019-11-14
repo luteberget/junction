@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use log::*;
 use matches::*;
 use const_cstr::const_cstr;
@@ -48,6 +48,7 @@ impl ImportWindow {
 
     pub fn update(&mut self) {
         while let Some(Ok(msg)) = self.thread.as_mut().map(|rx| rx.try_recv()) {
+            println!("import window new  state: {:?}", msg);
             self.state = msg;
         }
     }
@@ -77,7 +78,8 @@ impl ImportWindow {
                     self.close();
                 }
             },
-            _ => { widgets::show_text("Running solver"); }, // TODO
+            ImportState::Ping => { widgets::show_text("Running solver"); },
+            x => { widgets::show_text(&format!("{:?}", x)); },
         }
 
         igEnd();
@@ -130,6 +132,7 @@ pub fn load_railml_file(filename :String, tx :mpsc::Sender<ImportState>)  {
     let topomodel = match railmlio::topo::convert_railml_topo(parsed) {
         Ok(m) => m,
         Err(e) => {
+            println!("TOPMODEL ERR {:?}", e);
             let _ = tx.send(ImportState::SourceFileError(format!("Model conversion error: {:?}", e)));
             return;
         },
@@ -149,6 +152,7 @@ pub fn load_railml_file(filename :String, tx :mpsc::Sender<ImportState>)  {
 
     let solver = railplotlib::solvers::LevelsSatSolver {
         criteria: vec![
+            railplotlib::solvers::Goal::LocalY,
             railplotlib::solvers::Goal::Bends,
             railplotlib::solvers::Goal::Height,
             railplotlib::solvers::Goal::Width,
@@ -159,6 +163,7 @@ pub fn load_railml_file(filename :String, tx :mpsc::Sender<ImportState>)  {
 
 
     info!("Starting solver");
+    info!("plot model {:#?}", plotmodel);
     let plot = match solver.solve(plotmodel) {
         Ok(m) => m,
         Err(e) => {
@@ -263,7 +268,14 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                 }
             }
 
-            debug!("KM0 in mileage estimation in raiml import\n{:?}", km0);
+            debug!("KM0 in mileage estimation in raiml import");
+            let mut kms = km0.iter().map(|(a,(b,c))| (a.clone(), (b.clone(),ordered_float::OrderedFloat(c.clone())))).collect::<Vec<_>>();
+            kms.sort();
+            for x in kms {
+                debug!(" {:?}", x);
+            }
+            debug!("num connections {}, num nodes {}, num tracks {} len km0 {}", 
+                   topo.connections.len(), topo.nodes.len(), topo.tracks.len(), km0.len());
 
             // now we have roughly estimated mileages and have switch orientations
             // (incoming/outgoing = increasing/decreasing milage)
@@ -307,6 +319,8 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                 debug!("Node {} {:?}", i, n);
             }
 
+            let mut edges_done = HashSet::new();
+
             for (track_idx,_) in topo.tracks.iter().enumerate() {
                 let mut na = track_connections.get(&(track_idx,topo::AB::A))
                     .ok_or(ImportState::SourceFileError(format!("Inconsistent connections.")))?;
@@ -342,6 +356,7 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                     std::mem::swap(&mut na, &mut nb);
                 }
 
+
                 let convert_port = |(n,p) :(usize,topo::Port)| {
                     match p {
                         topo::Port::Trunk => plot::Port::Trunk,
@@ -357,11 +372,13 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
                 let a = (format!("n{}", na.0), pa);
                 let b = (format!("n{}", nb.0), pb);
 
-                debug!("Edge {} {:?} {:?}", model.edges.len(), a,b);
-
-                model.edges.push(plot::Edge { a,b, objects :Vec::new() });
+                let key = (a.clone(), b.clone());
+                if !edges_done.contains(&key) {
+                    edges_done.insert(key);
+                    debug!("Edge {} {:?} {:?}", model.edges.len(), a,b);
+                    model.edges.push(plot::Edge { a,b, objects :Vec::new() });
+                }
             }
-
 
             Ok(model)
         }

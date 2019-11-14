@@ -46,6 +46,8 @@ impl<'a> Iterator for Iter<'a> {
             let dispatches = s.get_dispatches();
             let detectors = s.reduce_detectors(&dispatches);
             let signals = s.get_signals();
+            println!("SIGNALS");
+            println!("{:?}", signals);
             let (design, id_map) = convert_signals(topo, dgraph, &signals, &detectors);
             let dispatches = dispatches.into_iter().enumerate()
                 .map(|(planspec_idx,routeplans)| routeplans.into_iter()

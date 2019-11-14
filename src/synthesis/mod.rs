@@ -54,6 +54,8 @@ pub fn full_synthesis( bg :&SynthesisBackground,
     // TODO reorg to breadth first?
     let mut n = 1;
     while let Some((mut design, adispatch)) = signal_set_iterator.next() {
+        println!("reduced design");
+        println!("{:?}", design);
         // the adispatch contains references to fixed infrastructure and
         // relative refernces to the Design, i.e. the objects whose positions can
         // be moved.
