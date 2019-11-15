@@ -152,10 +152,11 @@ pub fn load_railml_file(filename :String, tx :mpsc::Sender<ImportState>)  {
 
     let solver = railplotlib::solvers::LevelsSatSolver {
         criteria: vec![
-            railplotlib::solvers::Goal::LocalY,
             railplotlib::solvers::Goal::Bends,
             railplotlib::solvers::Goal::Height,
             railplotlib::solvers::Goal::Width,
+            railplotlib::solvers::Goal::LocalX,
+            railplotlib::solvers::Goal::LocalY,
         ],
         nodes_distinct: false,
     };
