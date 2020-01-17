@@ -285,6 +285,7 @@ pub fn convert_railplot(topo :railmlio::topo::Topological)
             let mut model = plot::SchematicGraph {
                 nodes: Vec::new(),
                 edges: Vec::new(),
+                main_tracks_edges: Vec::new(),
             };
 
             fn to_dir(dir :isize) -> plot::Dir { 
@@ -395,7 +396,7 @@ pub fn round_pt_tol((x,y) :(f64,f64)) -> Result<Pt,()> {
     Ok(glm::vec2(x.round() as _, (-20.0 + y.round()) as _))
 }
 
-pub fn convert_junction(plot :railplotlib::solvers::SchematicOutput<()>) -> Result<Model, ImportState> {
+pub fn convert_junction(plot :railplotlib::model::SchematicOutput<()>) -> Result<Model, ImportState> {
     debug!("Starting conversion of railplotlib schematic output");
     for (e,pts) in &plot.lines {
         debug!("Line {:?}", pts);
