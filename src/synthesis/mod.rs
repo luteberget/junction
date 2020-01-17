@@ -1,7 +1,7 @@
 use numerical_optimization::powell::*;
 use std::collections::{HashMap,HashSet, BTreeSet};
 use boolinator::Boolinator;
-use matches::*;
+use matches::matches;
 use nalgebra_glm as glm;
 use log::*;
 

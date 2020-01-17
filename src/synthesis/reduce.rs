@@ -1,4 +1,4 @@
-use matches::*;
+use matches::matches;
 use std::collections::HashMap;
 use std::collections::BTreeSet;
 use rolling::input::staticinfrastructure as rolling_inf;

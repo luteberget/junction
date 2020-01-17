@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use log::*;
-use matches::*;
+use matches::matches;
 use const_cstr::const_cstr;
 use crate::document::model::*;
 use crate::document::model;

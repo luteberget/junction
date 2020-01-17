@@ -1,4 +1,4 @@
-use matches::*;
+use matches::matches;
 use rolling::input::staticinfrastructure::*;
 use std::collections::HashSet;
 use ordered_float::OrderedFloat;

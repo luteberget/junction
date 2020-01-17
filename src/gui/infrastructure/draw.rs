@@ -12,7 +12,7 @@ use crate::config::*;
 
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
-use matches::*;
+use matches::matches;
 use std::collections::HashMap;
 
 use rolling::input::staticinfrastructure as rolling_inf;

@@ -2,7 +2,7 @@ pub mod draw;
 pub mod menus;
 
 use const_cstr::*;
-use matches::*;
+use matches::matches;
 use backend_glfw::imgui::*;
 use nalgebra_glm as glm;
 

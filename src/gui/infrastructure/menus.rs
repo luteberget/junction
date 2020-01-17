@@ -1,5 +1,5 @@
 use const_cstr::*;
-use matches::*;
+use matches::matches;
 use backend_glfw::imgui::*;
 use rolling::input::staticinfrastructure as rolling_inf;
 use std::ffi::CString;

@@ -1,4 +1,4 @@
-use matches::*;
+use matches::matches;
 use nalgebra_glm as glm;
 use ordered_float::OrderedFloat;
 use const_cstr::*;
