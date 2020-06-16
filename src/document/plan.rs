@@ -14,23 +14,37 @@ pub enum ConvertPlanErr {
 
 pub enum TestPlanErr {
     MissingVisits,
-    MissingTrain
+    MissingTrain,
+    VisitOrderError,
+    TimingError,
 }
 
 pub fn eval_plan(dgraph :&DGraph, plan_spec :&PlanSpec, history :&History) -> Result<(), TestPlanErr> {
 
+    // Record each visit's time for checking the ordering constraints.
+    let mut visit_times : HashMap<VisitRef, f64> = HashMap::new();
 
     //
     // 1. check train's visits
     for (train_idx, (train_id, (veh, visits))) in plan_spec.trains.iter().enumerate() {
+        let mut t = 0.0;
         let mut current_visit = 0;
         let (train_name, train_params, train_log) = history.trains.get(train_idx).ok_or(TestPlanErr::MissingTrain)?;
         for ev in train_log.iter() {
+
+            if let TrainLogEvent::Wait(dt) = ev { 
+                t += dt;
+            }
+            if let TrainLogEvent::Move(dt,_,_) = ev { 
+                t += dt;
+            }
+
             if !(current_visit < visits.data().len()) { 
                 break;
             }
 
             if event_matches_spec(dgraph, &visits.data()[current_visit].1, ev) {
+                visit_times.insert((*train_id, visits.data()[current_visit].0), t);
                 current_visit += 1;
             }
         }
@@ -42,7 +56,18 @@ pub fn eval_plan(dgraph :&DGraph, plan_spec :&PlanSpec, history :&History) -> Re
 
     // 2. check ordering constraints and time diff
     for (ra,rb,dt) in plan_spec.order.iter() {
-        // TODO
+        let t1 = visit_times.get(ra).ok_or(TestPlanErr::VisitOrderError)?;
+        let t2 = visit_times.get(rb).ok_or(TestPlanErr::VisitOrderError)?;
+        // Visits happen in order
+        if !(t1 <= t2) {
+            return Err(TestPlanErr::TimingError);
+        }
+        // Visits happen within time limit
+        if let Some(dt) = dt {
+            if !(t1 + dt >= *t2) {
+                return Err(TestPlanErr::TimingError);
+            }
+        }
     }
 
     Ok(())
