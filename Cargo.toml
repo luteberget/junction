@@ -30,8 +30,8 @@ serde_cbor = "0.10"
 
 font-kit = "0.4"
 tinyfiledialogs = "3.3.6"
-confy = {git = "https://github.com/rust-cli/confy/"}
-toml = "*"
+confy = "0.4"
+toml = "0.5"
 
 backend_glfw = { path = "lib/backend_glfw" }
 rolling = { path = "lib/trainspotting/rolling" }

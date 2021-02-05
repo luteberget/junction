@@ -6,5 +6,5 @@ edition = "2018"
 
 [dependencies]
 rolling = {path = "../trainspotting/rolling"}
-petgraph = "*"
-smallvec = "*"
+petgraph = "0.5"
+smallvec = "1.6"

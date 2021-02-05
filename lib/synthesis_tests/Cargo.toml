@@ -6,6 +6,6 @@ edition = "2018"
 
 [dependencies]
 glrail = { path = "../glrail" }
-log = "*"
-env_logger = "*"
-ron = "*"
+log = "0.4"
+env_logger = "0.8"
+ron = "0.6"
