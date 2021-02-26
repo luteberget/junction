@@ -46,7 +46,7 @@ pub fn dispatch_view(config :&Config, inf_canvas :Option<&Draw>, inf_view :&InfV
                 }
             }
 
-            if !(manual.dispatch_idx < analysis.model().dispatches.data().len()) {
+            if !analysis.model().dispatches.iter().any(|(id,_)| *id == manual.dispatch_idx) {
                 new_dispatch = Some(None);
             }
         },
