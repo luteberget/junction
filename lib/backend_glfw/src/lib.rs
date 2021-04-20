@@ -47,7 +47,7 @@ pub mod imgui {
             (self.x*self.x+self.y*self.y).sqrt()
         }
         pub fn length_sq(&self) -> f32 {
-            (self.x*self.x+self.y*self.y)
+            self.x*self.x+self.y*self.y
         }
         pub fn zero() -> ImVec2 {
             ImVec2 { x: 0.0, y: 0.0 }
@@ -109,11 +109,14 @@ pub fn screenshot(filename :&str,
     unsafe { glfw_opengl3_EndFrame(); }
 
     unsafe { glfw_opengl3_StartFrame(); }
+
+    let name = std::ffi::CString::new(filename).unwrap();
     unsafe {
         glfw_opengl3_Screenshot(
-            std::ffi::CString::new(filename).unwrap().as_ptr(),
+            name.as_ptr(),
             width, height);
     }
+
     unsafe { glfw_opengl3_EndFrame(); }
 
     unsafe { glfw_opengl3_Destroy(); } // Extern call to modified imgui example code.
